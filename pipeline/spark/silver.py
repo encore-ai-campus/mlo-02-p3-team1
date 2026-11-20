@@ -23,6 +23,7 @@ from common import settings
 
 log = logging.getLogger("silver")
 
+LOOKBACK_DAYS = 7  # >= collector MAX_EVENT_AGE (6 days) and Kafka retention (7 days)
 LATE_SECONDS = 300  # event_time falls back to received_at when the clock gap exceeds 5 minutes
 SPECS = {
     # topic: (json schema, table)
@@ -47,13 +48,16 @@ def parse(df: DataFrame, schema) -> DataFrame:
 
 
 def merge_condition(lo, hi) -> str:
-    """Insert-only MERGE key, bounded to the batch's event_date partitions (+-1 day).
+    """Insert-only MERGE key, bounded to the event_date partitions a legal duplicate can live in.
 
-    The state-store dedup already guarantees uniqueness within 7 days, so a duplicate outside this window
-    cannot reach the MERGE; the bound only stops the scan of older partitions."""
+    The MERGE is the second line of defence behind the state-store dedup (e.g. after a checkpoint rebuild).
+    event_time falls back to received_at for late events, so a resend can land on a later event_date than
+    the original. Events older than 6 days are rejected by the collector (MAX_EVENT_AGE) and Kafka keeps
+    7 days, so the original of any duplicate lies within 7 days before the batch: scan [lo - 7d, hi + 1d]
+    instead of the whole table (BN-1, see DELTA_REQUIREMENTS_REVIEW section 5)."""
     cond = "t.event_id = s.event_id"
     if lo is not None and hi is not None:
-        cond += (f" AND t.event_date BETWEEN DATE '{(lo - timedelta(days=1)).isoformat()}'"
+        cond += (f" AND t.event_date BETWEEN DATE '{(lo - timedelta(days=LOOKBACK_DAYS)).isoformat()}'"
                  f" AND DATE '{(hi + timedelta(days=1)).isoformat()}'")
     return cond
 
