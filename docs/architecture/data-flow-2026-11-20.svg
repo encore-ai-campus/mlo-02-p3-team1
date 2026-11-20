@@ -25,7 +25,7 @@
 
   <rect x="0" y="0" width="1800" height="1010" fill="#ffffff"/>
   <text x="30" y="42" font-size="24" font-weight="700" fill="#1f2430">NODEVERSE 현재 데이터 흐름 (통합 저장소 main · 2026-11-20)</text>
-  <text x="30" y="66" class="s">게임 88394b1 · 파이프라인 32b0248 (feature/codex-v2-remote-sink) · 서버 3dfece8 — 코드 기준 정리, 번호는 docs/DATA_FLOW_AND_GAPS.md 항목</text>
+  <text x="30" y="66" class="s">코드 기준 정리 · 그림의 번호는 docs/DATA_FLOW_AND_GAPS.md 항목</text>
 
   <!-- Zone A: game PC -->
   <rect class="zone" x="20" y="85" width="280" height="420" rx="14"/>

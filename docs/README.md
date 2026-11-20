@@ -1,7 +1,6 @@
 # docs/ — 팀 공통 문서
 
 - [SETUP_GUIDE.md](SETUP_GUIDE.md) — 통합 저장소 clone 후 파트별 개발환경 다시 구성하기
-- [BRANCH_STRATEGY.md](BRANCH_STRATEGY.md) — 브랜치·PR 규칙, 비밀값 규칙, 원본 저장소에서 가져오는 방법
 - [DATA_FLOW_AND_GAPS.md](DATA_FLOW_AND_GAPS.md) — 합친 코드 기준 데이터 흐름과 보완·추가 구현 목록 (우선순위별)
 - [INTEGRATION_REVIEW_2026-11-20.md](INTEGRATION_REVIEW_2026-11-20.md) — 게임·파이프라인·서버 연동 종합 검토
 

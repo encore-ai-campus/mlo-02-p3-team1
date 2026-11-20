@@ -160,7 +160,7 @@ notepad .env
 
 ## 4. 브랜치와 PR
 
-자세한 규칙은 [BRANCH_STRATEGY.md](BRANCH_STRATEGY.md). 핵심만:
+브랜치 규칙:
 
 ```powershell
 git switch main

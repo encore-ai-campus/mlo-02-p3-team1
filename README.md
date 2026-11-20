@@ -30,13 +30,15 @@ NODEVERSE는 **자료구조·알고리즘·SQL·데이터 탐색**을 3D 섬 월
 
 게임·파이프라인·서버를 폴더별로 나눈 모노레포입니다.
 
-| 폴더 | 내용 |
-|---|---|
-| [`game/`](game/) | Godot 게임 클라이언트, 소개 웹사이트 원본 |
-| [`pipeline/`](pipeline/) | 수집기·Kafka·Spark/Delta·원격 적재 작업자 |
-| [`server/`](server/) | Django 대시보드·게임 API |
-| [`contracts/`](contracts/) | 세 파트 공통 이벤트 형식·Kafka 토픽 |
-| [`docs/`](docs/) | 팀 공통 문서·보고서·아키텍처 그림 |
+각 경로의 README에 해당 파트의 실행 방법과 상세 설명이 있습니다.
+
+| 경로 | 내용 | 설명서 |
+|---|---|---|
+| `game/` | Godot 게임 클라이언트, 소개 웹사이트 원본 | [game/README.md](game/README.md) |
+| `pipeline/` | 수집기·Kafka·Spark/Delta·원격 적재 작업자 | [pipeline/README.md](pipeline/README.md) |
+| `server/` | Django 대시보드·게임 API | [server/README.md](server/README.md) |
+| `contracts/` | 세 파트 공통 이벤트 형식·Kafka 토픽 | [contracts/README.md](contracts/README.md) |
+| `docs/` | 팀 공통 문서·보고서·아키텍처 그림 | [docs/README.md](docs/README.md) |
 
 ```
 mlo-02-p3-team1/
@@ -49,7 +51,7 @@ mlo-02-p3-team1/
 └─ nodeverse.code-workspace
 ```
 
-- 작업 브랜치는 `game/…`, `pipeline/…`, `server/…`, `contracts/…`, `docs/…` 접두어를 쓰고 PR로 `main`에 합칩니다. `contracts/`를 바꾸는 PR은 세 파트 모두 리뷰합니다. → [브랜치 전략](docs/BRANCH_STRATEGY.md)
+- 작업 브랜치는 `game/…`, `pipeline/…`, `server/…`, `contracts/…`, `docs/…` 접두어를 쓰고 PR로 `main`에 합칩니다. `contracts/`를 바꾸는 PR은 세 파트 모두 리뷰합니다.
 - `.env`·API 키는 절대 커밋하지 않습니다. `.env.example`만 올립니다.
 
 ---
@@ -204,7 +206,6 @@ mlo-02-p3-team1/
 | 문서 | 내용 |
 |---|---|
 | [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) | clone 후 파트별 개발환경 다시 구성하기 |
-| [docs/BRANCH_STRATEGY.md](docs/BRANCH_STRATEGY.md) | 브랜치·PR 규칙, 비밀값 규칙, 원본에서 다시 가져오는 방법 |
 | [docs/DATA_FLOW_AND_GAPS.md](docs/DATA_FLOW_AND_GAPS.md) | 데이터 흐름, 병목, 보완·추가 구현 목록 |
 | [docs/INTEGRATION_REVIEW_2026-11-20.md](docs/INTEGRATION_REVIEW_2026-11-20.md) | 세 파트 연동 검토 |
 | [docs/reports/](docs/reports/) | 중간보고서, 델타레이크 오류수정내역, 로그인·클라우드세이브 정리 |
