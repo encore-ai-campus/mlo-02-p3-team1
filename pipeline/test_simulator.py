@@ -32,3 +32,19 @@ def test_contract_check_failure_exits_nonzero(monkeypatch):
     with pytest.raises(SystemExit) as result:
         simulator.cmd_checks(SimpleNamespace(run_id="failure"), "unused", "unused")
     assert result.value.code == 1
+
+
+def test_dummy_data_sessions_follow_contract_and_rules():
+    import contract
+    from tools.dummy_data import generate
+    sessions = list(generate(2000, 50, 7, 0.3, "unit"))
+    assert sum(len(s) for s in sessions) >= 2000
+    for s in sessions:
+        assert [e["sequence"] for e in s] == list(range(1, len(s) + 1))
+        assert s[0]["event_type"] == "problem_started" and s[-1]["event_type"] == "problem_completed"
+        ends = set()
+        for e in s:
+            contract.LearningEventV2.model_validate(e)
+            if e["event_type"] in ("attempt_succeeded", "attempt_failed"):
+                assert e["attempt_id"] not in ends, "one outcome per attempt"
+                ends.add(e["attempt_id"])
