@@ -1,19 +1,18 @@
 """Durable, idempotent export staging after Silver validation."""
 from datetime import datetime, timezone, date
-from pymongo import MongoClient
-import os
 
-_client = None
+from common.db import local_mongo
+from common.timeutil import iso_ms
+
 
 def local_db():
-    global _client
-    if _client is None:
-        _client = MongoClient(os.getenv("MONGO_URI", "mongodb://mongo:27017"), serverSelectionTimeoutMS=5000)
-    return _client[os.getenv("MONGO_DB", "nodeverse_logs")]
+    """Kept for callers of the old name; the client is shared per process (common.db)."""
+    return local_mongo()
+
 
 def plain(value):
     if isinstance(value, datetime):
-        return value.replace(tzinfo=timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+        return iso_ms(value)  # Spark hands over naive UTC datetimes
     if isinstance(value, date):
         return value.isoformat()
     if isinstance(value, dict):
@@ -21,6 +20,7 @@ def plain(value):
     if isinstance(value, list):
         return [plain(v) for v in value]
     return value
+
 
 def stage(records, db=None, chunk=500):
     """Insert-once outbox rows for validated events, in bulk (BN-8: was 2 round trips per event).

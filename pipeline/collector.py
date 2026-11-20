@@ -10,6 +10,7 @@ POST /v1/events  kept for the existing launcher: runtime events only (same routi
 from __future__ import annotations
 
 import json
+import logging
 import os
 import secrets
 import threading
@@ -22,6 +23,9 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 import contract
+from common import settings, timeutil
+
+log = logging.getLogger("collector")
 
 MAX_BODY_BYTES = 16 * 1024
 DLQ_RAW_BYTES = 4096
@@ -37,7 +41,7 @@ def producer():
         if _producer is None:
             from confluent_kafka import Producer
             _producer = Producer({
-                "bootstrap.servers": os.getenv("KAFKA_BOOTSTRAP", "kafka-1:9092,kafka-2:9092,kafka-3:9092"),
+                "bootstrap.servers": settings.get().kafka_bootstrap,
                 "enable.idempotence": True, "acks": "all",
                 "delivery.timeout.ms": 10000, "linger.ms": 5,
             })
@@ -47,8 +51,12 @@ def producer():
 
 
 def _poll_forever(p):
+    # A dead poller would silently turn every request into a 12 s timeout (PL-4): never let it exit.
     while True:
-        p.poll(0.05)
+        try:
+            p.poll(0.05)
+        except Exception:
+            log.exception("kafka poll failed; continuing")
 
 
 def send(topic: str, key: str | None, value: dict, timeout: float = 12.0) -> None:
@@ -83,7 +91,7 @@ def send_dlq(raw: bytes, reason: str, errors: list, endpoint: str, key: str | No
 
 
 def now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    return timeutil.iso_ms()
 
 
 def check_key(x_api_key: str) -> None:
@@ -167,12 +175,19 @@ async def ingest_v1(request: Request, x_api_key: str = Header(default="")):
 @app.get("/v2/events/{event_id}")
 def remote_delivery(event_id: UUID, x_api_key: str = Header(default="")):
     check_key(x_api_key)
-    from remote.outbox import local_db
-    row = local_db().remote_event_outbox.find_one({"_id": str(event_id)}, {
-        "state": 1, "reason": 1, "attempts": 1, "updated_at": 1, "archive_stored": 1, "result": 1,
-        "queued_at": 1, "stored_at": 1, "completed_at": 1, "quarantined_at": 1,
-        "remote_archive_stored_at": 1, "queue_to_terminal_ms": 1})
+    from common.db import local_mongo
+    try:
+        row = _delivery_row(local_mongo(), event_id)
+    except Exception:
+        raise HTTPException(503, "delivery status store unavailable; retry later")  # PL-6: was an unhandled 500
     if not row:
         return {"event_id": str(event_id), "state": "not_staged", "meaning": "awaiting Silver/export; not a delivery confirmation"}
     row["event_id"] = row.pop("_id")
     return row
+
+
+def _delivery_row(db, event_id: UUID):
+    return db.remote_event_outbox.find_one({"_id": str(event_id)}, {
+        "state": 1, "reason": 1, "attempts": 1, "updated_at": 1, "archive_stored": 1, "result": 1,
+        "queued_at": 1, "stored_at": 1, "completed_at": 1, "quarantined_at": 1,
+        "remote_archive_stored_at": 1, "queue_to_terminal_ms": 1})
