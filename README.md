@@ -75,6 +75,13 @@ mlo-02-p3-team1/
 4. 시작할 때 `/api/game/manifest`로 새 버전·리소스 팩을 확인하고 업데이트 이벤트를 보냅니다.
 5. 실행·종료 감시는 `launcher.exe`(`pipeline/launcher.py`)가 맡아 `/v1/events`로 보냅니다.
 
+**실행 화면** (캡처 예정)
+
+<!-- 스크린샷 자리: docs/screenshots/game-*.png -->
+- [ ] 메인 월드(섬·다리)
+- [ ] 미니게임 플레이 화면
+- [ ] F6 네트워크 디버그 패널(전송 상태)
+
 자세히: [`game/README.md`](game/README.md), [`game/MINIGAME_GUIDE.md`](game/MINIGAME_GUIDE.md), [`game/docs/`](game/docs/)
 
 ### 3-2. 파이프라인 (`pipeline/`)
@@ -94,6 +101,14 @@ mlo-02-p3-team1/
 - **지연:** 이벤트가 대시보드 `rt_*`에 반영되기까지 평시 약 10~18초입니다(구조상 제약, D22).
 - **원격 적재:** 회원 매핑이 없거나 세션 순서가 비면 `waiting_context`로 기다리고, 잘못된 데이터는 `blocked`, 일시 오류는 `retrying`으로 둡니다.
 
+**실행 화면** (캡처 예정)
+
+<!-- 스크린샷 자리: docs/screenshots/pipeline-*.png -->
+- [ ] `docker compose ps` 서비스 상태
+- [ ] 수집 API 202 응답
+- [ ] Spark 로그(started queries)
+- [ ] MongoDB `rt_*` 조회 결과
+
 자세히: [`pipeline/README.md`](pipeline/README.md), [`pipeline/docs/DECISIONS.md`](pipeline/docs/DECISIONS.md), [`pipeline/docs/LIVE_REMOTE_SINK.md`](pipeline/docs/LIVE_REMOTE_SINK.md)
 
 ### 3-3. 서버 (`server/`)
@@ -107,6 +122,13 @@ mlo-02-p3-team1/
 | 서버 간 API | `POST /api/game/records`, `/api/game/player-login` (`GAME_SERVER_API_KEY`) |
 
 **동작 방식:** 서버는 학습 이벤트를 직접 받지 않습니다. 실시간 화면은 파이프라인이 채운 `rt_*`를 읽고, 분석 화면은 remote-writer가 적재한 `game_sessions`·`problem_runs`·`solution_attempts`·`gameplay_events`·`pipeline_learning_events`를 읽습니다. 게임이 서버를 직접 부르는 것은 회원가입·로그인·세이브·업데이트 확인뿐입니다.
+
+**실행 화면** (캡처 예정)
+
+<!-- 스크린샷 자리: docs/screenshots/server-*.png -->
+- [ ] `/staff/` 개요
+- [ ] `/staff/live/` 실시간 현황
+- [ ] `/staff/events/` 이벤트 목록
 
 자세히: [`server/README.md`](server/README.md), [`server/docs/`](server/docs/)
 
