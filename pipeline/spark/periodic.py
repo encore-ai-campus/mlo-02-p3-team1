@@ -10,6 +10,7 @@ from pathlib import Path
 
 from pyspark.sql import functions as F
 
+import gold
 import sinks
 import tables as tb
 from common import settings
@@ -130,6 +131,7 @@ def write_progress(spark, restarts: dict) -> None:
     destination = Path(settings.get().progress_path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     report = {"updated_at": iso_ms(), "sink_failures": sinks.failures(), "query_restarts": restarts,
+              "gold_republish_pending": gold.pending_republish(),
               "queries": [{"name": q.name, "active": q.isActive, "status": q.status, "progress": q.lastProgress}
                           for q in spark.streams.active]}
     temporary = destination.with_suffix(".tmp")
@@ -145,6 +147,8 @@ def run(spark, stop: threading.Event, restarts: dict) -> None:
             started = time.monotonic()
             refresh_summary(spark)
             log.info("rt_summary in %.2fs", time.monotonic() - started)
+            if gold.pending_republish():  # P1-6: Gold windows whose MongoDB publish failed
+                gold.republish_pending(spark)
             if time.monotonic() - last_versions >= 60:
                 started = time.monotonic()
                 wrote = refresh_version_adoption(spark)

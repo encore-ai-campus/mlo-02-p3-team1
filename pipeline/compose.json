@@ -119,7 +119,10 @@
       }
     },
     "topic-init": {
-      "image": "apache/kafka:3.9.1",
+      "build": {
+        "context": ".",
+        "dockerfile": "Dockerfile"
+      },
       "depends_on": {
         "kafka-1": {
           "condition": "service_healthy"
@@ -131,12 +134,40 @@
           "condition": "service_healthy"
         }
       },
-      "entrypoint": [
-        "/bin/bash",
-        "-ec"
-      ],
+      "environment": {
+        "KAFKA_BOOTSTRAP": "kafka-1:9092,kafka-2:9092,kafka-3:9092"
+      },
       "command": [
-        "for attempt in $$(seq 1 36); do if { /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --create --if-not-exists --topic nv.learning.v2 --partitions 6 --replication-factor 3 --config min.insync.replicas=2 --config retention.ms=604800000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --create --if-not-exists --topic nv.runtime.v1 --partitions 3 --replication-factor 3 --config min.insync.replicas=2 --config retention.ms=604800000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --create --if-not-exists --topic nv.bundle.v2 --partitions 3 --replication-factor 3 --config min.insync.replicas=2 --config retention.ms=604800000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --create --if-not-exists --topic nv.dlq.v1 --partitions 3 --replication-factor 3 --config min.insync.replicas=2 --config retention.ms=604800000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --create --if-not-exists --topic nv.update.v1 --partitions 3 --replication-factor 3 --config min.insync.replicas=2 --config retention.ms=604800000; }; then /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --describe; exit 0; fi; echo \"kafka not ready (attempt $$attempt/36), retrying in 5s\" >&2; sleep 5; done; exit 1"
+        "python",
+        "-m",
+        "common.health",
+        "topics"
+      ]
+    },
+    "deps-ready": {
+      "build": {
+        "context": ".",
+        "dockerfile": "Dockerfile"
+      },
+      "depends_on": {
+        "topic-init": {
+          "condition": "service_completed_successfully"
+        },
+        "mongo": {
+          "condition": "service_healthy"
+        }
+      },
+      "environment": {
+        "KAFKA_BOOTSTRAP": "kafka-1:9092,kafka-2:9092,kafka-3:9092",
+        "MONGO_URI": "mongodb://mongo:27017"
+      },
+      "command": [
+        "python",
+        "-m",
+        "common.health",
+        "wait",
+        "mongo",
+        "kafka-ingest"
       ]
     },
     "collector": {
@@ -248,11 +279,8 @@
         "ivy:/ivy"
       ],
       "depends_on": {
-        "topic-init": {
+        "deps-ready": {
           "condition": "service_completed_successfully"
-        },
-        "mongo": {
-          "condition": "service_healthy"
         }
       }
     },
@@ -280,8 +308,8 @@
         "./.env.remote-context.json:/run/private/remote-context.json:ro"
       ],
       "depends_on": {
-        "mongo": {
-          "condition": "service_healthy"
+        "deps-ready": {
+          "condition": "service_completed_successfully"
         }
       }
     }

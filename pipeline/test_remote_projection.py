@@ -195,6 +195,7 @@ class _Pool:
 
 def _raising(exc):
  class P:
+  kind=staticmethod(lambda e:'learning')
   def __init__(self,*a):pass
   def archive(self,e):return 'learning'
   def project(self,e,archived=False):raise exc
@@ -255,21 +256,112 @@ def test_status_counts_match_full_aggregate(dbs):
  assert st['states']==old
  assert sum(r['n'] for r in st['reasons']['parked'])==2
 
-def test_archive_written_once_per_row(dbs, monkeypatch):
- # follow-up: process_job archives, project(archived=True) must not repeat it, and a retried row skips it
+def test_archive_once_per_attempt_and_refilled_after_remote_replaced(dbs, monkeypatch):
+ # process_job archives once per attempt and project(archived=True) does not repeat it (CPU review);
+ # a row reprocessed after the remote DB was replaced/restored writes the archive again (reliability P1-5)
  import remote.worker as w
+ from remote.requeue import requeue
  l,t=dbs;calls=[]
  real=w.Projector.archive
  def counting(self,e):
   calls.append(e['event_id']);return real(self,e)
  monkeypatch.setattr(w.Projector,'archive',counting)
  e=dict(rows()[0],schema_version=1);e.pop('session_id',None)  # runtime event: archive only, no SQL
- l.remote_event_outbox.insert_one({'_id':'once','event':e,'state':'processing','attempts':0,'queued_at':datetime.now(timezone.utc)})
- job=l.remote_event_outbox.find_one({'_id':'once'})
+ l.remote_event_outbox.insert_one({'_id':'once','event':e,'state':'processing','attempts':1,'queued_at':datetime.now(timezone.utc)})
+ assert w.process_job(l.remote_event_outbox.find_one({'_id':'once'}),l,t,_Pool(),{},True) is None
+ assert calls==[e['event_id']] and t.pipeline_runtime_events.count_documents({})==1
+ t.pipeline_runtime_events.delete_many({})  # remote replaced by an empty / older backup
+ assert requeue(l,None,None,state='stored')==1
+ job=w.claim_batch(l,10)[0]
+ assert job['remote_archive_stored_at']  # the old success time is still there
  assert w.process_job(job,l,t,_Pool(),{},True) is None
- assert calls==[e['event_id']]
- job=l.remote_event_outbox.find_one({'_id':'once'})
- assert job['remote_archive_stored_at']
- w.process_job(job,l,t,_Pool(),{},True)
- assert calls==[e['event_id']]
- assert t.pipeline_runtime_events.count_documents({})==1
+ assert t.pipeline_runtime_events.count_documents({'_id':e['event_id']})==1
+ assert l.remote_event_outbox.find_one({'_id':'once'})['state']=='stored'
+
+def test_claim_skips_row_parked_between_find_and_update(dbs, monkeypatch):
+ # reliability P1-1: an operator park between the candidate read and the claim update must win
+ import remote.worker as w
+ from remote.requeue import park
+ l,t=dbs;n=datetime.now(timezone.utc)
+ l.remote_event_outbox.insert_many([{'_id':k,'state':'waiting_context','reason':'member_mapping_required','sequence':1,
+   'source_session_id':k,'next_attempt_at':n-timedelta(seconds=1),'queued_at':n,'attempts':0,'event':{'player_id':k}} for k in ('a','b')])
+ real=l.remote_event_outbox.update_many
+ def racing(q,u,*a,**k):
+  if u.get('$set',{}).get('state')=='processing':
+   park(l,None,'a')  # lands just before our claim
+  return real(q,u,*a,**k)
+ monkeypatch.setattr(l.remote_event_outbox,'update_many',racing)
+ jobs=w.claim_batch(l,10)
+ monkeypatch.setattr(l.remote_event_outbox,'update_many',real)
+ assert [j['_id'] for j in jobs]==['b']
+ assert l.remote_event_outbox.find_one({'_id':'a'})['state']=='parked'
+
+def test_old_worker_cannot_overwrite_after_reclaim(dbs, monkeypatch):
+ # reliability P1-1: after recover_stale + a new claim, the late result of the first claim is dropped
+ import remote.worker as w
+ l,t=dbs;n=datetime.now(timezone.utc)
+ e=dict(rows()[0],schema_version=1);e.pop('session_id',None)
+ l.remote_event_outbox.insert_one({'_id':'r','event':e,'state':'pending','next_attempt_at':n-timedelta(seconds=1),'queued_at':n,'attempts':0})
+ first=w.claim_batch(l,10)[0]
+ w.recover_stale(l,True)
+ second=w.claim_batch(l,10)[0]
+ assert first['claim_id']!=second['claim_id']
+ assert w.process_job(first,l,t,_Pool(),{},True) is None  # lost claim: nothing written
+ row=l.remote_event_outbox.find_one({'_id':'r'})
+ assert row['state']=='processing' and row['claim_id']==second['claim_id']
+ assert w.process_job(second,l,t,_Pool(),{},True) is None
+ assert l.remote_event_outbox.find_one({'_id':'r'})['state']=='stored'
+
+def test_replayed_predecessor_wakes_successor_after_failed_wake(dbs, monkeypatch):
+ # reliability P1-2: cursor advanced, then the wake failed; the predecessor's retry must wake the successor
+ l,t=dbs;es=rows()
+ p=Projector(l,t,None,{})
+ l.remote_event_outbox.insert_one({'_id':es[1]['event_id'],'source_session_id':es[1]['session_id'],'sequence':2,
+   'state':'parked','reason':'sequence_gap:expected_1','parked_at':datetime.now(timezone.utc)})
+ orig=Projector.wake_successor
+ def broken(self,e):raise RuntimeError('mongo blip')
+ monkeypatch.setattr(Projector,'wake_successor',broken)
+ with pytest.raises(RuntimeError):p.project(es[0])  # receipt + cursor written, wake failed
+ monkeypatch.setattr(Projector,'wake_successor',orig)
+ assert l.remote_session_cursors.find_one({'_id':es[0]['session_id']})['last_sequence']==1
+ assert l.remote_event_outbox.find_one({'sequence':2})['state']=='parked'
+ assert p.project(es[0])['scope']=='dashboard_records'  # replay: no duplicate, same result
+ assert l.remote_event_outbox.find_one({'sequence':2})['state']=='pending'
+ assert t.problem_runs.count_documents({})==1
+
+def test_contiguous_event_without_attempt_id_is_quarantined_not_waiting(dbs):
+ # reliability P1-3: a present, contiguous event that lacks attempt_id can never be repaired
+ l,t=dbs;es=rows()
+ p=Projector(l,t,None,{})
+ p.project(es[0])
+ bad=dict(es[1]);bad.pop('attempt_id')
+ assert p.project(bad)['reason']=='attempt_id_required'
+ assert l.remote_session_cursors.find_one({'_id':es[0]['session_id']})['last_sequence']==2
+ assert t.pipeline_quarantined_events.count_documents({'reason':'attempt_id_required'})==1
+
+def test_gap_still_waits_even_if_attempt_id_missing(dbs):
+ l,t=dbs;es=rows()
+ bad=dict(es[2]);bad.pop('attempt_id')
+ with pytest.raises(Waiting,match='sequence_gap'):Projector(l,t,None,{}).project(bad)
+
+def test_unknown_wait_reason_is_bounded(dbs):
+ import remote.worker as w
+ assert w.wait_limit('member_is_not_live') is not None
+ assert w.wait_limit('anything_new') is not None
+ assert w.wait_limit('other_database_writer_active') is None
+
+def test_requeue_gives_a_fresh_retry_budget(dbs, monkeypatch):
+ # reliability P1-4: a parked retry_limit row requeued by hand survives one transient error
+ import remote.worker as w
+ from remote.requeue import requeue
+ l,t=dbs
+ monkeypatch.setattr(w,'Projector',_raising(RuntimeError('db down')))
+ tired=_job(l,7,attempts=20)
+ assert w.process_job(tired,l,t,_Pool(),{},True) is w.PARKED_SENTINEL
+ assert requeue(l,'retry_limit',None)==1
+ row=l.remote_event_outbox.find_one({'_id':'j7'})
+ assert row['retry_base']==20 and row['attempts']==20
+ job=w.claim_batch(l,10)[0]
+ assert job['attempts']==21
+ assert w.process_job(job,l,t,_Pool(),{},True) not in (None,w.PARKED_SENTINEL)
+ assert l.remote_event_outbox.find_one({'_id':'j7'})['state']=='retrying'

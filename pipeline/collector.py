@@ -155,11 +155,21 @@ def live():
 
 @app.get("/health/ready")
 def ready():
-    try:
-        producer().list_topics(timeout=3)
-    except Exception:
-        raise HTTPException(503, "Kafka unavailable")
-    return {"status": "ready"}
+    """Kafka ingest readiness: every contract topic has a leader per partition and ISR >= min.insync.replicas,
+    so an acks=all write can succeed. One broker down can still be ready (see /health/deps for brokers).
+    MongoDB is not part of it: the collector keeps accepting (202) while MongoDB is down."""
+    from common import health
+    r = health.kafka_ingest(settings.get().kafka_bootstrap, timeout_s=3)
+    if not r["ready"]:
+        raise HTTPException(503, {"status": "kafka_not_ready", **r})
+    return {"status": "ready", "brokers": r["brokers"]}
+
+
+@app.get("/health/deps")
+def deps():
+    """Diagnosis: each broker answering by itself, ingest readiness, MongoDB ping (independent answers)."""
+    from common import health
+    return health.report()
 
 
 @app.post("/v2/events", status_code=202)

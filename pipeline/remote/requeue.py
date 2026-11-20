@@ -53,10 +53,15 @@ def status(db) -> dict:
 
 
 def requeue(db, reason: str | None, player: str | None, state: str = "parked") -> int:
-    return db.remote_event_outbox.update_many(
-        _query(state, reason, player),
-        {"$set": {"state": "pending", "next_attempt_at": utc_now(), "updated_at": utc_now()},
-         "$unset": {"parked_at": "", "waiting_since": ""}}).modified_count
+    """Back to the queue with a fresh retry budget (REMOTE_MAX_RETRIES attempts from now on). `attempts` keeps
+    the whole history; `retry_base` remembers where this round started (reliability review P1-4)."""
+    from pymongo import UpdateOne
+    ops = [UpdateOne({"_id": d["_id"], "state": state},
+                     {"$set": {"state": "pending", "next_attempt_at": utc_now(), "updated_at": utc_now(),
+                               "retry_base": d.get("attempts", 0), "requeued_at": utc_now()},
+                      "$unset": {"parked_at": "", "waiting_since": ""}})
+           for d in db.remote_event_outbox.find(_query(state, reason, player), {"attempts": 1})]
+    return db.remote_event_outbox.bulk_write(ops, ordered=False).modified_count if ops else 0
 
 
 def park(db, reason: str | None, player: str | None, state: str = "waiting_context") -> int:

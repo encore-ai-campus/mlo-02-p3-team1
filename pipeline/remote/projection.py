@@ -96,6 +96,13 @@ class Projector:
     def receipt(self, event, result):
         ensure(self.local.remote_projection_receipts, {"_id": event["event_id"], "payload_hash": event["payload_hash"], "result": result}, ["payload_hash"])
         self.local.remote_session_cursors.update_one({"_id": event["session_id"]}, {"$set": {"last_sequence": event["sequence"], "last_event_id": event["event_id"]}}, upsert=True)
+        self.wake_successor(event)
+        return result
+
+    def wake_successor(self, event):
+        """Wake the next sequence of this session. Called after a receipt and again when an already projected
+        event is replayed, so a failure between the cursor update and this wake is repaired by the retry of the
+        predecessor (reliability review P1-2)."""
         # A newly available predecessor removes this wait immediately; do not make
         # a valid next event sleep through an old exponential retry interval.
         self.local.remote_event_outbox.update_many({"source_session_id": event["session_id"],
@@ -108,7 +115,6 @@ class Projector:
             "reason": {"$regex": "^sequence_gap:"}},
             {"$set": {"state": "pending", "next_attempt_at": datetime.now(timezone.utc)},
              "$unset": {"parked_at": "", "waiting_since": ""}})
-        return result
 
     def quarantine(self, event, reason):
         # Only exclude a verified, present, contiguous source sequence. Never skip a gap.
@@ -136,6 +142,8 @@ class Projector:
             receipt = self.local.remote_projection_receipts.find_one({"_id": event["event_id"]})
             if not receipt or receipt["payload_hash"] != event["payload_hash"]:
                 raise Conflict("sequence_reuse_or_missing_receipt")
+            if sequence == cursor["last_sequence"]:  # the newest receipt: its wake may not have happened
+                self.wake_successor(event)
             return receipt["result"]
         game_id = event["minigame_id"]
         game = CATALOG.get(game_id)
@@ -178,9 +186,12 @@ class Projector:
         if occurred < context["started_at"]:
             raise Conflict("event_before_problem_start")
         attempt_id = None
+        # From here the event is the next contiguous sequence (gaps raised Waiting above), so nothing that is
+        # still to arrive can repair a field missing from this event: quarantine it with its reason instead of
+        # waiting forever (reliability review P1-3). A real missing sequence still waits.
         if et == "attempt_started":
             if not event.get("attempt_id"):
-                raise Waiting("attempt_id_required")
+                return self.quarantine(event, "attempt_id_required")
             attempt_id = str(uuid.UUID(event["attempt_id"]))
             existing = self.remote.solution_attempts.find_one({"_id": attempt_id})
             last = self.remote.solution_attempts.find_one({"run_id": source_run}, sort=[("number", -1)])
@@ -190,7 +201,7 @@ class Projector:
             ensure(self.remote.solution_attempts, attempt, ["run_id", "number", "started_at"])
         elif et not in ("problem_started", "problem_completed"):
             if not event.get("attempt_id"):
-                raise Waiting("attempt_id_required")
+                return self.quarantine(event, "attempt_id_required")
             attempt_id = str(uuid.UUID(event["attempt_id"]))
             attempt = self.remote.solution_attempts.find_one({"_id": attempt_id})
             if not attempt or attempt["run_id"] != source_run:
@@ -226,7 +237,8 @@ class Projector:
             self.finalize(self.remote.solution_attempts, attempt_id, "outcome", outcome, occurred)
         if et == "problem_completed":
             if self.remote.solution_attempts.count_documents({"run_id": source_run, "ended_at": None}):
-                raise Waiting("attempts_still_open")
+                # every earlier sequence is already projected, so no later event can close these attempts
+                return self.quarantine(event, "attempts_still_open")
             self.finalize(self.remote.problem_runs, source_run, "status", "completed", occurred)
         result = {"scope": "dashboard_records", "member_id": player, "session_id": context["session_id"],
                   "run_id": source_run, "attempt_id": attempt_id, "event_id": event["event_id"]}

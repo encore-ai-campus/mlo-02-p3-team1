@@ -57,24 +57,25 @@ def claim(local):
     """Claim one due row. Earliest due work wins; a low-sequence retry must not starve arrivals."""
     return local.remote_event_outbox.find_one_and_update(
         {"state": {"$in": DUE_STATES}, "next_attempt_at": {"$lte": now()}},
-        {"$set": {"state": "processing", "updated_at": now()}, "$inc": {"attempts": 1}},
+        {"$set": {"state": "processing", "updated_at": now(), "claim_id": uuid.uuid4().hex}, "$inc": {"attempts": 1}},
         sort=[("next_attempt_at", 1), ("queued_at", 1), ("sequence", 1), ("_id", 1)],
         return_document=ReturnDocument.AFTER)
 
 
 def claim_batch(local, limit):
-    """Claim up to `limit` due rows with one find + one update. Safe: the lease allows one worker process."""
-    rows = list(local.remote_event_outbox.find(
-        {"state": {"$in": DUE_STATES}, "next_attempt_at": {"$lte": now()}},
-        sort=[("next_attempt_at", 1), ("queued_at", 1), ("sequence", 1), ("_id", 1)], limit=limit))
-    if not rows:
+    """Claim up to `limit` due rows: find candidates, mark them with a fresh claim token in one update, then
+    read back only the rows that carry the token. A row changed in between (an operator `park`, another
+    worker) is not returned, so its projection never runs (reliability review P1-1)."""
+    ids = [r["_id"] for r in local.remote_event_outbox.find(
+        {"state": {"$in": DUE_STATES}, "next_attempt_at": {"$lte": now()}}, {"_id": 1},
+        sort=[("next_attempt_at", 1), ("queued_at", 1), ("sequence", 1), ("_id", 1)], limit=limit)]
+    if not ids:
         return []
-    local.remote_event_outbox.update_many({"_id": {"$in": [r["_id"] for r in rows]}, "state": {"$in": DUE_STATES}},
-                                          {"$set": {"state": "processing", "updated_at": now()}, "$inc": {"attempts": 1}})
-    for r in rows:
-        r["attempts"] = r.get("attempts", 0) + 1
-        r["state"] = "processing"
-    return rows
+    token = uuid.uuid4().hex
+    local.remote_event_outbox.update_many({"_id": {"$in": ids}, "state": {"$in": DUE_STATES}},
+                                          {"$set": {"state": "processing", "updated_at": now(), "claim_id": token},
+                                           "$inc": {"attempts": 1}})
+    return list(local.remote_event_outbox.find({"_id": {"$in": ids}, "state": "processing", "claim_id": token}))
 
 
 def group_by_session(jobs):
@@ -90,7 +91,9 @@ def group_by_session(jobs):
 def recover_stale(local, first_run):
     """Rows left in 'processing' by a crash go back to the queue (all of them on start, old ones later)."""
     query = {"state": "processing"} if first_run else {"state": "processing", "updated_at": {"$lt": now() - timedelta(minutes=5)}}
-    local.remote_event_outbox.update_many(query, {"$set": {"state": "pending", "next_attempt_at": now()}})
+    # dropping the claim token means a late write of the old worker no longer matches (P1-1)
+    local.remote_event_outbox.update_many(query, {"$set": {"state": "pending", "next_attempt_at": now()},
+                                                  "$unset": {"claim_id": ""}})
 
 
 def health(local, state, **extra):
@@ -114,11 +117,23 @@ def _needs_sql(event):
     return event.get("schema_version") == 2 and bool(event.get("session_id"))
 
 
+class LostClaim(Exception):
+    """The row is no longer ours (parked by an operator, reclaimed after a crash): its result is not written."""
+
+
+def _owned(job) -> dict:
+    """Filter for a row this worker still holds: same claim token and still 'processing'."""
+    q = {"_id": job["_id"], "state": "processing"}
+    if job.get("claim_id"):
+        q["claim_id"] = job["claim_id"]
+    return q
+
+
 def _set(local, job, fields, unset=None):
-    update = {"$set": fields}
-    if unset:
-        update["$unset"] = unset
-    local.remote_event_outbox.update_one({"_id": job["_id"]}, update)
+    update = {"$set": fields, "$unset": {"claim_id": "", **(unset or {})}}
+    if local.remote_event_outbox.update_one(_owned(job), update).matched_count != 1:
+        log(task="lost_claim", event_id=str(job["_id"]), wanted=fields.get("state"))
+        raise LostClaim(job["_id"])
 
 
 def process_job(job, local, remote, pool, ctx, have_lock):
@@ -127,14 +142,21 @@ def process_job(job, local, remote, pool, ctx, have_lock):
     Returns None when the row reached a terminal state, PARKED_SENTINEL when it was parked,
     else the time it becomes due again."""
     try:
+        return _process(job, local, remote, pool, ctx, have_lock)
+    except LostClaim:
+        return None
+
+
+def _process(job, local, remote, pool, ctx, have_lock):
+    try:
         event = job["event"]
         # The archive is written before the projection so a row that has to wait (member mapping, sequence gap)
-        # is still archived. It is written once per row: retries of the same row skip it, and project() below does
-        # not repeat it (it used to, costing a second find_one per event).
-        if not job.get("remote_archive_stored_at"):
-            Projector(local, remote, None, {}).archive(event)
-            local.remote_event_outbox.update_one({"_id": job["_id"], "remote_archive_stored_at": {"$exists": False}},
-                                                 {"$set": {"archive_stored": True, "remote_archive_stored_at": now()}})
+        # is still archived. It is checked on every attempt (one find_one when present), so a replaced or
+        # restored remote DB is refilled before the row can become 'stored' (P1-5). project() below does not
+        # repeat it (it used to, costing a second find_one per event).
+        Projector(local, remote, None, {}).archive(event)
+        local.remote_event_outbox.update_one({"_id": job["_id"], "remote_archive_stored_at": {"$exists": False}},
+                                             {"$set": {"archive_stored": True, "remote_archive_stored_at": now()}})
         conn = None
         try:
             if _needs_sql(event):
@@ -153,8 +175,11 @@ def process_job(job, local, remote, pool, ctx, have_lock):
                           "queue_to_terminal_ms": max(0, int((done - job["queued_at"]).total_seconds() * 1000))},
              unset={"reason": "", "last_error": "", "waiting_since": "", "parked_at": ""})
         return None
+    except LostClaim:
+        return None
     except Waiting as e:
-        archived = remote["pipeline_learning_events"].find_one({"_id": job["_id"]}, {"_id": 1}) is not None
+        kind = Projector.kind(job.get("event") or {})
+        archived = remote["pipeline_" + kind + "_events"].find_one({"_id": job["_id"]}, {"_id": 1}) is not None
         reason = str(e)
         since = job.get("waiting_since") or now()
         limit = wait_limit(reason)
@@ -169,13 +194,17 @@ def process_job(job, local, remote, pool, ctx, have_lock):
         _set(local, job, {"state": "blocked", "reason": str(e)[:200], "updated_at": now()})
         return None
     except Exception as e:
-        if job["attempts"] >= settings.get().remote_max_retries:
-            _park(local, job, "retry_limit", last_error=type(e).__name__)
-            return PARKED_SENTINEL
-        due = now() + timedelta(seconds=min(60, 2 ** min(job["attempts"], 5)))
-        _set(local, job, {"state": "retrying", "last_error": type(e).__name__, "updated_at": now(),
-                          "next_attempt_at": due})
-        return due
+        try:
+            # P1-4: the budget counts attempts since the last manual requeue; `attempts` keeps the full history
+            if job["attempts"] - job.get("retry_base", 0) >= settings.get().remote_max_retries:
+                _park(local, job, "retry_limit", last_error=type(e).__name__)
+                return PARKED_SENTINEL
+            due = now() + timedelta(seconds=min(60, 2 ** min(job["attempts"] - job.get("retry_base", 0), 5)))
+            _set(local, job, {"state": "retrying", "last_error": type(e).__name__, "updated_at": now(),
+                              "next_attempt_at": due})
+            return due
+        except LostClaim:
+            return None
 
 
 # ---------------------------------------------------------------- PL-9: parked rows
@@ -184,11 +213,12 @@ def process_job(job, local, remote, pool, ctx, have_lock):
 def wait_limit(reason: str):
     """How long a waiting row keeps retrying before it is parked (None = no limit)."""
     s = settings.get()
-    if reason == "member_mapping_required":
-        return timedelta(hours=s.remote_wait_member_hours)
     if reason.startswith("sequence_gap"):
         return timedelta(minutes=s.remote_wait_gap_minutes)
-    return None
+    if reason == "other_database_writer_active":  # a tool holds the writer lock: transient, never parked
+        return None
+    # member_mapping_required, member_is_not_live and any future reason: bounded, then parked and kept (P1-3)
+    return timedelta(hours=s.remote_wait_member_hours)
 
 
 def _park(local, job, reason, **fields):
@@ -205,11 +235,11 @@ def process_group(jobs, local, *args):
         if due is PARKED_SENTINEL:
             due = now() + timedelta(seconds=60)
         if due is not None and i + 1 < len(jobs):
-            rest = [j["_id"] for j in jobs[i + 1:]]
-            local.remote_event_outbox.update_many(
-                {"_id": {"$in": rest}, "state": "processing"},
-                {"$set": {"state": "pending", "next_attempt_at": due, "updated_at": now()},
-                 "$inc": {"attempts": -1}})  # these rows were not attempted
+            for later in jobs[i + 1:]:
+                local.remote_event_outbox.update_one(
+                    _owned(later),
+                    {"$set": {"state": "pending", "next_attempt_at": due, "updated_at": now()},
+                     "$unset": {"claim_id": ""}, "$inc": {"attempts": -1}})  # these rows were not attempted
             return
 
 
@@ -286,7 +316,7 @@ class Worker:
                 marker = (mtime, members[0], str(members[1]))
                 if seen is not None and marker != seen:
                     from remote.requeue import requeue
-                    n = requeue(self.local, "member_mapping_required", None)
+                    n = requeue(self.local, "member_mapping_required", None) + requeue(self.local, "member_is_not_live", None)
                     if n:
                         log(task="revive", requeued=n)
                 seen = marker

@@ -1,12 +1,11 @@
 """Generate compose.json (standard library only). Run: python build_compose.py
 
-Services: kafka-1..3 (KRaft, RF 3, min ISR 2), topic-init (5 contract topics),
+Services: kafka-1..3 (KRaft, RF 3, min ISR 2), topic-init (5 contract topics, Python AdminClient), deps-ready,
 collector (/v2/events), spark (delta_stream.py), mongo (nodeverse_logs).
 """
 import json
 from pathlib import Path
 
-from topics import RETENTION_MS, TOPICS
 
 KAFKA_IMAGE = 'apache/kafka:3.9.1'
 BOOTSTRAP = 'kafka-1:9092,kafka-2:9092,kafka-3:9092'
@@ -39,25 +38,29 @@ for i in range(1, 4):
             'KAFKA_LOG_DIRS': '/var/lib/kafka/data',
             'KAFKA_HEAP_OPTS': '-Xms256m -Xmx512m'},
         'volumes': [f'{name}:/var/lib/kafka/data'],
-        # CPU review item 1: a JVM admin client every 10 s peaked at ~150 % per broker. The healthcheck now only
-        # tests that the listener accepts connections; topic-init below proves the Kafka API with retries.
+        # Process liveness only (the image has no Python; a JVM admin client every 10 s peaked at ~150 % per
+        # broker). Protocol checks run from the Python image: per-broker metadata answers and ingest readiness
+        # (leaders, ISR >= 2) in common/health.py, used by topic-init, deps-ready and the collector's /health/*.
         'healthcheck': {'test': ['CMD', 'nc', '-z', 'localhost', '9092'],
                         'interval': '10s', 'timeout': '3s', 'retries': 18, 'start_period': '30s'}}
 
-create = ' && '.join(
-    f'/opt/kafka/bin/kafka-topics.sh --bootstrap-server {BOOTSTRAP} --create --if-not-exists --topic {t} '
-    f'--partitions {p} --replication-factor 3 --config min.insync.replicas=2 --config retention.ms={RETENTION_MS}'
-    for t, p in TOPICS.items())
-# An open port is not a working cluster (metadata quorum, 3 registered brokers for RF 3), so the whole create step
-# is retried until it succeeds; topic-init exits non-zero after ~3 minutes and nothing that needs topics starts.
+PY_IMAGE_BUILD = {'context': '.', 'dockerfile': 'Dockerfile'}
+
+# topic-init without the JVM CLI: AdminClient.create_topics() with the contract settings, existing topics kept,
+# retried every 5 s (36x) until every topic has its partitions, a leader per partition and ISR >= 2.
 services['topic-init'] = {
-    'image': KAFKA_IMAGE,
+    'build': PY_IMAGE_BUILD,
     'depends_on': {f'kafka-{i}': {'condition': 'service_healthy'} for i in range(1, 4)},
-    'entrypoint': ['/bin/bash', '-ec'],
-    'command': ['for attempt in $$(seq 1 36); do '
-                f'if {{ {create}; }}; then '
-                f'/opt/kafka/bin/kafka-topics.sh --bootstrap-server {BOOTSTRAP} --describe; exit 0; fi; '
-                'echo "kafka not ready (attempt $$attempt/36), retrying in 5s" >&2; sleep 5; done; exit 1']}
+    'environment': {'KAFKA_BOOTSTRAP': BOOTSTRAP},
+    'command': ['python', '-m', 'common.health', 'topics']}
+
+# Start-up gate for Spark and the remote writer: MongoDB answers {ping: 1} and Kafka ingest is ready.
+services['deps-ready'] = {
+    'build': PY_IMAGE_BUILD,
+    'depends_on': {'topic-init': {'condition': 'service_completed_successfully'},
+                   'mongo': {'condition': 'service_healthy'}},
+    'environment': {'KAFKA_BOOTSTRAP': BOOTSTRAP, 'MONGO_URI': 'mongodb://mongo:27017'},
+    'command': ['python', '-m', 'common.health', 'wait', 'mongo', 'kafka-ingest']}
 
 services['collector'] = {
     'build': {'context': '.', 'dockerfile': 'Dockerfile'}, 'restart': 'unless-stopped',
@@ -72,8 +75,8 @@ services['mongo'] = {
     'image': 'mongo:7.0.16', 'restart': 'unless-stopped',
     'ports': ['${MONGO_BIND:-127.0.0.1}:${MONGO_PORT:-27017}:27017'],
     'volumes': ['mongo:/data/db'],
-    # CPU review item 1: mongosh starts a Node.js runtime per check (~47 % peak). mongod opens 27017 only after
-    # storage recovery, so a TCP connect is a cheap readiness signal; clients retry pings themselves.
+    # Fast connection diagnosis only (mongosh started Node.js per check, ~47 % peak). Readiness for Spark and the
+    # remote writer is a real PyMongo ping in deps-ready (common/health.py).
     'healthcheck': {'test': ['CMD', 'bash', '-c', 'exec 3<>/dev/tcp/127.0.0.1/27017'],
                     'interval': '10s', 'timeout': '3s', 'retries': 6, 'start_period': '10s'}}
 
@@ -96,8 +99,7 @@ services['spark'] = {
                     'INGEST_KEY': '${INGEST_KEY:?Set INGEST_KEY in .env}', 'COLLECTOR_URL': 'http://collector:8000'},
     'volumes': ['./spark:/app:ro', './common:/opt/nodeverse/common:ro', './remote:/opt/nodeverse/remote:ro',
                 'lake:/data', 'ivy:/ivy'],
-    'depends_on': {'topic-init': {'condition': 'service_completed_successfully'},
-                   'mongo': {'condition': 'service_healthy'}}}
+    'depends_on': {'deps-ready': {'condition': 'service_completed_successfully'}}}
 
 services['remote-writer'] = {
     'build': {'context': '.', 'dockerfile': 'Dockerfile'},
@@ -107,7 +109,7 @@ services['remote-writer'] = {
     'environment': {'MONGO_URI': 'mongodb://mongo:27017', 'MONGO_DB': 'nodeverse_logs',
                     'REMOTE_CONTEXT_PATH': '/run/private/remote-context.json'},
     'volumes': ['./.env.remote-context.json:/run/private/remote-context.json:ro'],
-    'depends_on': {'mongo': {'condition': 'service_healthy'}}}
+    'depends_on': {'deps-ready': {'condition': 'service_completed_successfully'}}}
 
 Path(__file__).with_name('compose.json').write_text(
     json.dumps({'name': 'nodeverse-dev', 'services': services, 'volumes': volumes}, indent=2) + '\n', encoding='utf-8')
