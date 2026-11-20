@@ -28,14 +28,28 @@ def _query(state: str, reason: str | None, player: str | None) -> dict:
     return q
 
 
+REASON_STATES = ("parked", "waiting_context", "blocked")
+
+
+def state_counts(db) -> dict:
+    """Rows per state from the (state, ...) indexes: DISTINCT_SCAN + one COUNT_SCAN per state, no document reads.
+    The former $group over the whole outbox was a COLLSCAN of every row every 10 s (CPU review, item 3)."""
+    out = db.remote_event_outbox
+    return {s: n for s in out.distinct("state") if s is not None
+            for n in [out.count_documents({"state": s})] if n}
+
+
+def reason_counts(db) -> dict:
+    """Top reasons of the waiting/parked/blocked states; {state, reason} is covered by the (state, reason) index."""
+    return {state: [{"reason": d["_id"], "n": d["n"]} for d in db.remote_event_outbox.aggregate([
+        {"$match": {"state": state}}, {"$project": {"_id": 0, "reason": 1}},
+        {"$group": {"_id": "$reason", "n": {"$sum": 1}}}, {"$sort": {"n": -1}}, {"$limit": 10}],
+        hint={"state": 1, "reason": 1})]
+        for state in REASON_STATES}
+
+
 def status(db) -> dict:
-    by_state = {d["_id"]: d["n"] for d in db.remote_event_outbox.aggregate([{"$group": {"_id": "$state", "n": {"$sum": 1}}}])}
-    reasons = {}
-    for state in ("parked", "waiting_context", "blocked"):
-        reasons[state] = [{"reason": d["_id"], "n": d["n"]} for d in db.remote_event_outbox.aggregate([
-            {"$match": {"state": state}}, {"$group": {"_id": "$reason", "n": {"$sum": 1}}},
-            {"$sort": {"n": -1}}, {"$limit": 10}])]
-    return {"states": by_state, "reasons": reasons}
+    return {"states": state_counts(db), "reasons": reason_counts(db)}
 
 
 def requeue(db, reason: str | None, player: str | None, state: str = "parked") -> int:

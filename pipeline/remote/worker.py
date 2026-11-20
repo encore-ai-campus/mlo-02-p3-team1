@@ -128,16 +128,20 @@ def process_job(job, local, remote, pool, ctx, have_lock):
     else the time it becomes due again."""
     try:
         event = job["event"]
-        Projector(local, remote, None, {}).archive(event)
-        local.remote_event_outbox.update_one({"_id": job["_id"], "remote_archive_stored_at": {"$exists": False}},
-                                             {"$set": {"archive_stored": True, "remote_archive_stored_at": now()}})
+        # The archive is written before the projection so a row that has to wait (member mapping, sequence gap)
+        # is still archived. It is written once per row: retries of the same row skip it, and project() below does
+        # not repeat it (it used to, costing a second find_one per event).
+        if not job.get("remote_archive_stored_at"):
+            Projector(local, remote, None, {}).archive(event)
+            local.remote_event_outbox.update_one({"_id": job["_id"], "remote_archive_stored_at": {"$exists": False}},
+                                                 {"$set": {"archive_stored": True, "remote_archive_stored_at": now()}})
         conn = None
         try:
             if _needs_sql(event):
                 if not have_lock:
                     raise Waiting("other_database_writer_active")
                 conn = pool.connection()
-            result = Projector(local, remote, conn, ctx).project(event)
+            result = Projector(local, remote, conn, ctx).project(event, archived=True)
         finally:
             if conn is not None:
                 conn.close()  # back to the pool
@@ -247,12 +251,16 @@ class Worker:
 
     def _status(self):
         """PL-9: publish outbox counts (local and dashboard DB) so the server live page can show them."""
-        from remote.requeue import status
+        from remote.requeue import reason_counts, state_counts
+        reasons, reasons_at = {}, 0.0
         while not self.stop.wait(10):
             if not self.leased.is_set():
                 continue
             try:
-                doc = {"_id": "remote_writer", **status(self.local), "updated_at": now()}
+                states = state_counts(self.local)
+                if time.monotonic() - reasons_at >= 60:  # reasons change slowly; counts stay at 10 s
+                    reasons, reasons_at = reason_counts(self.local), time.monotonic()
+                doc = {"_id": "remote_writer", "states": states, "reasons": reasons, "updated_at": now()}
                 for db in (self.local, self.remote):
                     db.pipeline_sink_status.replace_one({"_id": doc["_id"]}, doc, upsert=True)
             except Exception as e:

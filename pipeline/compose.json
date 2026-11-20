@@ -28,11 +28,14 @@
       ],
       "healthcheck": {
         "test": [
-          "CMD-SHELL",
-          "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"
+          "CMD",
+          "nc",
+          "-z",
+          "localhost",
+          "9092"
         ],
         "interval": "10s",
-        "timeout": "10s",
+        "timeout": "3s",
         "retries": 18,
         "start_period": "30s"
       }
@@ -64,11 +67,14 @@
       ],
       "healthcheck": {
         "test": [
-          "CMD-SHELL",
-          "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"
+          "CMD",
+          "nc",
+          "-z",
+          "localhost",
+          "9092"
         ],
         "interval": "10s",
-        "timeout": "10s",
+        "timeout": "3s",
         "retries": 18,
         "start_period": "30s"
       }
@@ -100,11 +106,14 @@
       ],
       "healthcheck": {
         "test": [
-          "CMD-SHELL",
-          "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"
+          "CMD",
+          "nc",
+          "-z",
+          "localhost",
+          "9092"
         ],
         "interval": "10s",
-        "timeout": "10s",
+        "timeout": "3s",
         "retries": 18,
         "start_period": "30s"
       }
@@ -127,7 +136,7 @@
         "-ec"
       ],
       "command": [
-        "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --create --if-not-exists --topic nv.learning.v2 --partitions 6 --replication-factor 3 --config min.insync.replicas=2 --config retention.ms=604800000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --create --if-not-exists --topic nv.runtime.v1 --partitions 3 --replication-factor 3 --config min.insync.replicas=2 --config retention.ms=604800000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --create --if-not-exists --topic nv.bundle.v2 --partitions 3 --replication-factor 3 --config min.insync.replicas=2 --config retention.ms=604800000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --create --if-not-exists --topic nv.dlq.v1 --partitions 3 --replication-factor 3 --config min.insync.replicas=2 --config retention.ms=604800000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --create --if-not-exists --topic nv.update.v1 --partitions 3 --replication-factor 3 --config min.insync.replicas=2 --config retention.ms=604800000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --describe"
+        "for attempt in $$(seq 1 36); do if { /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --create --if-not-exists --topic nv.learning.v2 --partitions 6 --replication-factor 3 --config min.insync.replicas=2 --config retention.ms=604800000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --create --if-not-exists --topic nv.runtime.v1 --partitions 3 --replication-factor 3 --config min.insync.replicas=2 --config retention.ms=604800000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --create --if-not-exists --topic nv.bundle.v2 --partitions 3 --replication-factor 3 --config min.insync.replicas=2 --config retention.ms=604800000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --create --if-not-exists --topic nv.dlq.v1 --partitions 3 --replication-factor 3 --config min.insync.replicas=2 --config retention.ms=604800000 && /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --create --if-not-exists --topic nv.update.v1 --partitions 3 --replication-factor 3 --config min.insync.replicas=2 --config retention.ms=604800000; }; then /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka-1:9092,kafka-2:9092,kafka-3:9092 --describe; exit 0; fi; echo \"kafka not ready (attempt $$attempt/36), retrying in 5s\" >&2; sleep 5; done; exit 1"
       ]
     },
     "collector": {
@@ -175,13 +184,12 @@
       "healthcheck": {
         "test": [
           "CMD",
-          "mongosh",
-          "--quiet",
-          "--eval",
-          "quit(db.adminCommand({ping:1}).ok ? 0 : 1)"
+          "bash",
+          "-c",
+          "exec 3<>/dev/tcp/127.0.0.1/27017"
         ],
         "interval": "10s",
-        "timeout": "5s",
+        "timeout": "3s",
         "retries": 6,
         "start_period": "10s"
       }

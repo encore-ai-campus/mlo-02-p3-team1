@@ -42,17 +42,19 @@ def _retry(fn, what: str, raise_on_failure: bool):
             time.sleep(min(8, 2 ** i))
 
 
-def upsert(collection: str, docs: list[dict]) -> None:
-    """Replace documents by _id (rt_* aggregates)."""
+def upsert(collection: str, docs: list[dict]) -> bool:
+    """Replace documents by _id (rt_* aggregates). False when the write failed after retries."""
     if not docs:
-        return
+        return True
     from pymongo import ReplaceOne
     ops = [ReplaceOne({"_id": d["_id"]}, d, upsert=True) for d in docs]
-    _retry(lambda: local_mongo()[collection].bulk_write(ops, ordered=False), "upsert " + collection, False)
+    return _retry(lambda: local_mongo()[collection].bulk_write(ops, ordered=False), "upsert " + collection,
+                  False) is not None
 
 
-def delete_missing(collection: str, keep_ids: list) -> None:
-    _retry(lambda: local_mongo()[collection].delete_many({"_id": {"$nin": keep_ids}}), "prune " + collection, False)
+def delete_missing(collection: str, keep_ids: list) -> bool:
+    return _retry(lambda: local_mongo()[collection].delete_many({"_id": {"$nin": keep_ids}}), "prune " + collection,
+                  False) is not None
 
 
 def stage_outbox(records) -> None:

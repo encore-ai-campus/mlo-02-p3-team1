@@ -197,7 +197,7 @@ def _raising(exc):
  class P:
   def __init__(self,*a):pass
   def archive(self,e):return 'learning'
-  def project(self,e):raise exc
+  def project(self,e,archived=False):raise exc
  return P
 
 def test_member_wait_parks_after_deadline(dbs, monkeypatch):
@@ -242,3 +242,34 @@ def test_requeue_and_park_tool(dbs):
  assert requeue(l,'member',None)==1
  assert l.remote_event_outbox.find_one({'_id':'a'})['state']=='pending'
 
+
+def test_status_counts_match_full_aggregate(dbs):
+ # CPU review item 3: index counts must equal the former $group over the whole outbox
+ from remote.requeue import status
+ l,_=dbs
+ states=['stored']*5+['pending']*3+['parked']*2+['waiting_context','blocked','quarantined']
+ l.remote_event_outbox.insert_many([{'_id':f's{i}','state':s,'reason':'r'+str(i%2) if s in ('parked','waiting_context','blocked') else None}
+   for i,s in enumerate(states)])
+ old={d['_id']:d['n'] for d in l.remote_event_outbox.aggregate([{'$group':{'_id':'$state','n':{'$sum':1}}}])}
+ st=status(l)
+ assert st['states']==old
+ assert sum(r['n'] for r in st['reasons']['parked'])==2
+
+def test_archive_written_once_per_row(dbs, monkeypatch):
+ # follow-up: process_job archives, project(archived=True) must not repeat it, and a retried row skips it
+ import remote.worker as w
+ l,t=dbs;calls=[]
+ real=w.Projector.archive
+ def counting(self,e):
+  calls.append(e['event_id']);return real(self,e)
+ monkeypatch.setattr(w.Projector,'archive',counting)
+ e=dict(rows()[0],schema_version=1);e.pop('session_id',None)  # runtime event: archive only, no SQL
+ l.remote_event_outbox.insert_one({'_id':'once','event':e,'state':'processing','attempts':0,'queued_at':datetime.now(timezone.utc)})
+ job=l.remote_event_outbox.find_one({'_id':'once'})
+ assert w.process_job(job,l,t,_Pool(),{},True) is None
+ assert calls==[e['event_id']]
+ job=l.remote_event_outbox.find_one({'_id':'once'})
+ assert job['remote_archive_stored_at']
+ w.process_job(job,l,t,_Pool(),{},True)
+ assert calls==[e['event_id']]
+ assert t.pipeline_runtime_events.count_documents({})==1

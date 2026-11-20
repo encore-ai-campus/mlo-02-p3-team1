@@ -80,8 +80,12 @@ class Projector:
     def __init__(self, local, remote, sql, contexts):
         self.local, self.remote, self.sql, self.contexts = local, remote, sql, contexts
 
+    @staticmethod
+    def kind(event):
+        return "learning" if "session_id" in event and event.get("schema_version") == 2 else "runtime" if event.get("schema_version") == 1 else "update"
+
     def archive(self, event):
-        kind = "learning" if "session_id" in event and event.get("schema_version") == 2 else "runtime" if event.get("schema_version") == 1 else "update"
+        kind = self.kind(event)
         doc = dict(event, _id=event["event_id"], projection_version=1)
         for key in ["occurred_at", "received_at", "event_time"]:
             if doc.get(key):
@@ -114,8 +118,9 @@ class Projector:
         ensure(self.remote.pipeline_quarantined_events, doc, ["payload_hash", "reason"])
         return self.receipt(event, {"scope": "learning_quarantine", "event_id": event["event_id"], "reason": reason})
 
-    def project(self, event):
-        kind = self.archive(event)
+    def project(self, event, archived=False):
+        """archived=True: the caller already wrote (and conflict-checked) the archive copy of this event."""
+        kind = self.kind(event) if archived else self.archive(event)
         if kind != "learning":
             return {"scope": kind + "_archive", "event_id": event["event_id"]}
         player = resolve_member(self.sql, event["player_id"], self.contexts)

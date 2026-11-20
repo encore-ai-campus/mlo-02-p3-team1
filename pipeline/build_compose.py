@@ -39,18 +39,25 @@ for i in range(1, 4):
             'KAFKA_LOG_DIRS': '/var/lib/kafka/data',
             'KAFKA_HEAP_OPTS': '-Xms256m -Xmx512m'},
         'volumes': [f'{name}:/var/lib/kafka/data'],
-        'healthcheck': {'test': ['CMD-SHELL', '/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1'],
-                        'interval': '10s', 'timeout': '10s', 'retries': 18, 'start_period': '30s'}}
+        # CPU review item 1: a JVM admin client every 10 s peaked at ~150 % per broker. The healthcheck now only
+        # tests that the listener accepts connections; topic-init below proves the Kafka API with retries.
+        'healthcheck': {'test': ['CMD', 'nc', '-z', 'localhost', '9092'],
+                        'interval': '10s', 'timeout': '3s', 'retries': 18, 'start_period': '30s'}}
 
 create = ' && '.join(
     f'/opt/kafka/bin/kafka-topics.sh --bootstrap-server {BOOTSTRAP} --create --if-not-exists --topic {t} '
     f'--partitions {p} --replication-factor 3 --config min.insync.replicas=2 --config retention.ms={RETENTION_MS}'
     for t, p in TOPICS.items())
+# An open port is not a working cluster (metadata quorum, 3 registered brokers for RF 3), so the whole create step
+# is retried until it succeeds; topic-init exits non-zero after ~3 minutes and nothing that needs topics starts.
 services['topic-init'] = {
     'image': KAFKA_IMAGE,
     'depends_on': {f'kafka-{i}': {'condition': 'service_healthy'} for i in range(1, 4)},
     'entrypoint': ['/bin/bash', '-ec'],
-    'command': [create + f' && /opt/kafka/bin/kafka-topics.sh --bootstrap-server {BOOTSTRAP} --describe']}
+    'command': ['for attempt in $$(seq 1 36); do '
+                f'if {{ {create}; }}; then '
+                f'/opt/kafka/bin/kafka-topics.sh --bootstrap-server {BOOTSTRAP} --describe; exit 0; fi; '
+                'echo "kafka not ready (attempt $$attempt/36), retrying in 5s" >&2; sleep 5; done; exit 1']}
 
 services['collector'] = {
     'build': {'context': '.', 'dockerfile': 'Dockerfile'}, 'restart': 'unless-stopped',
@@ -65,8 +72,10 @@ services['mongo'] = {
     'image': 'mongo:7.0.16', 'restart': 'unless-stopped',
     'ports': ['${MONGO_BIND:-127.0.0.1}:${MONGO_PORT:-27017}:27017'],
     'volumes': ['mongo:/data/db'],
-    'healthcheck': {'test': ['CMD', 'mongosh', '--quiet', '--eval', 'quit(db.adminCommand({ping:1}).ok ? 0 : 1)'],
-                    'interval': '10s', 'timeout': '5s', 'retries': 6, 'start_period': '10s'}}
+    # CPU review item 1: mongosh starts a Node.js runtime per check (~47 % peak). mongod opens 27017 only after
+    # storage recovery, so a TCP connect is a cheap readiness signal; clients retry pings themselves.
+    'healthcheck': {'test': ['CMD', 'bash', '-c', 'exec 3<>/dev/tcp/127.0.0.1/27017'],
+                    'interval': '10s', 'timeout': '3s', 'retries': 6, 'start_period': '10s'}}
 
 services['spark'] = {
     'build': {'context': '.', 'dockerfile': 'Dockerfile.spark'}, 'user': '0:0', 'restart': 'unless-stopped',

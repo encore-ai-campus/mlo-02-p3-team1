@@ -19,18 +19,25 @@ log = logging.getLogger("periodic")
 
 def refresh_summary(spark) -> None:
     recent = (spark.read.format("delta").load(tb.path("silver.learning_events"))
-              .where(F.col("event_date") >= F.date_sub(F.current_date(), 1)))
+              .where(F.col("event_date") >= F.date_sub(F.current_date(), 1))  # partition pruning
+              # only the last 5 minutes feed either metric; filter before aggregating (CPU review, item 2)
+              .where(F.col("received_at") >= F.expr("current_timestamp() - INTERVAL 5 MINUTES"))
+              .select("received_at", "session_id"))
     r = recent.agg(
         F.sum(F.when(F.col("received_at") >= F.expr("current_timestamp() - INTERVAL 1 MINUTE"), 1).otherwise(0))
         .alias("events_last_1m"),
-        F.countDistinct(F.when(F.col("received_at") >= F.expr("current_timestamp() - INTERVAL 5 MINUTES"),
-                               F.col("session_id"))).alias("active_sessions_5m")).first()
+        F.countDistinct("session_id").alias("active_sessions_5m")).first()
     sinks.upsert("rt_summary", [{"_id": "global", "events_last_1m": int(r.events_last_1m or 0),
                                  "active_sessions_5m": int(r.active_sessions_5m or 0),
                                  "updated_at": utc_now()}])
 
 
-def refresh_version_adoption(spark) -> None:
+_last_adoption: dict = {"signature": None}
+
+
+def refresh_version_adoption(spark) -> bool:
+    """Recomputed every minute so players older than 24 h drop out even without new input, but the Delta MERGE
+    and the MongoDB rewrite run only when (kind, version, installs) changed. Returns True when it wrote."""
     from delta.tables import DeltaTable
     tb.register_names(spark)
     latest = spark.sql("""
@@ -51,13 +58,20 @@ def refresh_version_adoption(spark) -> None:
                .withColumn("share", F.col("installs") / F.lit(total if total else 1))
                .withColumn("updated_at", F.current_timestamp())).persist()
         try:
+            rows = per.collect()
+            signature = frozenset((r.kind, r.version, int(r.installs)) for r in rows)
+            if signature == _last_adoption["signature"]:
+                return False  # share = installs / total, so it is unchanged too
             (DeltaTable.forPath(spark, tb.path("gold.version_adoption")).alias("t")
              .merge(per.alias("s"), "t.kind = s.kind AND t.version = s.version")
              .whenMatchedUpdateAll().whenNotMatchedInsertAll().whenNotMatchedBySourceDelete().execute())
-            docs = [dict(r.asDict(), _id=f"{r.kind}:{r.version}") for r in per.collect()]
-            sinks.upsert("rt_versions", docs)
+            docs = [dict(r.asDict(), _id=f"{r.kind}:{r.version}") for r in rows]
+            written = sinks.upsert("rt_versions", docs)
             # versions with no install in the last 24 h are removed in Delta and in MongoDB (D12)
-            sinks.delete_missing("rt_versions", [d["_id"] for d in docs])
+            pruned = sinks.delete_missing("rt_versions", [d["_id"] for d in docs])
+            if written and pruned:  # a failed Mongo write is retried on the next minute
+                _last_adoption["signature"] = signature
+            return True
         finally:
             per.unpersist()
     finally:
@@ -81,9 +95,13 @@ def run(spark, stop: threading.Event, restarts: dict) -> None:
     while not stop.wait(10):
         try:
             write_progress(spark, restarts)
+            started = time.monotonic()
             refresh_summary(spark)
+            log.info("rt_summary in %.2fs", time.monotonic() - started)
             if time.monotonic() - last_versions >= 60:
-                refresh_version_adoption(spark)
+                started = time.monotonic()
+                wrote = refresh_version_adoption(spark)
+                log.info("version adoption in %.2fs (%s)", time.monotonic() - started, "written" if wrote else "unchanged")
                 last_versions = time.monotonic()
         except Exception:  # keep the streams alive; next tick retries
             log.exception("periodic refresh failed")
