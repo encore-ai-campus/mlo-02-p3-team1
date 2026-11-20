@@ -55,3 +55,8 @@
 - `game/scenes/AssetShowcase.tscn`이 30MB 텍스트 씬입니다. 생성기로 다시 만들 수 있다면 `.scn`(바이너리, LFS)으로 저장하거나 커밋에서 빼는 것을 고려하세요.
 - 저장소 크기: git 40MB + LFS 약 296MB(게임 에셋 974개).
 - CI: `pipeline`은 단위 테스트를 돌리고, `server`·`game`은 아직 골격입니다. 이 PC(Windows ARM)에서는 `confluent-kafka`가 설치되지 않아 파이프라인 테스트를 돌리지 못했습니다.
+
+## 추가 확인 (같은 날 15:50 최신화 후)
+
+- **2번 해결됨**: 파이프라인 `feature/codex-v2-remote-sink`(32b0248)가 검증된 학습 이벤트를 MongoDB `pipeline_learning_events`로 내보내고(`pipeline/remote/worker.py`), 서버(3dfece8)가 이를 이벤트·개요 화면에서 읽습니다(`server/telemetry/pipeline_events.py`).
+- **1번은 그대로**: `game/scripts/network_manager.gd:244`의 `player-login`은 여전히 수집기 주소(`get_base_url()`)로 보냅니다. 게임(88394b1)은 로그인한 회원 ID를 `player_id`로 보내도록 바뀌었으므로, 서버의 회원 매칭은 이 호출 없이도 동작할 수 있습니다. 호출을 고치거나 지울지 게임·서버가 정하면 됩니다.
