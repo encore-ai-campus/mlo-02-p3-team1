@@ -26,17 +26,17 @@ NODEVERSE는 **자료구조·알고리즘·SQL·데이터 탐색**을 3D 섬 월
 
 ---
 
-## 2. 저장소 구성과 원본 경로
+## 2. 저장소 구성
 
-세 파트의 원본 저장소를 **커밋 기록을 유지한 채** 폴더별로 합친 모노레포입니다. 2026-11-20부터는 이 저장소가 유일한 원본이며, 예전 저장소에는 push하지 않습니다.
+게임·파이프라인·서버를 폴더별로 나눈 모노레포입니다.
 
-| 폴더 | 내용 | 원본 저장소 · 브랜치 | 반영 커밋 |
-|---|---|---|---|
-| [`game/`](game/) | Godot 게임 클라이언트, 소개 웹사이트 원본 | [junbum8398-blip/nodeverse-game](https://github.com/junbum8398-blip/nodeverse-game) · `main` | `88394b1` |
-| [`pipeline/`](pipeline/) | 수집기·Kafka·Spark/Delta·원격 적재 작업자 | [jobless-fish/NVG](https://github.com/jobless-fish/NVG) · `feature/codex-v2-remote-sink`의 `pipeline-v2/` | `32b0248` |
-| [`server/`](server/) | Django 대시보드·게임 API | [ericsw2727/MLO_3rd_project_dashboard](https://github.com/ericsw2727/MLO_3rd_project_dashboard) · `main` | `3dfece8` |
-| [`contracts/`](contracts/) | 세 파트 공통 이벤트 형식·Kafka 토픽 | `pipeline/contract.py`, `topics.py`에서 시작 | — |
-| [`docs/`](docs/) | 팀 공통 문서·보고서·아키텍처 그림 | — | — |
+| 폴더 | 내용 |
+|---|---|
+| [`game/`](game/) | Godot 게임 클라이언트, 소개 웹사이트 원본 |
+| [`pipeline/`](pipeline/) | 수집기·Kafka·Spark/Delta·원격 적재 작업자 |
+| [`server/`](server/) | Django 대시보드·게임 API |
+| [`contracts/`](contracts/) | 세 파트 공통 이벤트 형식·Kafka 토픽 |
+| [`docs/`](docs/) | 팀 공통 문서·보고서·아키텍처 그림 |
 
 ```
 mlo-02-p3-team1/
