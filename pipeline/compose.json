@@ -214,7 +214,7 @@
         "--conf",
         "spark.sql.session.timeZone=UTC",
         "--py-files",
-        "/app/tables.py",
+        "/app/tables.py,/app/audit_state.py,/app/sinks.py,/app/bronze.py,/app/silver.py,/app/gold.py,/app/periodic.py",
         "/app/delta_stream.py"
       ],
       "environment": {
@@ -234,6 +234,7 @@
       },
       "volumes": [
         "./spark:/app:ro",
+        "./common:/opt/nodeverse/common:ro",
         "./remote:/opt/nodeverse/remote:ro",
         "lake:/data",
         "ivy:/ivy"

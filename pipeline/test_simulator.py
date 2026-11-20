@@ -39,6 +39,7 @@ def test_dummy_data_sessions_follow_contract_and_rules():
     from tools.dummy_data import generate
     sessions = list(generate(2000, 50, 7, 0.3, "unit"))
     assert sum(len(s) for s in sessions) >= 2000
+    assert len({s[0]["run_id"] for s in sessions}) == len(sessions), "one problem run per session"
     for s in sessions:
         assert [e["sequence"] for e in s] == list(range(1, len(s) + 1))
         assert s[0]["event_type"] == "problem_started" and s[-1]["event_type"] == "problem_completed"

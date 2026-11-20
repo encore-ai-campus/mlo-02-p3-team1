@@ -120,7 +120,9 @@ def _set(local, job, fields, unset=None):
 
 
 def process_job(job, local, remote, pool, ctx, have_lock):
-    """Project one outbox row and record its terminal or retry state. Never raises."""
+    """Project one outbox row and record its terminal or retry state. Never raises.
+
+    Returns None when the row reached a terminal state, else the time it becomes due again."""
     try:
         event = job["event"]
         Projector(local, remote, None, {}).archive(event)
@@ -143,20 +145,36 @@ def process_job(job, local, remote, pool, ctx, have_lock):
                           "updated_at": done, "result": result, "archive_stored": True,
                           "queue_to_terminal_ms": max(0, int((done - job["queued_at"]).total_seconds() * 1000))},
              unset={"reason": "", "last_error": ""})
+        return None
     except Waiting as e:
         archived = remote["pipeline_learning_events"].find_one({"_id": job["_id"]}, {"_id": 1}) is not None
+        due = now() + timedelta(seconds=min(60, 5 * 2 ** min(job["attempts"] - 1, 4)))
         _set(local, job, {"state": "waiting_context", "reason": str(e), "archive_stored": archived, "updated_at": now(),
-                          "next_attempt_at": now() + timedelta(seconds=min(60, 5 * 2 ** min(job["attempts"] - 1, 4)))})
+                          "next_attempt_at": due})
+        return due
     except (Conflict, ValueError, KeyError, TypeError) as e:
         _set(local, job, {"state": "blocked", "reason": str(e)[:200], "updated_at": now()})
+        return None
     except Exception as e:
+        due = now() + timedelta(seconds=min(60, 2 ** min(job["attempts"], 5)))
         _set(local, job, {"state": "retrying", "last_error": type(e).__name__, "updated_at": now(),
-                          "next_attempt_at": now() + timedelta(seconds=min(60, 2 ** min(job["attempts"], 5)))})
+                          "next_attempt_at": due})
+        return due
 
 
-def process_group(jobs, *args):
-    for job in jobs:
-        process_job(job, *args)
+def process_group(jobs, local, *args):
+    """Process one session's rows in order. When a row must wait, the later rows of the same session go back
+    to the queue with the same due time instead of each failing on a sequence gap with its own growing
+    backoff, so the whole session is retried together and in order."""
+    for i, job in enumerate(jobs):
+        due = process_job(job, local, *args)
+        if due is not None and i + 1 < len(jobs):
+            rest = [j["_id"] for j in jobs[i + 1:]]
+            local.remote_event_outbox.update_many(
+                {"_id": {"$in": rest}, "state": "processing"},
+                {"$set": {"state": "pending", "next_attempt_at": due, "updated_at": now()},
+                 "$inc": {"attempts": -1}})  # these rows were not attempted
+            return
 
 
 # ---------------------------------------------------------------- worker process

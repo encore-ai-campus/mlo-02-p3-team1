@@ -23,6 +23,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+import uuid
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -40,6 +41,9 @@ def generate(events: int, players: int, seed: int, fail_bias: float, run_id: str
     total, n = 0, 0
     while total < events:
         s = Session(run_id, player_name(rng.randint(1, players)), rng.choice(games), n, rng)
+        # one problem run per session: the dashboard keys problem_runs by run_id, and the game starts a new
+        # run for every problem (simulator.Session reuses one run per player, which the projection rejects)
+        s.base["run_id"] = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{s.base['session_id']}/run"))
         session = list(s.script(fail_bias=fail_bias))
         n += 1
         total += len(session)

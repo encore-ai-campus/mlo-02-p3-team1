@@ -165,3 +165,17 @@ def test_stage_bulk_inserts_once_per_event(dbs):
  stage(es+[es[0]],l)
  assert l.remote_event_outbox.count_documents({})==len(es)
  assert l.remote_event_outbox.find_one({'_id':es[2]['event_id']})['sequence']==3
+
+def test_group_requeues_rest_of_session_when_one_waits(dbs, monkeypatch):
+ import remote.worker as w
+ l,_=dbs;n=datetime.now(timezone.utc);later=n+timedelta(seconds=30)
+ l.remote_event_outbox.insert_many([{'_id':f'e{i}','state':'processing','sequence':i,'attempts':1,'source_session_id':'S','queued_at':n} for i in (1,2,3)])
+ calls=[]
+ def fake(job,local,*a):
+  calls.append(job['_id']); return later if job['_id']=='e2' else None
+ monkeypatch.setattr(w,'process_job',fake)
+ w.process_group([{'_id':f'e{i}','sequence':i} for i in (1,2,3)], l)
+ assert calls==['e1','e2']
+ e3=l.remote_event_outbox.find_one({'_id':'e3'})
+ assert e3['state']=='pending' and e3['attempts']==0
+
