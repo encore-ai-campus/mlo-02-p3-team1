@@ -27,6 +27,7 @@ const CONFIG_PATH: String = "user://network_config.json"
 const INSTALL_ID_PATH: String = "user://install_id.txt"
 const PENDING_DIR: String = "user://telemetry/pending/"
 const REJECTED_DIR: String = "user://telemetry/rejected/"
+const CORRUPT_DIR: String = "user://telemetry/corrupt/"  # unreadable queue files, kept for tracing
 const DEFAULT_HOST: String = "192.168.0.81"
 const DEFAULT_PORT: int = 8000
 const DEFAULT_ENDPOINT: String = "/v2/events"
@@ -103,6 +104,9 @@ var current_attempt_id: String = ""
 var current_task_id: String = "ST01"
 var content_version: String = "base"
 var sequence_num: int = 1
+var disk_write_failures: int = 0  # disk queue writes that failed (full disk, permissions); shown in the debug log
+var last_disk_error: String = ""
+var corrupt_files_found: int = 0
 var player_id: String = ""
 var active_member_id: String = ""
 
@@ -185,33 +189,46 @@ func _get_or_create_install_id() -> String:
 		wf.close()
 	return new_id
 
+## Account switch rule (reliability review P2): events already created keep the player_id/session_id they were
+## built with (they sit in the queue and on disk as finished dictionaries), and a new player never continues
+## the previous player's session, run, attempt or sequence numbers.
+func _start_new_session_ids() -> void:
+	session_id = generate_uuid_v4()
+	current_run_id = generate_uuid_v4()
+	current_attempt_id = generate_uuid_v4()
+	sequence_num = 1
+
+func _apply_player_id(pid: String) -> void:
+	if pid == player_id:
+		return
+	var had_player := not player_id.is_empty()
+	player_id = pid
+	if had_player:
+		_start_new_session_ids()
+
 func set_active_player_id(member_pid: String) -> void:
 	var cleaned := member_pid.strip_edges()
-	var prev_pid := player_id
 	active_member_id = cleaned
 	if not cleaned.is_empty():
-		player_id = cleaned
+		_apply_player_id(cleaned)
 	else:
 		_update_player_id()
-	if player_id != prev_pid:
-		session_id = generate_uuid_v4()
-		sequence_num = 1
 	log_message("학습 이벤트 player_id 설정됨 (회원 ID): %s" % player_id, "info")
 
 func clear_active_player_id() -> void:
 	active_member_id = ""
-	player_id = _get_or_create_install_id()
-	session_id = generate_uuid_v4()
-	sequence_num = 1
+	_apply_player_id(_get_or_create_install_id())
+	_start_new_session_ids()  # logout always ends the session, even for the same id
 
 func _update_player_id() -> void:
+	_apply_player_id(_resolve_player_id())
+
+func _resolve_player_id() -> String:
 	var env_pid := OS.get_environment("NODEVERSE_PLAYER_ID").strip_edges()
 	if not env_pid.is_empty():
-		player_id = env_pid
-		return
+		return env_pid
 	if not active_member_id.is_empty():
-		player_id = active_member_id
-		return
+		return active_member_id
 	var auth_mgr_class = load("res://scripts/auth_manager.gd")
 	if auth_mgr_class:
 		var store = auth_mgr_class._get_store()
@@ -220,14 +237,11 @@ func _update_player_id() -> void:
 			var users: Dictionary = store.get("users", {})
 			if users.has(u) and users[u] is Dictionary:
 				if not str(users[u].get("server_player_id", "")).is_empty():
-					player_id = str(users[u]["server_player_id"])
-					return
+					return str(users[u]["server_player_id"])
 				if not str(users[u].get("user_id", "")).is_empty():
-					player_id = str(users[u]["user_id"])
-					return
-			player_id = u
-			return
-	player_id = _get_or_create_install_id()
+					return str(users[u]["user_id"])
+			return u
+	return _get_or_create_install_id()
 
 ## Disabled (2026-11-20, GM-3). /api/game/player-login is a server-to-server API protected by
 ## GAME_SERVER_API_KEY, which must never ship in the client; the old call also went to the collector
@@ -618,6 +632,51 @@ func _create_update_event(event_type: String, details: Dictionary = {}) -> Dicti
 func _ensure_queue_dirs() -> void:
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(PENDING_DIR))
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(REJECTED_DIR))
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(CORRUPT_DIR))
+
+## Write a whole file or nothing (reliability review P2): the text goes to <path>.tmp, is checked
+## (open, write error, read back length), and only then replaces <path>. A crash or a full disk leaves at most a
+## .tmp file, which _load_pending_from_disk() repairs or moves to corrupt/ on the next start.
+func _atomic_write(path: String, text: String) -> bool:
+	var tmp := path + ".tmp"
+	var f := FileAccess.open(tmp, FileAccess.WRITE)
+	if f == null:
+		_note_disk_failure(path, "open:" + error_string(FileAccess.get_open_error()))
+		return false
+	f.store_string(text)
+	var werr := f.get_error()
+	f.close()
+	var written := FileAccess.get_file_as_string(tmp)
+	if werr != OK or written.length() != text.length():
+		_note_disk_failure(path, "write:" + error_string(werr))
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(tmp))
+		return false
+	var abs_path := ProjectSettings.globalize_path(path)
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(abs_path)
+	var rerr := DirAccess.rename_absolute(ProjectSettings.globalize_path(tmp), abs_path)
+	if rerr != OK:
+		_note_disk_failure(path, "rename:" + error_string(rerr))
+		return false
+	return true
+
+func _note_disk_failure(path: String, reason: String) -> void:
+	disk_write_failures += 1
+	last_disk_error = "%s (%s)" % [reason, path.get_file()]
+	log_message("디스크 큐 기록 실패: %s — 이벤트는 메모리 큐에 남아 전송을 계속 시도합니다" % last_disk_error, "error")
+
+## A file that cannot be read back as an event is kept (never deleted) under corrupt/ with the reason in its
+## name, so it can be traced later.
+func _quarantine_disk_file(path: String, reason: String) -> void:
+	_ensure_queue_dirs()
+	var stamp := Time.get_datetime_string_from_system(true).replace(":", "").replace("-", "")
+	var dst := CORRUPT_DIR + "%s.%s.%s" % [path.get_file(), reason, stamp]
+	var err := DirAccess.rename_absolute(ProjectSettings.globalize_path(path), ProjectSettings.globalize_path(dst))
+	if err != OK:
+		log_message("손상 파일 이동 실패: %s (%s)" % [path.get_file(), error_string(err)], "error")
+	else:
+		corrupt_files_found += 1
+		log_message("손상된 디스크 큐 파일 보관: %s → corrupt/ (%s)" % [path.get_file(), reason], "warn")
 
 func _pending_file_path(ev_id: String) -> String:
 	return PENDING_DIR + ev_id + ".json"
@@ -631,10 +690,7 @@ func _save_event_to_disk(event_dict: Dictionary) -> void:
 	if ev_id.is_empty():
 		return
 	var path := _pending_file_path(ev_id)
-	var f := FileAccess.open(path, FileAccess.WRITE)
-	if f != null:
-		f.store_string(JSON.stringify(event_dict))
-		f.close()
+	_atomic_write(path, JSON.stringify(event_dict))
 	_enforce_disk_queue_limit()
 
 func _delete_pending_file(ev_id: String) -> void:
@@ -654,16 +710,10 @@ func _move_pending_to_rejected(ev_id: String, fallback_dict: Dictionary = {}) ->
 		var err := DirAccess.rename_absolute(ProjectSettings.globalize_path(src), ProjectSettings.globalize_path(dst))
 		if err != OK:
 			var txt := FileAccess.get_file_as_string(src)
-			var wf := FileAccess.open(dst, FileAccess.WRITE)
-			if wf != null:
-				wf.store_string(txt)
-				wf.close()
-			DirAccess.remove_absolute(ProjectSettings.globalize_path(src))
+			if _atomic_write(dst, txt):  # keep the pending copy if the rejected copy could not be written
+				DirAccess.remove_absolute(ProjectSettings.globalize_path(src))
 	elif not fallback_dict.is_empty():
-		var wf := FileAccess.open(dst, FileAccess.WRITE)
-		if wf != null:
-			wf.store_string(JSON.stringify(fallback_dict))
-			wf.close()
+		_atomic_write(dst, JSON.stringify(fallback_dict))
 
 func _enforce_disk_queue_limit() -> void:
 	var dir := DirAccess.open(PENDING_DIR)
@@ -691,6 +741,21 @@ func _load_pending_from_disk() -> void:
 	var files: PackedStringArray = dir.get_files()
 	if files.is_empty():
 		return
+	# Leftovers of a crash between write and rename: a complete .tmp whose .json is missing is promoted,
+	# anything else is kept under corrupt/.
+	for fname in files:
+		if not fname.ends_with(".json.tmp"):
+			continue
+		var tmp_path := PENDING_DIR + fname
+		var final_path := tmp_path.trim_suffix(".tmp")
+		var tparsed = JSON.parse_string(FileAccess.get_file_as_string(tmp_path))
+		if tparsed is Dictionary and tparsed.has("event_id") and not FileAccess.file_exists(final_path):
+			DirAccess.rename_absolute(ProjectSettings.globalize_path(tmp_path), ProjectSettings.globalize_path(final_path))
+		elif FileAccess.file_exists(final_path):
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(tmp_path))  # the .json is complete
+		else:
+			_quarantine_disk_file(tmp_path, "partial_write")
+	files = DirAccess.open(PENDING_DIR).get_files()
 	var loaded_items: Array = []
 	for fname in files:
 		if not fname.ends_with(".json"):
@@ -700,6 +765,8 @@ func _load_pending_from_disk() -> void:
 		var parsed = JSON.parse_string(txt)
 		if parsed is Dictionary and parsed.has("event_id") and parsed.has("event_type"):
 			loaded_items.append(parsed)
+		else:
+			_quarantine_disk_file(p, "invalid_json" if not parsed is Dictionary else "missing_fields")
 	loaded_items.sort_custom(func(a, b):
 		var ta := str(a.get("occurred_at", ""))
 		var tb := str(b.get("occurred_at", ""))

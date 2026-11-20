@@ -163,9 +163,21 @@ def main(argv=None) -> dict:
     p.add_argument("--write-context", type=Path, help="register dummy players as verified members in this file")
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--out", type=Path, help="also save the generated events as JSON lines")
+    p.add_argument("--reverse-sessions", type=int, default=0,
+                   help="send this many sessions in reverse sequence order (out-of-order arrival test)")
+    p.add_argument("--sessions-out", type=Path, help="write {reversed: [...], normal: [...]} session ids here")
     a = p.parse_args(argv)
     run_id = a.run_id or f"dummy-{int(time.time())}"
     sessions = list(generate(a.events, a.players, a.seed, a.fail_bias, run_id))
+    reversed_ids = []
+    if a.reverse_sessions:
+        picked = random.Random(a.seed + 1).sample(range(len(sessions)), min(a.reverse_sessions, len(sessions)))
+        for i in picked:
+            sessions[i] = list(reversed(sessions[i]))
+            reversed_ids.append(sessions[i][0]["session_id"])
+    if a.sessions_out:
+        a.sessions_out.write_text(json.dumps({"reversed": reversed_ids, "normal": [
+            s[0]["session_id"] for s in sessions if s[0]["session_id"] not in set(reversed_ids)]}), encoding="utf-8")
     count = sum(len(s) for s in sessions)
     if a.out:
         a.out.parent.mkdir(parents=True, exist_ok=True)

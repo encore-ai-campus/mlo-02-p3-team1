@@ -6,7 +6,8 @@
   - **1차 보완:** D29 상태의 코드를 기준으로 한 첫 보완. 커밋 `9a6e513` → `6d499b0` (17:46~19:03 KST)
   - **2차 보완:** PL-9(멈춘 이벤트 처리). 커밋 `17b1999` (22:18 KST)
   - **3차 보완:** CPU 경량화(codex 검토 반영) + PL-8(거절·격리 이벤트 표시). 커밋 `5a44124`, `eb27159` (23:40 KST)
-  - **4차 보완:** codex 신뢰성 검토 P1 6건 + 프로토콜 헬스체크 (11-21 00:00 KST 전후)
+  - **4차 보완:** codex 신뢰성 검토 P1 6건 + 프로토콜 헬스체크. 커밋 `f583cec`
+  - **5차 보완:** 같은 검토의 남은 항목(게임 디스크 큐·계정 전환, 부하·중복·조회 시험, ZORDER 비교) (11-21 07:00 KST 전후)
 - 수치는 이 PC(Windows 11 ARM64 20코어, WSL2 Docker, Spark 4코어)에서 직접 잰 값입니다. 운영 환경 값은 아닙니다.
 - 문제 번호(PL-·BN-·GM-·SV-·CM-·RF-)는 `docs/DATA_FLOW_AND_GAPS.md`의 항목 번호입니다.
 
@@ -336,11 +337,42 @@ codex 검토 두 건(`pipeline/docs/RELIABILITY_REVIEW_REQUEST_2026-11-20.md`, `
 | 처리 도중 `park`된 행은 투영을 중간에 멈추지 않음(멱등 기록은 끝나고 최종 상태만 기록 안 함) |
 | 상세: `docs/changes/2026-11-20_pipeline_reliability.md` |
 
+## 7. 5차 보완 (codex 신뢰성 검토의 남은 항목)
+
+### 7-1. 바꾼 것
+
+| 항목 | 이전 | 이후 | 파일 |
+|---|---|---|---|
+| 게임 디스크 큐 쓰기 | 바로 덮어씀. 쓰다 꺼지면 깨진 JSON | 임시 파일에 쓰고 확인한 뒤 교체. 실패는 횟수·사유로 남기고 메모리 큐로 전송 계속 | `game/scripts/network_manager.gd` |
+| 깨진 큐 파일 | 조용히 건너뜀 | 완전한 임시 파일은 복구, 읽을 수 없는 파일은 `corrupt/`에 사유를 붙여 보관 | 같은 파일 |
+| 로그아웃·계정 전환 | 이전 회원의 run·attempt를 다음 회원이 이어 씀 | 플레이어가 바뀌면 세션·run·attempt·순번을 모두 새로. 이미 만든 이벤트는 원래 회원 그대로 | 같은 파일 |
+| 시험 도구 | - | Godot 헤드리스 시험 `test_disk_queue.gd`, 더미 데이터 `--reverse-sessions` | `game/scripts/tools/`, `pipeline/tools/dummy_data.py` |
+
+### 7-2. 확인 결과
+
+| 시험 | 결과 |
+|---|---|
+| 게임 디스크 큐·계정 전환 (Godot 헤드리스) | 17개 항목 통과 |
+| 6,000건 · 초당 150건 · 30세션 역순 | 전부 stored. 회원 섞임 0, 순번 불연속 0, 누락 0. 역순 세션 p50 14.9초, 정상 세션 p50 11.1초 (막지 않음) |
+| 같은 배치 같은 ID (같은 본문 20, 다른 본문 20) | Silver 20행씩, 모두 먼저 들어온 본문. 다른 본문 20건은 감사에서 id_conflict, Silver와 일치 |
+| 적재 중 대시보드 조회 | 5개 화면·API 모두 200, 500 없음. 적재 후 summary 수렴 |
+| 같은 이벤트 재전송 → Gold | 재전송 전후 1분 집계 동일 |
+| OPTIMIZE ZORDER (복사본, 작은 파일 300개) | 행 수 같음, 파일 300 → 1. event_id 200개 조회 299개 파일 0.99초 → 1개 0.63초 |
+
+### 7-3. 남은 과제
+
+| 내용 |
+|---|
+| 최신 EXE로 하는 실제 게임 종단 시험(강제 종료·재실행·계정 전환 포함), 실제 디스크 부족 재현 |
+| Silver 같은 배치 선택 규칙을 보장하려면 상태 저장소·체크포인트 재구성이 필요 (설계 검토) |
+| OPTIMIZE ZORDER 정기 실행 일정 (스트리밍 정지 필요) |
+| 상세: `docs/changes/2026-11-21_reliability_p2.md` |
+
 ---
 
-## 7. 파이프라인 코드 외 변경 전체
+## 8. 파이프라인 코드 외 변경 전체
 
-### 7-1. 저장소 구성 (공용 git)
+### 8-1. 저장소 구성 (공용 git)
 
 | 내용 | 커밋·위치 |
 |---|---|
@@ -350,7 +382,7 @@ codex 검토 두 건(`pipeline/docs/RELIABILITY_REVIEW_REQUEST_2026-11-20.md`, `
 | GitHub Actions: 파이프라인(단위 테스트 + compose 생성물 검사 + 컴파일), 서버·게임(골격) | `.github/workflows/` |
 | 세 파트 최신화: 게임 88394b1, 서버 3dfece8, 파이프라인 32b0248(remote-sink 브랜치로 전환) | `fdbe457`, `3c2e70d` 등 |
 
-### 7-2. 게임 (`game/scripts/`)
+### 8-2. 게임 (`game/scripts/`)
 
 | 변경 | 파일 |
 |---|---|
@@ -360,8 +392,10 @@ codex 검토 두 건(`pipeline/docs/RELIABILITY_REVIEW_REQUEST_2026-11-20.md`, `
 | 모르는 미니게임 ID는 전송 안 함 (GM-5) | `network_manager.gd` |
 | player-login 비활성화 (GM-3) | `network_manager.gd` |
 | 테스트 봇 멈춤 수정: 월드가 트리에서 빠졌는지 확인, 컴퓨터 근처에서 상호작용 생략 (GM-9) | `tools/live_test_bot_overlay.gd` |
+| 디스크 큐 원자적 쓰기·실패 감지·깨진 파일 보관, 계정 전환 시 새 세션·run·attempt (5차) | `network_manager.gd` |
+| 헤드리스 시험 `test_disk_queue.gd` (5차) | `tools/test_disk_queue.gd` |
 
-### 7-3. 서버 (`server/`)
+### 8-3. 서버 (`server/`)
 
 | 변경 | 파일 |
 |---|---|
@@ -371,7 +405,7 @@ codex 검토 두 건(`pipeline/docs/RELIABILITY_REVIEW_REQUEST_2026-11-20.md`, `
 | 실시간 화면 "분석 화면 적재 상태" 카드 (PL-9·SV-1) | `telemetry/live.py`, `templates/telemetry/live.html`, `static/js/live.js` |
 | 테스트 보강 (해시 저장, 옛 평문 계정 전환) | `telemetry/test_server_part.py` |
 
-### 7-4. 문서
+### 8-4. 문서
 
 | 문서 | 내용 |
 |---|---|
@@ -386,7 +420,7 @@ codex 검토 두 건(`pipeline/docs/RELIABILITY_REVIEW_REQUEST_2026-11-20.md`, `
 | `docs/screenshots/` | 게임 3장, 파이프라인 1장, 서버 4장 |
 | 삭제 | `docs/BRANCH_STRATEGY.md`, 파트별 구현 지시서 PDF(`docs/instructions/`) |
 
-### 7-5. 로컬 실행 환경 (이 PC)
+### 8-5. 로컬 실행 환경 (이 PC)
 
 | 변경 | 위치 |
 |---|---|
@@ -399,8 +433,9 @@ codex 검토 두 건(`pipeline/docs/RELIABILITY_REVIEW_REQUEST_2026-11-20.md`, `
 | 바탕화면 PDF `NODEVERSE_DB조회_방법.pdf`, Compass 연결 파일, DBeaver 연결 미리 등록 | 바탕화면, DBeaver 설정 폴더 |
 | `.env` 파일들(키·비밀번호)은 이 PC에서 새로 생성, git에서 제외 | `pipeline/.env*`, `server/.env*` |
 
-### 7-6. push 상태
+### 8-6. push 상태
 
 - 2차 보완까지: 공용 저장소 `main` `313ea43`에 반영
 - 3차 보완(CPU 경량화 + PL-8): `eb27159`로 push
-- 4차 보완: 로컬 커밋, push 승인 대기
+- 4차 보완: `f583cec`로 push
+- 5차 보완: 이 리포트와 함께 push
