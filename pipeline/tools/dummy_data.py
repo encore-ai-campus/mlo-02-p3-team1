@@ -30,6 +30,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from simulator import GAMES, Session  # noqa: E402
 
 
+def uuid7() -> str:
+    """RFC 9562 UUIDv7: 48-bit Unix ms + random, as game/scripts/network_manager.gd generate_uuid_v7()."""
+    ms = int(time.time() * 1000)
+    b = bytearray(ms.to_bytes(6, "big") + os.urandom(10))
+    b[6] = (b[6] & 0x0F) | 0x70
+    b[8] = (b[8] & 0x3F) | 0x80
+    return str(uuid.UUID(bytes=bytes(b)))
+
+
 def player_name(i: int) -> str:
     return f"dummy-{i:04d}"
 
@@ -45,6 +54,8 @@ def generate(events: int, players: int, seed: int, fail_bias: float, run_id: str
         # run for every problem (simulator.Session reuses one run per player, which the projection rejects)
         s.base["run_id"] = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{s.base['session_id']}/run"))
         session = list(s.script(fail_bias=fail_bias))
+        for e in session:  # same id shape as the game (UUIDv7, time-ordered)
+            e["event_id"] = uuid7()
         n += 1
         total += len(session)
         yield session

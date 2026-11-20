@@ -229,9 +229,16 @@ func _update_player_id() -> void:
 			return
 	player_id = _get_or_create_install_id()
 
-## Sync verified player login with Dashboard Django API: POST /api/game/player-login
-## Gracefully falls back to local UUID if server is offline or GAME_SERVER_API_KEY is unset.
+## Disabled (2026-11-20, GM-3). /api/game/player-login is a server-to-server API protected by
+## GAME_SERVER_API_KEY, which must never ship in the client; the old call also went to the collector
+## host with the ingest key and always failed. The login itself is recorded by /api/game/auth/login,
+## and learning events already carry the logged-in member id as player_id. Kept as a no-op so callers
+## do not change. Set ENABLE_PLAYER_LOGIN_SYNC only for a trusted in-house build that proxies the call.
+const ENABLE_PLAYER_LOGIN_SYNC: bool = false
+
 func sync_player_login(member_id: String, display_name: String) -> void:
+	if not ENABLE_PLAYER_LOGIN_SYNC:
+		return
 	var mid := member_id.strip_edges()
 	var dname := display_name.strip_edges()
 	if mid.is_empty() or dname.is_empty():
@@ -241,7 +248,7 @@ func sync_player_login(member_id: String, display_name: String) -> void:
 	var req := HTTPRequest.new()
 	req.timeout = request_timeout
 	add_child(req)
-	var url := get_base_url() + "/api/game/player-login"
+	var url := get_api_base_url() + "/api/game/player-login"
 	var headers := PackedStringArray([
 		"Content-Type: application/json",
 		"Authorization: Bearer %s" % auth_token
@@ -330,7 +337,8 @@ static func resolve_minigame(raw_id: String) -> Array[String]:
 	for g in LearningCatalog.GAMES:
 		if cleaned.begins_with(str(g[0]).to_upper()):
 			return [str(g[0]), str(g[3])]
-	return ["ST01", "DS"]
+	# Unknown ids used to fall back to ST01/DS and polluted the Array statistics; now they are not sent.
+	return ["", ""]
 
 static func is_update_event(ev_type: String) -> bool:
 	return ev_type in UPDATE_EVENT_TYPES
@@ -565,10 +573,13 @@ func _create_event(event_type: String, details: Dictionary = {}) -> Dictionary:
 	if session_id.is_empty():
 		_init_session()
 	var resolved := resolve_minigame(current_task_id)
+	if resolved[0].is_empty():
+		log_message("알 수 없는 미니게임 ID라 전송하지 않음: '%s' (%s)" % [current_task_id, event_type], "warn")
+		return {}
 	var clean_details := _sanitize_details(details, ALLOWED_LEARNING_DETAIL_KEYS)
 	var ev := {
 		"schema_version": 2,
-		"event_id": generate_uuid_v4(),
+		"event_id": generate_uuid_v7(),
 		"player_id": player_id if not player_id.is_empty() else _get_or_create_install_id(),
 		"session_id": session_id,
 		"run_id": current_run_id if not current_run_id.is_empty() else generate_uuid_v4(),
@@ -591,7 +602,7 @@ func _create_update_event(event_type: String, details: Dictionary = {}) -> Dicti
 	var clean_details := _sanitize_details(details, ALLOWED_UPDATE_DETAIL_KEYS)
 	return {
 		"schema_version": 2,
-		"event_id": generate_uuid_v4(),
+		"event_id": generate_uuid_v7(),
 		"player_id": player_id if not player_id.is_empty() else _get_or_create_install_id(),
 		"run_id": current_run_id if not current_run_id.is_empty() else generate_uuid_v4(),
 		"build_version": get_build_version(),
@@ -714,7 +725,7 @@ func _load_pending_from_disk() -> void:
 # ASYNC TRANSMISSION & EXCEPTION SAFETY
 # ==========================================
 func _dispatch_event(event_dict: Dictionary) -> void:
-	if not auto_send_enabled:
+	if not auto_send_enabled or event_dict.is_empty():
 		return
 	_save_event_to_disk(event_dict)
 	var ev_type := str(event_dict.get("event_type", ""))
@@ -744,8 +755,16 @@ func _try_flush_queue() -> void:
 	if next_idx < 0:
 		return
 
-	_is_busy = true
 	var current_event: Dictionary = _pending_queue[next_idx]
+	# The collector refuses events older than 6 days (too_old): expire them locally instead of sending.
+	if _is_expired(current_event):
+		_pending_queue.remove_at(next_idx)
+		_move_pending_to_rejected(str(current_event.get("event_id", "")), current_event)
+		log_message("6일 지난 이벤트 만료 처리: %s" % str(current_event.get("event_type", "")), "warn")
+		if get_tree():
+			get_tree().create_timer(0.05).timeout.connect(_try_flush_queue)
+		return
+	_is_busy = true
 	if next_idx > 0:
 		_pending_queue.remove_at(next_idx)
 		_pending_queue.push_front(current_event)
@@ -824,8 +843,13 @@ func _handle_network_failure(reason: String, code: int, _body_str: String = "") 
 	_last_fail_time = Time.get_ticks_msec()
 	_set_status(NetStatus.OFFLINE, "오프라인/오류: %s" % reason)
 
-	# G2 Rule: 401 & 422 are moved to user://telemetry/rejected/ and NOT retried
-	if code == 401 or code == 422:
+	# 401 = this PC's key is wrong, not the event: keep it in pending/ and retry at the slowest
+	# interval, so everything is delivered as soon as the key is fixed (F6 panel / network_config.json).
+	if code == 401:
+		_retry_backoff_sec = BACKOFF_MAX_SEC
+	# Any other 4xx except 408/429 will never succeed for this body: move it to rejected/ so it does not
+	# block every later event (head-of-line). 408/429/5xx/network errors are retried below.
+	elif code >= 400 and code < 500 and code != 408 and code != 429:
 		if not _pending_queue.is_empty():
 			var rejected_item: Dictionary = _pending_queue.pop_front()
 			_move_pending_to_rejected(str(rejected_item.get("event_id", _active_event_id)), rejected_item)
@@ -879,6 +903,8 @@ func test_connection() -> void:
 		return
 	log_message("서버 연결 테스트: %s" % get_full_url(), "info")
 	_update_player_id()
+	if resolve_minigame(current_task_id)[0].is_empty():
+		current_task_id = "ST01"  # the connection test is sent as an ST01 event, as before
 	var test_ev := _create_event("operation_succeeded", {"operation": "ping_test", "level": 1, "moves": 0, "mistakes": 0})
 	_dispatch_event(test_ev)
 
@@ -914,6 +940,32 @@ func get_logs() -> Array:
 
 func clear_logs() -> void:
 	_logs.clear()
+
+const MAX_EVENT_AGE_SEC: int = 6 * 24 * 3600  # same as pipeline contract MAX_EVENT_AGE
+
+static func _is_expired(ev: Dictionary) -> bool:
+	var ts := str(ev.get("occurred_at", ""))
+	if ts.length() < 19:
+		return false
+	var unix := Time.get_unix_time_from_datetime_string(ts.left(19))
+	return unix > 0 and Time.get_unix_time_from_system() - float(unix) > float(MAX_EVENT_AGE_SEC)
+
+## Time-ordered event id (RFC 9562 UUIDv7): 48-bit Unix ms + random. Same UUID text format as v4,
+## but ids grow with time, so the pipeline's Silver MERGE can skip Delta files by event_id range.
+static func generate_uuid_v7() -> String:
+	var ms: int = int(Time.get_unix_time_from_system() * 1000.0)
+	var b := PackedByteArray()
+	b.resize(16)
+	for i in range(6):
+		b[i] = (ms >> (8 * (5 - i))) & 0xff
+	for i in range(6, 16):
+		b[i] = randi() % 256
+	b[6] = (b[6] & 0x0f) | 0x70
+	b[8] = (b[8] & 0x3f) | 0x80
+	return "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x" % [
+		b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7],
+		b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15]
+	]
 
 static func generate_uuid_v4() -> String:
 	var b := PackedByteArray()

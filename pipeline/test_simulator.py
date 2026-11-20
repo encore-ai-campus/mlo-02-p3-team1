@@ -49,3 +49,29 @@ def test_dummy_data_sessions_follow_contract_and_rules():
             if e["event_type"] in ("attempt_succeeded", "attempt_failed"):
                 assert e["attempt_id"] not in ends, "one outcome per attempt"
                 ends.add(e["attempt_id"])
+
+
+def test_dummy_event_ids_are_time_ordered_uuid7():
+    import uuid
+    from tools.dummy_data import uuid7
+    a = uuid7()
+    import time
+    time.sleep(0.002)
+    b = uuid7()
+    assert uuid.UUID(a).version == 7 and a < b
+
+
+def test_silver_merge_condition_bounds_dates_and_v7_ids():
+    import importlib.util, sys, types
+    from datetime import date
+    # silver.py needs pyspark; only the pure condition builder is tested here
+    if importlib.util.find_spec("pyspark") is None:
+        import pytest
+        pytest.skip("pyspark not installed")
+    sys.path.insert(0, "spark")
+    import silver
+    c = silver.merge_condition(date(2026, 11, 20), date(2026, 11, 20),
+                               "019aa000-0000-7000-8000-000000000000", "019aa0ff-0000-7000-8000-000000000000")
+    assert "BETWEEN DATE '2026-11-13' AND DATE '2026-11-21'" in c and "t.event_id BETWEEN" in c
+    assert "t.event_id BETWEEN" not in silver.merge_condition(date(2026, 11, 20), date(2026, 11, 20), "x'; drop", "y")
+

@@ -4,9 +4,13 @@ Response JSON shapes are what the Godot client expects; keep them unchanged.
 Server-side additions: every register/login/find-id/reset attempt is written to
 game_login_history for the staff dashboard, and simple cache-based rate limits apply.
 """
+import hashlib
+import hmac
 import json
 import re
 import uuid
+
+from django.conf import settings
 
 from django.contrib.auth.hashers import make_password, check_password
 from django.core.cache import cache
@@ -23,6 +27,28 @@ FAILURE_LIMIT = (10, 600)    # failed logins/resets per username per 10 minutes
 _VERSION_RE = re.compile(r'^[A-Za-z0-9._-]{1,40}$')
 _INSTALL_RE = re.compile(r'^[A-Za-z0-9-]{1,64}$')
 _DUMMY_HASH = make_password('nodeverse-timing-equalizer')
+RECOVERY_PREFIX = 'h1:'
+
+
+def recovery_digest(raw):
+    """Keyed, deterministic hash of a normalised recovery key (SV-2).
+
+    Deterministic so find-id can still look accounts up by key; keyed (HMAC) so a leaked table does not
+    reveal e-mails/nicknames. Rows saved before 2026-11-20 hold plaintext and are upgraded on use and by
+    migration telemetry.0010."""
+    raw = str(raw or '').strip().lower()
+    if not raw:
+        return ''
+    pepper = (getattr(settings, 'RECOVERY_KEY_PEPPER', '') or settings.SECRET_KEY).encode()
+    return RECOVERY_PREFIX + hmac.new(pepper, raw.encode(), hashlib.sha256).hexdigest()
+
+
+def _recovery_matches(stored, raw):
+    if not stored or not raw:
+        return False
+    if stored.startswith(RECOVERY_PREFIX):
+        return hmac.compare_digest(stored, recovery_digest(raw))
+    return hmac.compare_digest(stored, raw)  # legacy plaintext row
 
 
 def _default_save_data(difficulty='NOVICE'):
@@ -131,7 +157,7 @@ def game_auth_register(request):
             player=player,
             username=username,
             password_hash=make_password(password),
-            recovery_key=recovery_key,
+            recovery_key=recovery_digest(recovery_key),
             save_data=save_data,
         )
     _record(request, data, 'register', True, account=account)
@@ -205,7 +231,8 @@ def game_auth_find_id(request):
     if not recovery_key:
         return JsonResponse({'success': False, 'usernames': [], 'message': '복구용 이메일 또는 별명을 입력해주세요.'}, status=400)
 
-    usernames = list(GameAccount.objects.filter(recovery_key=recovery_key).values_list('username', flat=True)[:10])
+    usernames = list(GameAccount.objects.filter(recovery_key__in=[recovery_digest(recovery_key), recovery_key])
+                     .values_list('username', flat=True)[:10])
     if not usernames:
         _record(request, data, 'find_id', False, 'not_found', username='')
         return JsonResponse({'success': False, 'usernames': [], 'message': '일치하는 계정을 찾을 수 없습니다.'}, status=404)
@@ -251,13 +278,17 @@ def game_auth_reset_password(request):
     if not account.recovery_key:
         _record(request, data, 'reset', False, 'no_recovery_key', account=account)
         return JsonResponse({'success': False, 'message': '복구용 이메일/별명이 등록되지 않은 계정입니다. 관리자에게 문의해주세요.'}, status=403)
-    if account.recovery_key != recovery_key:
+    if not _recovery_matches(account.recovery_key, recovery_key):
         _bump(fail_key, FAILURE_LIMIT)
         _record(request, data, 'reset', False, 'wrong_recovery_key', account=account)
         return JsonResponse({'success': False, 'message': '복구용 이메일/별명이 일치하지 않습니다.'}, status=403)
 
     account.password_hash = make_password(new_password)
-    account.save(update_fields=['password_hash'])
+    update = ['password_hash']
+    if not account.recovery_key.startswith(RECOVERY_PREFIX):  # upgrade a legacy plaintext key
+        account.recovery_key = recovery_digest(recovery_key)
+        update.append('recovery_key')
+    account.save(update_fields=update)
     cache.delete(fail_key)
     _record(request, data, 'reset', True, account=account)
 

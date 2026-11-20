@@ -154,7 +154,9 @@ class GameAuthTests(TestCase):
         self.assertFalse(body['save_data']['has_saved_game'])
         account = GameAccount.objects.get(username='Player_01')
         self.assertNotIn('secret-pass', account.password_hash)
-        self.assertEqual(account.recovery_key, 'me@example.com')
+        from telemetry.game_auth_api import recovery_digest
+        self.assertEqual(account.recovery_key, recovery_digest('me@example.com'))  # stored hashed, never plaintext
+        self.assertNotIn('example', account.recovery_key)
         self.assertEqual(self.post('/api/game/auth/register', username='Player_01', password='xyz').status_code, 409)
         self.assertEqual(self.post('/api/game/auth/login', username='Player_01', password='wrong').status_code, 401)
         ok = self.post('/api/game/auth/login', username='Player_01', password='secret-pass', install_id='inst-2')
@@ -192,6 +194,15 @@ class GameAuthTests(TestCase):
                                    new_password='hacked').status_code, 403)
         self.assertEqual(self.post('/api/game/auth/login', username='nokey', password='hacked').status_code, 401)
         self.assertEqual(GameAccount.objects.get(username='nokey').recovery_key, '')
+
+    def test_legacy_plaintext_recovery_key_still_works_and_is_upgraded(self):
+        from telemetry.game_auth_api import recovery_digest
+        self.post('/api/game/auth/register', username='legacy', password='pw1', recovery_key='old-nick')
+        GameAccount.objects.filter(username='legacy').update(recovery_key='old-nick')  # pre-2026-11-20 row
+        self.assertEqual(self.post('/api/game/auth/find-id', recovery_key='old-nick').status_code, 200)
+        self.assertEqual(self.post('/api/game/auth/reset-password', username='legacy', recovery_key='old-nick',
+                                   new_password='pw2').status_code, 200)
+        self.assertEqual(GameAccount.objects.get(username='legacy').recovery_key, recovery_digest('old-nick'))
         kinds = set(GameLoginRecord.objects.values_list('kind', flat=True))
         self.assertTrue({'find_id', 'reset'} <= kinds)
 

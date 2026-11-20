@@ -43,7 +43,7 @@ def producer():
             _producer = Producer({
                 "bootstrap.servers": settings.get().kafka_bootstrap,
                 "enable.idempotence": True, "acks": "all",
-                "delivery.timeout.ms": 10000, "linger.ms": 5,
+                "delivery.timeout.ms": int(settings.get().kafka_delivery_timeout_s * 1000) - 500, "linger.ms": 5,
             })
             # one poller serves delivery callbacks for all concurrent requests
             threading.Thread(target=_poll_forever, args=(_producer,), daemon=True).start()
@@ -59,9 +59,12 @@ def _poll_forever(p):
             log.exception("kafka poll failed; continuing")
 
 
-def send(topic: str, key: str | None, value: dict, timeout: float = 12.0) -> None:
+def send(topic: str, key: str | None, value: dict, timeout: float | None = None) -> None:
     """Produce one record and block until the broker acknowledges it (acks=all). Raises on failure."""
     p = producer()
+    # PL-3/BN-9: a request thread waits at most KAFKA_DELIVERY_TIMEOUT_S (default 5 s, was 12 s) before the
+    # client gets 503 and resends the same event_id; a late delivery is then removed by the Silver dedup.
+    timeout = settings.get().kafka_delivery_timeout_s if timeout is None else timeout
     done = threading.Event()
     result: list = []
 

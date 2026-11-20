@@ -10,6 +10,7 @@ Two kinds of streams read Bronze:
 from __future__ import annotations
 
 import logging
+import re
 import time
 from datetime import timedelta
 
@@ -23,6 +24,7 @@ from common import settings
 
 log = logging.getLogger("silver")
 
+_UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")  # also guards the SQL literal
 LOOKBACK_DAYS = 7  # >= collector MAX_EVENT_AGE (6 days) and Kafka retention (7 days)
 LATE_SECONDS = 300  # event_time falls back to received_at when the clock gap exceeds 5 minutes
 SPECS = {
@@ -47,7 +49,7 @@ def parse(df: DataFrame, schema) -> DataFrame:
             .withColumn("received_at", F.to_timestamp("received_at")))
 
 
-def merge_condition(lo, hi) -> str:
+def merge_condition(lo, hi, id_lo=None, id_hi=None) -> str:
     """Insert-only MERGE key, bounded to the event_date partitions a legal duplicate can live in.
 
     The MERGE is the second line of defence behind the state-store dedup (e.g. after a checkpoint rebuild).
@@ -59,6 +61,11 @@ def merge_condition(lo, hi) -> str:
     if lo is not None and hi is not None:
         cond += (f" AND t.event_date BETWEEN DATE '{(lo - timedelta(days=LOOKBACK_DAYS)).isoformat()}'"
                  f" AND DATE '{(hi + timedelta(days=1)).isoformat()}'")
+    if id_lo and id_hi and _UUID.match(id_lo) and _UUID.match(id_hi):
+        # UUIDv7 ids sort by time, so Delta can skip every file whose event_id min/max misses this range.
+        # Always correct (a matching target row has an id inside the batch's own range); with random v4 ids
+        # the range is just wide and nothing is skipped.
+        cond += f" AND t.event_id BETWEEN '{id_lo}' AND '{id_hi}'"
     return cond
 
 
@@ -72,9 +79,10 @@ def _write_silver(table: str, name: str):
         source = batch.drop("kafka_ts").persist()
         try:
             if not source.isEmpty():
-                lo, hi = source.agg(F.min("event_date"), F.max("event_date")).first()
+                lo, hi, id_lo, id_hi = source.agg(F.min("event_date"), F.max("event_date"),
+                                                  F.min("event_id"), F.max("event_id")).first()
                 (DeltaTable.forPath(spark, tb.path(table)).alias("t")
-                 .merge(source.alias("s"), merge_condition(lo, hi))
+                 .merge(source.alias("s"), merge_condition(lo, hi, id_lo, id_hi))
                  .whenNotMatchedInsertAll().execute())
                 merged = time.monotonic()
                 if settings.get().remote_export_enabled:

@@ -25,7 +25,7 @@ class Settings:
     # collector
     ingest_key: str = field(default_factory=lambda: os.getenv("INGEST_KEY", ""))
     kafka_bootstrap: str = field(default_factory=lambda: os.getenv("KAFKA_BOOTSTRAP", "kafka-1:9092,kafka-2:9092,kafka-3:9092"))
-    kafka_delivery_timeout_s: float = field(default_factory=lambda: float(os.getenv("KAFKA_DELIVERY_TIMEOUT_S", "12")))
+    kafka_delivery_timeout_s: float = field(default_factory=lambda: float(os.getenv("KAFKA_DELIVERY_TIMEOUT_S", "5")))
     # local MongoDB (rt_* aggregates, outbox)
     mongo_uri: str = field(default_factory=lambda: os.getenv("MONGO_URI", "mongodb://mongo:27017"))
     mongo_db: str = field(default_factory=lambda: os.getenv("MONGO_DB", "nodeverse_logs"))

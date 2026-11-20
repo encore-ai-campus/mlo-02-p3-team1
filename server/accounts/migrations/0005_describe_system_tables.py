@@ -20,5 +20,7 @@ def describe_tables(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-    dependencies = [('accounts', '0004_alter_user_table_comment_alter_user_date_joined_and_more')]
+    # sessions must exist first: this migration comments django_session too (failed on an empty DB)
+    dependencies = [('accounts', '0004_alter_user_table_comment_alter_user_date_joined_and_more'),
+                    ('sessions', '0001_initial')]
     operations = [migrations.RunPython(describe_tables, migrations.RunPython.noop)]
