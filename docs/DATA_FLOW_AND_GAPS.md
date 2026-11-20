@@ -76,6 +76,51 @@ flowchart LR
 | BN-8 | **Silver 배치 안의 outbox 적재** | Silver MERGE 직후 드라이버에서 이벤트마다 Mongo 왕복 2회로 outbox에 넣습니다(`remote/outbox.py` 25행) | 부하 시 Silver 배치 시간이 늘어 Gold·대시보드 지연(BN-4)에 더해집니다 | bulk upsert로 묶기 |
 | BN-9 | **수집기 스레드 점유** | Kafka 응답을 최대 12초 기다리는 동안 스레드 하나를 잡습니다(PL-3) | Kafka가 느려지면 수집 API 전체가 느려집니다 | 대기 시간 단축, 동시 처리 제한 |
 
+### 2-1. 로컬 실측 (2026-11-20, 이 PC)
+
+환경: Windows 11 ARM64(20코어) · WSL2 Docker · `전체실행.cmd`로 띄운 기본 설정(Spark 4코어, 드라이버 2GB, Bronze 5초·Silver/Gold 1초 트리거, 원격 적재 켬).
+부하: 시험 송신기(동시 32개)로 학습 이벤트 24,000건 + 18,000건을 각각 초당 약 175건으로 전송. 끝난 시점 Silver 약 4.2만 행.
+
+| 측정 | 결과 | 판단 |
+|---|---|---|
+| 수집 API 응답 | 4.2만 건 중 99.8%가 202, p50 25ms · p95 37ms | 정상 |
+| 수집 API 지연 꼬리 | 약 0.2%(92건)가 20초 넘게 응답 없음 → 클라이언트 타임아웃. 서버 로그에는 모두 202로 기록됨 | 늦게라도 접수는 됐으므로 재전송하면 중복으로 걸러짐. 원인 미확정(Kafka 전송 대기 12초 + 스레드 풀 대기 또는 WSL 네트워크) → BN-9 확인 필요 |
+| 반영 지연 (이벤트 → `rt_minigame_1m`) | 평시 5.3~9.1초 (3회), 초당 177건 부하 중 8.6~12.1초 (5회) | **15초 목표 통과.** 11/16 클라우드 수치(10~53초)는 CPU 포화 탓이었음이 확인됨 (BN-4 해소) |
+| Silver learning 배치 시간 | 평균 3.2~3.3초, 최대 7.1초 (부하 중) | 1초 트리거보다 길어 배치가 밀려 있음. 시간 대부분이 MERGE 뒤 outbox 적재(이벤트당 Mongo 왕복 2회) |
+| Silver 행 수 증가에 따른 변화 | 2.4만 → 4.2만 행 구간에서 평균 3.34초 → 3.22초 (변화 없음) | 이 규모에서는 BN-1이 아직 드러나지 않음. 수십만~백만 행에서 다시 재야 함 |
+| Gold 1분 배치 | 평균 1.4~1.5초, 최대 5.4초 | 여유 있음 |
+| **원격 적재 처리량** | **초당 약 17~24건** (152초 동안 2,639건 처리). 부하 종료 시 outbox 대기 **35,230건**, 다 비우는 데 약 30분 이상 | **가장 큰 병목 (BN-5 확인).** 유입(초당 175건)의 약 1/8만 처리. 대시보드 분석 화면이 실시간에서 수십 분 뒤처짐 |
+
+### 2-2. 병목별 개선안 (우선순위 순)
+
+**① 원격 적재 작업자 (BN-5·BN-7, 실측으로 확인, 효과 가장 큼)**
+- 원인: `remote/worker.py`가 한 번에 한 건만 꺼내고(`claim`, 33행), 이벤트마다 MySQL 새 연결 + `GET_LOCK`(118~122행), 원격 Mongo 원본 저장, 여러 번의 `find_one`(`projection.py` 121~191행), outbox 갱신을 차례로 합니다. 5초마다 `rt_*` 전체 복사(`mirror_metrics`, 50행)도 같은 루프에서 돕니다.
+- 개선:
+  1. MySQL 연결을 작업자 시작 시 한 번 열고 재사용, 회원 조회는 메모리 캐시 (예상: 건당 수십 ms 절감)
+  2. outbox를 100건 단위로 가져와 세션별로 묶고, 세션 안 순서는 지키되 세션끼리는 병렬(스레드 4~8개) 처리
+  3. 원격 Mongo 쓰기를 `bulk_write`로 묶기
+  4. `mirror_metrics`를 별도 스레드로 빼고 `updated_at` 이후 변경분만 복사
+- 목표: 초당 200건 이상. 검증: 이 문서의 부하 시험을 그대로 다시 실행해 outbox 대기 건수가 늘지 않는지 확인.
+
+**② Silver 배치 안의 outbox 적재 (BN-8, 실측으로 확인)**
+- 원인: Silver MERGE 직후 드라이버가 `toLocalIterator()`로 행을 하나씩 돌며 `find_one` + `update_one`(`outbox.py` 25~41행) → 배치당 수백~수천 번 왕복.
+- 개선: `UpdateOne(..., upsert=True)` 목록을 만들어 `bulk_write(ordered=False)` 한 번으로. payload_hash 충돌 확인은 `$setOnInsert` 후 결과의 hash 비교로 대체. 또는 outbox 적재를 별도 스트리밍 쿼리로 분리해 대시보드 경로(Silver→Gold)와 떼어 놓기.
+- 기대: Silver 배치 3.2초 → 1초 안팎, 반영 지연 2~3초 단축.
+
+**③ Silver MERGE 전체 스캔 (BN-1, 코드상 확실·규모가 커지면 드러남)**
+- 원인: `delta_stream.py` 152행 조건 `t.event_id = s.event_id`에 파티션 열(`event_date`)이 없음.
+- 개선: 배치의 `event_date` 최소·최대를 구해 `AND t.event_date BETWEEN lo - 1일 AND hi + 1일`을 조건에 추가. 상태 저장소가 이미 7일 중복 제거를 보장하므로 범위 밖 중복은 생기지 않음.
+- 검증: 100만 행까지 쌓은 뒤 배치 시간 비교.
+
+**④ 작은 파일·Gold 로그 증가 (BN-2·BN-3)**
+- 개선: `delta.autoOptimize.optimizeWrite`/`autoCompact` 테이블 속성 검토, 또는 하루 한 번 `maintain.py --execute`를 쓰기 중지 없이 돌 수 있도록(날짜 파티션 단위 OPTIMIZE) 바꾸기.
+
+**⑤ 수집 API 지연 꼬리 (BN-9·PL-3)**
+- 개선: Kafka 전송 대기 12초 → 3초, 실패 시 즉시 503; uvicorn `--limit-concurrency` 설정; 응답 시간 로그 추가 후 20초 넘는 요청 원인 확정.
+
+**⑥ 세션 순서 대기 (BN-6)**
+- 개선: `sequence_gap` 대기에 기한(예: 10분)을 두고, 넘으면 빈 번호를 표시한 채 다음으로 진행.
+
 ---
 
 ## 3. 보완·추가 구현 목록
@@ -140,7 +185,33 @@ flowchart LR
 
 ---
 
-## 4. 이 PC(Windows ARM)에서 실행 가능 여부
+## 4. 파이프라인 코드 리팩토링 검토
+
+규모: Python 약 3,000줄(`spark/` 900, `remote/` 400, 수집기·계약 400, 시험·도구 1,300). 테스트는 수집기 21개, 원격 투영 14개, 런처·시뮬레이터 6개이고 Spark 처리 로직에는 단위 테스트가 없습니다.
+우선순위 **상**은 병목 개선이나 장애 대응을 하려면 먼저 해야 하는 것, 노력은 S(반나절) · M(1~2일) · L(3일 이상)입니다.
+
+| # | 우선 | 노력 | 분류 | 현재 | 제안 |
+|---|---|---|---|---|---|
+| RF-1 | 상 | M | 모듈 경계 | `spark/delta_stream.py` 484줄 한 파일에 Bronze·Silver·감사·Gold 3종·주기 작업·원격 내보내기·`main`이 모두 있고, 모듈을 import하는 순간 SparkSession이 만들어짐(전역 `spark`) | `bronze.py`·`silver.py`·`gold.py`·`sinks/mongo.py`·`app.py`로 나누고 SparkSession은 `main()`에서 만들어 함수 인자로 전달 → foreachBatch 함수를 로컬 Spark로 단위 테스트 가능 |
+| RF-2 | 상 | M | 예외 처리 | 쿼리 하나 실패 = 앱 전체 종료(`awaitAnyTermination`), Mongo 쓰기 실패는 그대로 예외 | 싱크 쓰기를 `with_retry(fn, attempts, backoff)` 헬퍼로 감싸고, 최종 실패는 실패 기록 컬렉션에 남기고 배치는 통과. 쿼리별 재시작 감시 루프(PL-2) |
+| RF-3 | 상 | M | 모듈 경계 | `remote/worker.py`의 `main()` 하나가 lease·복구·지표 복사·작업 처리·상태 기록을 모두 담은 90줄 루프, 예외 분기 4단계 중첩 | `Lease`, `MetricsMirror`, `OutboxProcessor` 클래스로 분리, 처리기는 배치·병렬화(병목 ①)를 넣을 자리로 |
+| RF-4 | 상 | S | 설정 | 환경 변수 26종을 파일마다 `os.getenv("MONGO_URI", "mongodb://mongo:27017")`처럼 기본값과 함께 직접 읽음(같은 기본값이 4곳) | `settings.py` 하나(dataclass + 시작 시 검증)로 모으고 각 모듈은 그것만 import. 필수 값 누락 시 시작 단계에서 바로 실패 |
+| RF-5 | 상 | S | 중복 | MongoClient 생성 6곳(`outbox.py` 11, `worker.py` 64·66, `delta_stream.py` 54, `probe_latency.py` 22, `review_verify.py` 29), 타임아웃 설정도 제각각 | `db.py`에 `local_mongo()`·`remote_mongo()` 하나씩 |
+| RF-6 | 중 | M | 중복(계약) | 같은 규약이 4벌: pydantic 모델(`contract.py`), Spark 스키마 손작성(`spark/tables.py` 39~52행), 카탈로그 JSON(`remote/catalog.json`), 시뮬레이터 상수(`simulator.py` 26행) + 게임 `learning_catalog.gd` | `contract.py`를 원본으로 두고 Spark 스키마·카탈로그 JSON을 생성하는 스크립트 + CI에서 차이 검사. `contracts/` 폴더를 실제 원본으로(CM-5) |
+| RF-7 | 중 | S | 중복 | 시간 문자열 함수 5개(`collector.now_iso`, `launcher.now`, `worker.now`, `projection.dt`, `delta_stream.iso`) 형식이 서로 다름(런처만 마이크로초) | `timeutil.py` 하나로, 출력 형식은 계약의 `.mmmZ`로 통일 |
+| RF-8 | 중 | S | 의존 구조 | `delta_stream.py`가 `sys.path.insert(0, "/opt/nodeverse")`로 `remote` 패키지를 불러오고 compose가 `./remote`를 볼륨으로 붙임 | `pipeline`을 하나의 설치 가능한 패키지(`pyproject.toml`)로 만들고 Spark 이미지에 설치 |
+| RF-9 | 중 | M | 테스트 | Spark 로직(Silver 필수 필드·중복 제거, Gold 집계, 경고 기준선) 테스트 없음. 검증은 실행 중 스택에 붙는 스크립트(`verify.py`, `review_verify.py`)뿐 | RF-1 뒤 로컬 SparkSession 기반 pytest(작은 DataFrame 입력 → 기대 출력). CI에서 Java 설치 후 실행 |
+| RF-10 | 중 | S | 정리 | 시험·검증 스크립트가 최상위에 흩어짐(`e2e_test.py`, `remote_live_test.py`, `remote_quarantine_smoke.py`, `remote_recovery_smoke.py`, `check.py`) + 환경 덮어쓰기 파일 3종(`.env`, `review.env`, `live.env`) | `tools/` 하위로 모으고 README에 용도 표. 환경은 `.env` + 프로필 1개로 단순화 |
+| RF-11 | 중 | S | 생성물 | `compose.json`은 `build_compose.py`가 만드는 파일인데 함께 커밋됨 → 한쪽만 고치면 어긋남 | CI에서 `python build_compose.py && git diff --exit-code compose.json` 검사, 또는 생성물을 커밋하지 않기 |
+| RF-12 | 하 | S | 죽은 코드 | `nv.bundle.v2` 토픽은 만들지만 생산자·소비자 없음(`topics.py` 5행), `/v1/events`는 "전환 기간까지" 유지 | 사용 계획이 없으면 토픽 제거, `/v1/events`는 런처 v2 전환 후 제거 일정 명시 |
+| RF-13 | 하 | S | 관측성 | 수집기·작업자는 `print`/uvicorn 기본 로그뿐, Spark 진행 상황은 파일(`/data/metrics/streaming-progress.json`)에만 기록 | 구조화 로그(JSON) 통일, 처리량·지연·대기 건수를 `rt_summary`나 `/metrics`로 노출 → 서버 화면에서 확인(SV-1) |
+| RF-14 | 하 | S | 일관성 | 수집기는 `run_in_threadpool` + 전역 Producer + 폴링 스레드, 작업자는 동기 pymongo/pymysql. 타임아웃 값이 3·5·6·7·12초로 흩어짐 | 타임아웃을 settings로 모으고 의미별(수집 응답, DB 연결, 외부 DB 쓰기)로 이름 붙이기 |
+
+**권장 순서:** RF-4·RF-5(설정과 DB 연결 정리) → RF-3과 병목 ①(원격 적재 병렬화) → RF-1·RF-2(Spark 모듈 분리와 싱크 재시도) → RF-9(테스트) → 나머지.
+
+---
+
+## 5. 이 PC(Windows ARM)에서 실행 가능 여부
 
 확인일 2026-11-20. 설치는 하지 않고 상태만 확인했습니다.
 
