@@ -359,7 +359,13 @@ codex 검토 두 건(`pipeline/docs/RELIABILITY_REVIEW_REQUEST_2026-11-20.md`, `
 | 같은 이벤트 재전송 → Gold | 재전송 전후 1분 집계 동일 |
 | OPTIMIZE ZORDER (복사본, 작은 파일 300개) | 행 수 같음, 파일 300 → 1. event_id 200개 조회 299개 파일 0.99초 → 1개 0.63초 |
 
-### 7-3. 남은 과제
+### 7-3. 1~5차 보완 후 동작 아키텍처
+
+![1~5차 보완 후 파이프라인 동작 아키텍처](../architecture/pipeline-architecture-2026-11-21.png)
+
+(원본 SVG: `docs/architecture/pipeline-architecture-2026-11-21.svg`, 생성 스크립트 `docs/architecture/pipeline_architecture.py`)
+
+### 7-4. 남은 과제
 
 | 내용 |
 |---|
