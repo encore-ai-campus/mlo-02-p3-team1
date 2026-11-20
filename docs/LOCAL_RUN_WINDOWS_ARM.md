@@ -30,9 +30,13 @@ wsl -d Ubuntu-24.04 -u root -- bash -lc "apt-get update && apt-get install -y do
 ```ini
 [wsl2]
 vmIdleTimeout=-1
+memory=12GB                    # stack uses 7-8GB; leave the rest to Windows
 
 [general]
 instanceIdleTimeout=-1
+
+[experimental]
+autoMemoryReclaim=dropCache    # return idle Linux cache to Windows
 ```
 
 설정 파일 (모두 git 제외, 값은 각자 생성):
