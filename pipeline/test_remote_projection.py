@@ -138,3 +138,30 @@ def test_predecessor_wakes_next_sequence_without_changing_other_waits(dbs):
  Projector(l,t,None,{}).project(es[0])
  assert l.remote_event_outbox.find_one({'sequence':2})['next_attempt_at']<future-timedelta(minutes=30)
  assert l.remote_event_outbox.find_one({'sequence':3})['next_attempt_at']==future.replace(microsecond=future.microsecond//1000*1000)
+
+
+def test_claim_batch_marks_processing_and_counts_attempts(dbs):
+ from remote.worker import claim_batch
+ l,_=dbs;n=datetime.now(timezone.utc)
+ l.remote_event_outbox.insert_many([{'_id':str(i),'state':'pending','sequence':i,'next_attempt_at':n-timedelta(seconds=1),'queued_at':n,'attempts':0} for i in range(5)]
+  +[{'_id':'later','state':'pending','sequence':9,'next_attempt_at':n+timedelta(hours=1),'queued_at':n,'attempts':0},
+    {'_id':'done','state':'stored','sequence':9,'next_attempt_at':n-timedelta(seconds=1),'queued_at':n,'attempts':1}])
+ jobs=claim_batch(l,3)
+ assert len(jobs)==3 and all(j['attempts']==1 for j in jobs)
+ assert l.remote_event_outbox.count_documents({'state':'processing'})==3
+ assert {j['_id'] for j in claim_batch(l,10)}=={'3','4'}
+ assert claim_batch(l,10)==[]
+
+def test_group_by_session_keeps_sequence_order():
+ from remote.worker import group_by_session
+ n=datetime.now(timezone.utc)
+ jobs=[{'_id':'b2','source_session_id':'B','sequence':2,'queued_at':n},{'_id':'a3','source_session_id':'A','sequence':3,'queued_at':n},
+       {'_id':'a1','source_session_id':'A','sequence':1,'queued_at':n},{'_id':'u','source_session_id':None,'sequence':0,'queued_at':n}]
+ groups={tuple(j['_id'] for j in g) for g in group_by_session(jobs)}
+ assert groups=={('a1','a3'),('b2',),('u',)}
+
+def test_stage_bulk_inserts_once_per_event(dbs):
+ l,_=dbs;es=rows()
+ stage(es+[es[0]],l)
+ assert l.remote_event_outbox.count_documents({})==len(es)
+ assert l.remote_event_outbox.find_one({'_id':es[2]['event_id']})['sequence']==3

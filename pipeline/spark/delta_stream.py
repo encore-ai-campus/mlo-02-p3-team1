@@ -147,16 +147,28 @@ def start_silver():
             from delta.tables import DeltaTable
             source = batch.drop("kafka_ts").persist()
             try:
+                merged = staged = started
                 if not source.isEmpty():
+                    # BN-1: bound the target scan to the batch's event_date partitions (+-1 day).
+                    # The state-store dedup above already guarantees uniqueness within 7 days, so a
+                    # duplicate outside this window cannot reach this point.
+                    lo, hi = source.agg(F.min("event_date"), F.max("event_date")).first()
+                    cond = "t.event_id = s.event_id"
+                    if lo is not None and hi is not None:
+                        cond += (f" AND t.event_date BETWEEN DATE '{(lo - timedelta(days=1)).isoformat()}'"
+                                 f" AND DATE '{(hi + timedelta(days=1)).isoformat()}'")
                     (DeltaTable.forPath(spark, path(table)).alias("t")
-                     .merge(source.alias("s"), "t.event_id = s.event_id")
+                     .merge(source.alias("s"), cond)
                      .whenNotMatchedInsertAll().execute())
+                    merged = time.monotonic()
                     if os.getenv("REMOTE_EXPORT_ENABLED", "0") == "1":
                         from remote.outbox import stage
                         stage(row.asDict(recursive=True) for row in source.toLocalIterator())
+                    staged = time.monotonic()
             finally:
                 source.unpersist()
-            log.info("silver %s batch %s in %.1fs", name, batch_id, time.monotonic() - started)
+            log.info("silver %s batch %s in %.1fs (merge %.1fs, outbox %.1fs)", name, batch_id,
+                     time.monotonic() - started, max(0.0, merged - started), max(0.0, staged - merged))
 
         queries.append(rows.writeStream.queryName("silver_" + name).foreachBatch(write)
                        .option("checkpointLocation", tb.checkpoint(f"silver-{name}-v2"))
