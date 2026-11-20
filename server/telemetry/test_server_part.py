@@ -285,3 +285,107 @@ class LiveApiTests(TestCase):
         self.assertEqual(detail.status_code, 200)
         self.assertContains(detail, 'stack_room')
         self.assertEqual([r.kind for r in detail.context['history']], ['register'])
+        # One sidebar entry: account view and learning view link to each other for the same person.
+        pid = row['player'].pk
+        self.assertContains(page, 'href="/staff/players/"')
+        self.assertContains(detail, f'href="/staff/players/{pid}/"')
+        learning = self.client.get(f'/staff/players/{pid}/')
+        self.assertEqual(learning.status_code, 200)
+        self.assertContains(learning, f'href="/staff/members/{pid}/"')
+        self.assertNotContains(page, '<span>게임 회원</span>')
+
+    def test_member_detail_shows_pipeline_play_by_install_id(self):
+        cache.clear()
+        self.client.post('/api/game/auth/register', json.dumps({'username': 'player9', 'password': 'secret-pass',
+                                                                'install_id': 'inst-play-9'}), content_type='application/json')
+        account = GameAccount.objects.get(username='player9')
+        now = timezone.now()
+        events = database().pipeline_learning_events
+        events.delete_many({'player_id': {'$in': ['inst-play-9', 'someone-else']}})
+        events.insert_many([
+            {'_id': 'p9-1', 'player_id': 'inst-play-9', 'minigame_id': 'ALG01', 'event_type': 'attempt_started', 'occurred_at': now - timedelta(seconds=5)},
+            {'_id': 'p9-2', 'player_id': 'inst-play-9', 'minigame_id': 'ALG01', 'event_type': 'attempt_failed', 'occurred_at': now - timedelta(seconds=4),
+             'details': {'operation': 'wrong_move', 'failure_reason': '교환하지 않았어요'}},
+            {'_id': 'p9-3', 'player_id': 'inst-play-9', 'minigame_id': 'ALG01', 'event_type': 'attempt_succeeded', 'occurred_at': now},
+            {'_id': 'other', 'player_id': 'someone-else', 'minigame_id': 'ST01', 'event_type': 'attempt_started', 'occurred_at': now},
+        ])
+        self.client.force_login(self.admin)
+        page = self.client.get(f'/staff/members/{account.player_id}/')
+        play = page.context['play']
+        self.assertEqual(play['total'], 3)
+        self.assertEqual([(g['code'], g['attempts'], g['succeeded'], g['failed'], g['rate']) for g in play['games']], [('ALG01', 1, 1, 1, 50)])
+        self.assertEqual(play['events'][0]['label'], '시도 성공')
+        self.assertContains(page, '교환하지 않았어요')
+        self.assertNotContains(page, 'someone-else')
+        events.delete_many({'_id': {'$in': ['p9-1', 'p9-2', 'p9-3', 'other']}})
+
+    def test_events_page_reads_pipeline_events_and_names_members(self):
+        cache.clear()
+        self.client.post('/api/game/auth/register', json.dumps({'username': 'player7', 'password': 'secret-pass',
+                                                                'install_id': 'inst-ev-7'}), content_type='application/json')
+        account = GameAccount.objects.get(username='player7')
+        now = timezone.now()
+        events = database().pipeline_learning_events
+        ids = ['e7-1', 'e7-2', 'e7-3', 'e7-old']
+        events.delete_many({'_id': {'$in': ids}})
+        events.insert_many([
+            {'_id': 'e7-1', 'player_id': 'inst-ev-7', 'minigame_id': 'SQL01', 'event_type': 'hint_used', 'occurred_at': now - timedelta(seconds=2), 'sequence': 1},
+            {'_id': 'e7-2', 'player_id': 'inst-ev-7', 'minigame_id': 'SQL01', 'event_type': 'attempt_succeeded', 'occurred_at': now, 'sequence': 2},
+            {'_id': 'e7-3', 'player_id': 'stranger-device', 'minigame_id': 'ST01', 'event_type': 'attempt_started', 'occurred_at': now - timedelta(seconds=1)},
+            {'_id': 'e7-old', 'player_id': 'inst-ev-7', 'minigame_id': 'SQL01', 'event_type': 'attempt_started', 'occurred_at': now - timedelta(days=30)},
+        ])
+        self.client.force_login(self.admin)
+        page = self.client.get('/staff/events/')
+        self.assertEqual(page.status_code, 200)
+        rows = [(r['code'], r['kind'], r['member']['name'] if r['member'] else None) for r in page.context['rows'] if r['code'] in ('SQL01', 'ST01')]
+        self.assertEqual(rows, [('SQL01', 'attempt_succeeded', 'player7'), ('ST01', 'attempt_started', None), ('SQL01', 'hint_used', 'player7')])
+        self.assertContains(page, f'/staff/members/{account.player_id}/#play')
+        self.assertContains(page, '미가입 기기')
+        only = self.client.get(f'/staff/events/?member={account.player_id}&kind=hint_used')
+        self.assertEqual([r['kind'] for r in only.context['rows']], ['hint_used'])
+        events.delete_many({'_id': {'$in': ids}})
+
+    def test_overview_counts_pipeline_play_of_members(self):
+        cache.clear()
+        self.client.post('/api/game/auth/register', json.dumps({'username': 'player5', 'password': 'secret-pass',
+                                                                'install_id': 'inst-ov-5'}), content_type='application/json')
+        now = timezone.now()
+        run, attempt, session = 'aaaaaaaa-0000-4000-8000-000000000001', 'aaaaaaaa-0000-4000-8000-000000000002', 'aaaaaaaa-0000-4000-8000-000000000003'
+        base = {'player_id': 'inst-ov-5', 'minigame_id': 'ST01', 'session_id': session, 'run_id': run, 'content_version': 'base'}
+        rows = [('problem_started', None, {}), ('attempt_started', attempt, {}), ('operation_failed', attempt, {'operation': 'push', 'failure_reason': 'full'}),
+                ('hint_used', None, {}), ('attempt_succeeded', attempt, {}), ('problem_completed', None, {})]
+        docs = [{**base, '_id': f'ov-{n}', 'sequence': n, 'event_type': kind, 'attempt_id': att, 'details': details,
+                 'occurred_at': now - timedelta(seconds=60 - n)} for n, (kind, att, details) in enumerate(rows, 1)]
+        docs.append({'_id': 'ov-stranger', 'player_id': 'not-a-member', 'minigame_id': 'ST01', 'run_id': 'x', 'event_type': 'problem_started', 'occurred_at': now})
+        events = database().pipeline_learning_events
+        events.delete_many({'_id': {'$in': [d['_id'] for d in docs]}})
+        events.insert_many(docs)
+        self.client.force_login(self.admin)
+        page = self.client.get('/staff/')
+        self.assertEqual(page.status_code, 200)
+        stats, learning = page.context['stats'], page.context['learning']
+        self.assertEqual((stats['total'], stats['attempts'], stats['hints'], stats['failures']), (6, 1, 1, 1))
+        self.assertEqual((learning['runs'], learning['completed']), (1, 1))
+        self.assertEqual(learning['failures'], [{'operation': 'push', 'reason': 'full', 'count': 1}])
+        st01 = next(g for g in page.context['catalog']['games'] if g['code'] == 'ST01')
+        self.assertEqual((st01['runs'], st01['completed'], st01['hints']), (1, 1, 1))
+        self.assertEqual(self.client.get('/staff/games/?game_id=ST01&category=structures').status_code, 200)
+        self.assertEqual(self.client.get('/staff/players/').status_code, 200)
+        events.delete_many({'_id': {'$in': [d['_id'] for d in docs]}})
+
+    def test_overview_skips_pipeline_runs_already_in_legacy_collections(self):
+        cache.clear()
+        self.client.post('/api/game/auth/register', json.dumps({'username': 'player4', 'password': 'secret-pass',
+                                                                'install_id': 'inst-dup-4'}), content_type='application/json')
+        run = 'bbbbbbbb-0000-4000-8000-000000000001'
+        db = database()
+        db.pipeline_learning_events.delete_many({'_id': 'dup-1'})
+        db.problem_runs.delete_many({'_id': run})
+        db.pipeline_learning_events.insert_one({'_id': 'dup-1', 'player_id': 'inst-dup-4', 'minigame_id': 'ST01', 'run_id': run,
+                                                'event_type': 'problem_started', 'occurred_at': timezone.now()})
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.get('/staff/').context['learning']['runs'], 1)
+        db.problem_runs.insert_one({'_id': run, 'session_id': 'not-loaded', 'task_id': 'x'})  # projected by the pipeline
+        self.assertEqual(self.client.get('/staff/').context['learning']['runs'], 0)
+        db.pipeline_learning_events.delete_many({'_id': 'dup-1'})
+        db.problem_runs.delete_many({'_id': run})
