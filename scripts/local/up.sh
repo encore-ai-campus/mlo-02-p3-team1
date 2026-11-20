@@ -12,7 +12,7 @@ ok(){ printf '  \033[32m✔ %s\033[0m\n' "$*"; }
 rnd(){ python3 -c "import secrets;print(secrets.token_urlsafe($1))"; }
 get(){ grep -m1 "^$1=" "$2" 2>/dev/null | cut -d= -f2- | tr -d '\r'; }
 
-say "1/6 Docker 엔진"
+say "1/7 Docker 엔진"
 if ! command -v docker >/dev/null; then
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq && apt-get install -y -qq docker.io docker-compose-v2 python3-venv python3-dev pkg-config default-libmysqlclient-dev build-essential curl >/dev/null
@@ -20,7 +20,7 @@ fi
 systemctl enable --now docker >/dev/null 2>&1 || service docker start >/dev/null
 ok "$(docker version --format 'Docker {{.Server.Version}} ({{.Server.Arch}})')"
 
-say "2/6 환경 파일 (.env, git에 올라가지 않음)"
+say "2/7 환경 파일 (.env, git에 올라가지 않음)"
 if [ ! -f "$SRV/.env" ]; then
   cat > "$SRV/.env" <<ENV
 DJANGO_SECRET_KEY=$(rnd 48)
@@ -54,7 +54,7 @@ if [ ! -f "$PIPE/.env.remote" ]; then
 fi
 [ -f "$PIPE/.env.remote-context.json" ] || { echo '{"members": {}}' > "$PIPE/.env.remote-context.json"; ok "pipeline/.env.remote-context.json 생성"; }
 
-say "3/6 MySQL 8.4"
+say "3/7 MySQL 8.4"
 docker volume create nodeverse-mysql >/dev/null
 if ! docker inspect nodeverse-mysql >/dev/null 2>&1; then
   docker run -d --name nodeverse-mysql --restart unless-stopped -p 127.0.0.1:3306:3306 \
@@ -68,14 +68,14 @@ for i in $(seq 1 60); do
 done
 ok "127.0.0.1:3306 준비됨"
 
-say "4/6 파이프라인 (Kafka·Spark·수집기·MongoDB·원격 적재)"
+say "4/7 파이프라인 (Kafka·Spark·수집기·MongoDB·원격 적재)"
 cd "$PIPE"
 docker compose -p nodeverse --env-file .env --profile remote -f compose.json up -d --build --quiet-pull 2>&1 | grep -vE '^\s*$' | tail -3
 docker network connect nodeverse_default nodeverse-mysql 2>/dev/null || true
 for i in $(seq 1 60); do curl -sf -m3 http://127.0.0.1:8000/health/ready >/dev/null && break; sleep 3; done
 curl -sf -m3 http://127.0.0.1:8000/health/ready >/dev/null && ok "수집기 http://127.0.0.1:8000/v2/events 준비됨" || echo "  ⚠ 수집기가 아직 준비되지 않았습니다 (docker logs nodeverse-collector-1)"
 
-say "5/6 Django 서버"
+say "5/7 Django 서버"
 if [ ! -x "$VENV/bin/python" ]; then python3 -m venv "$VENV"; fi
 "$VENV/bin/pip" install -q -r "$SRV/requirements.txt"
 cd "$SRV"
@@ -98,7 +98,7 @@ systemctl daemon-reload; systemctl enable nodeverse-server >/dev/null 2>&1; syst
 for i in $(seq 1 30); do curl -sf -m3 -o /dev/null "http://127.0.0.1:$DJANGO_PORT/" && break; sleep 1; done
 ok "Django http://127.0.0.1:$DJANGO_PORT/staff/ 준비됨"
 
-say "6/6 게임 네트워크 설정"
+say "6/7 게임 네트워크 설정"
 if [ -n "${1:-}" ]; then
   CFG_DIR="$(wslpath -u "$1")/Godot/app_userdata/NODEVERSE 3D Assets"
   mkdir -p "$CFG_DIR"
@@ -116,6 +116,9 @@ json.dump(cfg, open(path, "w", encoding="utf-8"), indent=2)
 PY
   ok "게임이 로컬 수집기(8000)·Django($DJANGO_PORT)로 보내도록 설정"
 fi
+
+say "7/7 DB 조회 화면"
+bash "$ROOT/scripts/local/dbui.sh" || true
 
 printf '\n\033[1;32m완료\033[0m  대시보드 http://127.0.0.1:%s/staff/  (로그인 화면의 "관리자 테스트 로그인")\n' "$DJANGO_PORT"
 docker ps --format '  {{.Names}}\t{{.Status}}' | sort

@@ -89,3 +89,27 @@ Spark 로그: `wsl -d Ubuntu-24.04 -u root -- docker logs -f nodeverse-spark-1`
 3. **실제 게임 계정의 이벤트는 원격 적재에서 대기할 수 있습니다.** remote-writer는 `game_members`에 있는 회원이나 매핑 파일에 등록된 회원만 적재하고, 나머지는 `waiting_context: member_mapping_required`로 둡니다. 실시간 화면(`rt_*`)에는 바로 반영됩니다.
 4. **바탕화면의 Godot 실행 파일이 폴더 안에 있어 배치 파일이 찾지 못합니다.** 배치 파일은 `바탕화면\Godot_v4.7.2-stable_win64.exe`가 *파일*일 때만 찾습니다. 저장소 루트에 복사해 두었습니다(`.gitignore`로 커밋 안 됨).
 5. Windows에서 직접 `pip install -r pipeline/requirements.txt`는 `confluent-kafka` 때문에 실패합니다. 파이프라인 테스트는 WSL이나 컨테이너 안에서 실행합니다.
+
+## 5. MongoDB·MySQL 조회
+
+`전체실행.cmd`가 마지막 단계에서 DB 조회 화면도 함께 띄웁니다(따로 띄우려면 `DB조회화면.cmd`). 두 화면 모두 이 PC(127.0.0.1)에서만 열립니다.
+
+| 대상 | 브라우저 | 명령줄 |
+|---|---|---|
+| MongoDB `nodeverse_logs` (rt_* 집계, outbox, 세션·시도·이벤트) | http://127.0.0.1:8081 (mongo-express) | `DB조회_몽고.cmd` → `show collections`, `db.rt_summary.findOne()` |
+| MySQL `nodeverse` (회원·관리자·배포) | http://127.0.0.1:8082 (Adminer) — 서버 `nodeverse-mysql`, 사용자 `nodeverse_app`, 비밀번호는 `server/.env`의 `MYSQL_PASSWORD`, DB `nodeverse` | `DB조회_MySQL.cmd` → `SHOW TABLES;`, `SELECT * FROM game_members LIMIT 10;` |
+
+자주 쓰는 조회:
+
+```js
+// MongoDB
+db.rt_minigame_1m.find().sort({window_start:-1}).limit(5)                       // 최근 1분 집계
+db.remote_event_outbox.aggregate([{$group:{_id:"$state", n:{$sum:1}}}])          // 원격 적재 상태별 건수
+db.gameplay_events.find({session_id: "<세션 ID>"}).sort({sequence:1})            // 한 세션의 이벤트
+```
+
+```sql
+-- MySQL
+SELECT member_id, external_member_key, nickname, data_source FROM game_members ORDER BY registered_at DESC LIMIT 20;
+SELECT COUNT(*) FROM game_accounts;
+```
