@@ -1,0 +1,44 @@
+# ===== 비밀값 (절대 커밋 금지) =====
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.keystore
+export_credentials.cfg
+
+# ===== Python =====
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+*.sqlite3
+*.sqlite
+*.log
+
+# ===== Godot 4 (game/) =====
+.godot/
+.mono/
+/game/build/
+/game/android/
+*.pck
+*.apk
+*.aab
+mono_crash.*.json
+
+# ===== Node / 웹 =====
+node_modules/
+dist/
+
+# ===== 툴·OS =====
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.tmp
+Thumbs.db
+Desktop.ini
+.DS_Store
