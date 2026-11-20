@@ -116,6 +116,7 @@ flowchart LR
 | GM-6 | P1 | 수집기·Django IP가 코드 기본값에 고정(`192.168.0.81`, `.29`) | `network_manager.gd` 30·33행 | 서버 manifest에서 주소 받기 또는 설치 시 설정 |
 | GM-7 | P1 | `hint_step`을 보내지 않아 서버 화면에 "단계 None" 표시 | `LIVE_REMOTE_SINK.md` 남은 제한 5 | 송신 규약에 넣거나 화면에서 결측 처리 |
 | GM-8 | P2 | 실행·종료 이벤트(run_*, exit_*)는 런처만 보냄. 게임 EXE를 런처 없이 실행하면 비정상 종료 통계가 비어 있음 | `pipeline/launcher.py` | 배포 시 런처 경유 실행 강제 또는 게임 내 최소 이벤트 |
+| GM-9 | P2 | **테스트 봇(F5) 전체 코스가 첫 컴퓨터에서 멈춤.** 메인 섬에서 봇이 `world._on_interact()`를 무조건 호출하는데, 로봇이 컴퓨터 근처에 있으면 2D 메뉴로 전환되며 3D 월드가 트리에서 빠집니다. 봇은 이를 확인하지 않고 빠진 월드를 계속 조작하다가, `await world._open_computer_game()`에서 트리 밖 노드의 트윈을 기다리며 영원히 멈춥니다(로그: `!is_inside_tree()` 오류 연속) | `live_test_bot_overlay.gd` 610·450행, `nodeverse_world.gd` 3888·1478행 | 각 단계 전에 월드가 `is_inside_tree()`인지 확인, `_on_interact` 대신 의도한 동작만 직접 호출, 대기에 시간 제한 |
 
 ### 서버
 
