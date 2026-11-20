@@ -98,6 +98,12 @@ class Projector:
             "sequence": event["sequence"] + 1, "state": "waiting_context",
             "reason": {"$regex": "^sequence_gap:"}},
             {"$set": {"next_attempt_at": datetime.now(timezone.utc)}})
+        # PL-9: a successor parked after the gap deadline comes back as soon as its predecessor is stored.
+        self.local.remote_event_outbox.update_many({"source_session_id": event["session_id"],
+            "sequence": event["sequence"] + 1, "state": "parked",
+            "reason": {"$regex": "^sequence_gap:"}},
+            {"$set": {"state": "pending", "next_attempt_at": datetime.now(timezone.utc)},
+             "$unset": {"parked_at": "", "waiting_since": ""}})
         return result
 
     def quarantine(self, event, reason):

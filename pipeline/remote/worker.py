@@ -33,6 +33,8 @@ from remote.metrics import EPOCH, mirror_metrics  # noqa: F401  (re-exported for
 from remote.projection import Conflict, Projector, Waiting
 
 DUE_STATES = ["pending", "retrying", "waiting_context"]
+PARKED = "parked"  # PL-9: retries stopped, row kept, revived automatically or by remote.requeue
+PARKED_SENTINEL = object()  # process_job result when a row was parked
 LEASE_SECONDS = 45
 
 # kept for older imports
@@ -122,7 +124,8 @@ def _set(local, job, fields, unset=None):
 def process_job(job, local, remote, pool, ctx, have_lock):
     """Project one outbox row and record its terminal or retry state. Never raises.
 
-    Returns None when the row reached a terminal state, else the time it becomes due again."""
+    Returns None when the row reached a terminal state, PARKED_SENTINEL when it was parked,
+    else the time it becomes due again."""
     try:
         event = job["event"]
         Projector(local, remote, None, {}).archive(event)
@@ -144,22 +147,49 @@ def process_job(job, local, remote, pool, ctx, have_lock):
                           ("quarantined_at" if state == "quarantined" else "stored_at"): done,
                           "updated_at": done, "result": result, "archive_stored": True,
                           "queue_to_terminal_ms": max(0, int((done - job["queued_at"]).total_seconds() * 1000))},
-             unset={"reason": "", "last_error": ""})
+             unset={"reason": "", "last_error": "", "waiting_since": "", "parked_at": ""})
         return None
     except Waiting as e:
         archived = remote["pipeline_learning_events"].find_one({"_id": job["_id"]}, {"_id": 1}) is not None
+        reason = str(e)
+        since = job.get("waiting_since") or now()
+        limit = wait_limit(reason)
+        if limit is not None and now() - since >= limit:
+            _park(local, job, reason, archive_stored=archived, waiting_since=since)
+            return PARKED_SENTINEL
         due = now() + timedelta(seconds=min(60, 5 * 2 ** min(job["attempts"] - 1, 4)))
-        _set(local, job, {"state": "waiting_context", "reason": str(e), "archive_stored": archived, "updated_at": now(),
-                          "next_attempt_at": due})
+        _set(local, job, {"state": "waiting_context", "reason": reason, "archive_stored": archived, "updated_at": now(),
+                          "next_attempt_at": due, "waiting_since": since})
         return due
     except (Conflict, ValueError, KeyError, TypeError) as e:
         _set(local, job, {"state": "blocked", "reason": str(e)[:200], "updated_at": now()})
         return None
     except Exception as e:
+        if job["attempts"] >= settings.get().remote_max_retries:
+            _park(local, job, "retry_limit", last_error=type(e).__name__)
+            return PARKED_SENTINEL
         due = now() + timedelta(seconds=min(60, 2 ** min(job["attempts"], 5)))
         _set(local, job, {"state": "retrying", "last_error": type(e).__name__, "updated_at": now(),
                           "next_attempt_at": due})
         return due
+
+
+# ---------------------------------------------------------------- PL-9: parked rows
+
+
+def wait_limit(reason: str):
+    """How long a waiting row keeps retrying before it is parked (None = no limit)."""
+    s = settings.get()
+    if reason == "member_mapping_required":
+        return timedelta(hours=s.remote_wait_member_hours)
+    if reason.startswith("sequence_gap"):
+        return timedelta(minutes=s.remote_wait_gap_minutes)
+    return None
+
+
+def _park(local, job, reason, **fields):
+    _set(local, job, {"state": PARKED, "reason": reason, "parked_at": now(), "updated_at": now(), **fields},
+         unset={"next_attempt_at": ""})
 
 
 def process_group(jobs, local, *args):
@@ -168,6 +198,8 @@ def process_group(jobs, local, *args):
     backoff, so the whole session is retried together and in order."""
     for i, job in enumerate(jobs):
         due = process_job(job, local, *args)
+        if due is PARKED_SENTINEL:
+            due = now() + timedelta(seconds=60)
         if due is not None and i + 1 < len(jobs):
             rest = [j["_id"] for j in jobs[i + 1:]]
             local.remote_event_outbox.update_many(
@@ -213,6 +245,58 @@ class Worker:
             except Exception as e:
                 log(task="mirror_metrics", error=type(e).__name__)
 
+    def _status(self):
+        """PL-9: publish outbox counts (local and dashboard DB) so the server live page can show them."""
+        from remote.requeue import status
+        while not self.stop.wait(10):
+            if not self.leased.is_set():
+                continue
+            try:
+                doc = {"_id": "remote_writer", **status(self.local), "updated_at": now()}
+                for db in (self.local, self.remote):
+                    db.pipeline_sink_status.replace_one({"_id": doc["_id"]}, doc, upsert=True)
+            except Exception as e:
+                log(task="status", error=type(e).__name__)
+
+    def _revive(self):
+        """PL-9: parked 'member_mapping_required' rows go back to the queue when a member may now exist
+        (new game_members row or a changed mapping file)."""
+        seen = None
+        while not self.stop.wait(60):
+            if not self.leased.is_set():
+                continue
+            try:
+                path = Path(settings.get().remote_context_path)
+                mtime = path.stat().st_mtime if path.exists() else 0
+                conn = self.pool.connection()
+                try:
+                    with conn.cursor() as cur:
+                        cur.execute("SELECT COUNT(*), MAX(registered_at) FROM game_members")
+                        members = cur.fetchone()
+                finally:
+                    conn.close()
+                marker = (mtime, members[0], str(members[1]))
+                if seen is not None and marker != seen:
+                    from remote.requeue import requeue
+                    n = requeue(self.local, "member_mapping_required", None)
+                    if n:
+                        log(task="revive", requeued=n)
+                seen = marker
+            except Exception as e:
+                log(task="revive", error=type(e).__name__)
+
+    def _ensure_indexes(self):
+        self.local.remote_event_outbox.create_index([("state", 1), ("next_attempt_at", 1)])
+        self.local.remote_event_outbox.create_index([("state", 1), ("reason", 1)])
+        days = settings.get().remote_done_ttl_days
+        if days > 0:  # PL-10: finished rows are removed after N days; parked/blocked/waiting rows are kept
+            try:
+                self.local.remote_event_outbox.create_index(
+                    [("completed_at", 1)], name="done_ttl", expireAfterSeconds=days * 86400,
+                    partialFilterExpression={"state": {"$in": ["stored", "quarantined"]}})
+            except Exception as e:  # an index with other options already exists: keep it
+                log(task="ttl_index", error=type(e).__name__)
+
     def release(self):
         self.stop.set()
         self.lock.release()
@@ -240,11 +324,13 @@ class Worker:
         return True
 
     def run(self):
-        self.local.remote_event_outbox.create_index([("state", 1), ("next_attempt_at", 1)])
+        self._ensure_indexes()
         atexit.register(self.release)
         signal.signal(signal.SIGTERM, _exit_on_signal)
         threading.Thread(target=self._heartbeat, daemon=True).start()
         threading.Thread(target=self._metrics, daemon=True, name="metrics").start()
+        threading.Thread(target=self._status, daemon=True, name="status").start()
+        threading.Thread(target=self._revive, daemon=True, name="revive").start()
         first = True
         while True:
             try:

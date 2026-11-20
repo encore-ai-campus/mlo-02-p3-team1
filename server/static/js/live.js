@@ -57,7 +57,37 @@
     }
   }
 
+  var SINK_LABELS = { stored: '적재 완료', quarantined: '격리', pending: '대기', processing: '처리 중',
+    retrying: '재시도', waiting_context: '조건 대기', parked: '보관(재시도 멈춤)', blocked: '데이터 오류' };
+  var REASON_LABELS = { member_mapping_required: '회원 매핑 없음', retry_limit: '재시도 한도 초과',
+    other_database_writer_active: '다른 적재 도구 실행 중' };
+
+  function renderSink(sink) {
+    var states = $('sink-states');
+    if (!states) return;
+    if (!sink || !sink.states) { states.textContent = '원격 적재 작업자 상태 기록 없음'; return; }
+    var order = ['stored', 'quarantined', 'pending', 'processing', 'retrying', 'waiting_context', 'parked', 'blocked'];
+    states.textContent = order.filter(function (k) { return sink.states[k]; })
+      .map(function (k) { return SINK_LABELS[k] + ' ' + sink.states[k].toLocaleString(); }).join(' · ') || '적재 기록 없음';
+    var parts = [];
+    ['parked', 'blocked'].forEach(function (state) {
+      var grouped = {};  // sequence_gap:expected_3 / _7 ... are one reason for the operator
+      ((sink.reasons && sink.reasons[state]) || []).forEach(function (r) {
+        var why = REASON_LABELS[r.reason] || (String(r.reason || '').indexOf('sequence_gap') === 0 ? '앞 이벤트 누락' : r.reason);
+        grouped[why] = (grouped[why] || 0) + r.n;
+      });
+      Object.keys(grouped).sort(function (a, b) { return grouped[b] - grouped[a]; }).slice(0, 3).forEach(function (why) {
+        parts.push(SINK_LABELS[state] + ': ' + why + ' ' + grouped[why].toLocaleString() + '건');
+      });
+    });
+    var reasons = $('sink-reasons');
+    reasons.hidden = !parts.length;
+    reasons.textContent = parts.join(' · ');
+    $('sink-updated').textContent = sink.updated_at ? time(sink.updated_at) + ' 기준' : '—';
+  }
+
   function renderLive(summary, games, alerts) {
+    renderSink(summary.sink);
     $('kpi-events').textContent = summary.events_last_1m;
     $('kpi-sessions').textContent = summary.active_sessions_5m;
     $('kpi-alerts').textContent = alerts.alerts.length;

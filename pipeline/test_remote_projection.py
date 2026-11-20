@@ -179,3 +179,66 @@ def test_group_requeues_rest_of_session_when_one_waits(dbs, monkeypatch):
  e3=l.remote_event_outbox.find_one({'_id':'e3'})
  assert e3['state']=='pending' and e3['attempts']==0
 
+
+# ---------------------------------------------------------------- PL-9 parked rows
+def _job(l, i, **extra):
+ n=datetime.now(timezone.utc)
+ doc={'_id':f'j{i}','state':'processing','sequence':i,'attempts':1,'source_session_id':'S','queued_at':n,
+      'event':{'event_id':f'j{i}','schema_version':2,'session_id':'S'}}
+ doc.update(extra);l.remote_event_outbox.insert_one(doc);return doc
+
+class _Pool:
+ def connection(self):
+  class C:
+   def close(self):pass
+  return C()
+
+def _raising(exc):
+ class P:
+  def __init__(self,*a):pass
+  def archive(self,e):return 'learning'
+  def project(self,e):raise exc
+ return P
+
+def test_member_wait_parks_after_deadline(dbs, monkeypatch):
+ import remote.worker as w
+ l,t=dbs;monkeypatch.setattr(w,'Projector',_raising(Waiting('member_mapping_required')))
+ fresh=_job(l,1)
+ assert w.process_job(fresh,l,t,_Pool(),{},True) not in (None,w.PARKED_SENTINEL)
+ assert l.remote_event_outbox.find_one({'_id':'j1'})['state']=='waiting_context'
+ old=_job(l,2,waiting_since=datetime.now(timezone.utc)-timedelta(hours=25))
+ assert w.process_job(old,l,t,_Pool(),{},True) is w.PARKED_SENTINEL
+ row=l.remote_event_outbox.find_one({'_id':'j2'})
+ assert row['state']=='parked' and row['reason']=='member_mapping_required' and 'next_attempt_at' not in row
+
+def test_sequence_gap_parks_after_ten_minutes_and_retry_limit_parks(dbs, monkeypatch):
+ import remote.worker as w
+ l,t=dbs
+ monkeypatch.setattr(w,'Projector',_raising(Waiting('sequence_gap:expected_3')))
+ gap=_job(l,4,waiting_since=datetime.now(timezone.utc)-timedelta(minutes=11))
+ assert w.process_job(gap,l,t,_Pool(),{},True) is w.PARKED_SENTINEL
+ monkeypatch.setattr(w,'Projector',_raising(RuntimeError('db down')))
+ tired=_job(l,5,attempts=20)
+ assert w.process_job(tired,l,t,_Pool(),{},True) is w.PARKED_SENTINEL
+ row=l.remote_event_outbox.find_one({'_id':'j5'})
+ assert row['reason']=='retry_limit' and row['last_error']=='RuntimeError'
+
+def test_parked_gap_successor_revives_when_predecessor_is_stored(dbs):
+ l,t=dbs;es=rows()
+ l.remote_event_outbox.insert_one({'_id':es[1]['event_id'],'source_session_id':es[1]['session_id'],'sequence':2,
+   'state':'parked','reason':'sequence_gap:expected_1','parked_at':datetime.now(timezone.utc)})
+ Projector(l,t,None,{}).project(es[0])
+ row=l.remote_event_outbox.find_one({'sequence':2})
+ assert row['state']=='pending' and 'parked_at' not in row
+
+def test_requeue_and_park_tool(dbs):
+ from remote.requeue import park, requeue, status
+ l,_=dbs;n=datetime.now(timezone.utc)
+ l.remote_event_outbox.insert_many([{'_id':'a','state':'waiting_context','reason':'member_mapping_required','event':{'player_id':'load-1'}},
+  {'_id':'b','state':'waiting_context','reason':'sequence_gap:expected_2','event':{'player_id':'x'}}])
+ assert park(l,'member_mapping_required',None)==1
+ st=status(l)
+ assert st['states']['parked']==1 and st['reasons']['parked'][0]['reason']=='member_mapping_required'
+ assert requeue(l,'member',None)==1
+ assert l.remote_event_outbox.find_one({'_id':'a'})['state']=='pending'
+

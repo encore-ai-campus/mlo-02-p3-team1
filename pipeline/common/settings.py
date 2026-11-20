@@ -54,6 +54,11 @@ class Settings:
     remote_workers: int = field(default_factory=lambda: _int("REMOTE_WORKERS", 8))
     remote_batch: int = field(default_factory=lambda: _int("REMOTE_BATCH", 200))
     remote_sql_pool_size: int = field(default_factory=lambda: _int("REMOTE_SQL_POOL_SIZE", 0))  # 0 = remote_workers
+    # PL-9: when waiting rows stop retrying and become 'parked' (kept, revivable)
+    remote_wait_member_hours: float = field(default_factory=lambda: float(os.getenv("REMOTE_WAIT_MEMBER_HOURS", "24")))
+    remote_wait_gap_minutes: float = field(default_factory=lambda: float(os.getenv("REMOTE_WAIT_GAP_MINUTES", "10")))
+    remote_max_retries: int = field(default_factory=lambda: _int("REMOTE_MAX_RETRIES", 20))
+    remote_done_ttl_days: int = field(default_factory=lambda: _int("REMOTE_DONE_TTL_DAYS", 30))  # 0 = keep forever
 
     @property
     def dedup_ttl_ms(self) -> int:

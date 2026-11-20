@@ -67,7 +67,18 @@ def summary_data():
     age = (timezone.now() - updated).total_seconds() if isinstance(updated, datetime) else None
     return {'events_last_1m': doc.get('events_last_1m', 0), 'active_sessions_5m': doc.get('active_sessions_5m', 0),
             'updated_at': _iso(updated), 'age_seconds': round(age, 1) if age is not None else None,
-            'stale': age is None or age > STALE_SECONDS}
+            'stale': age is None or age > STALE_SECONDS, 'sink': sink_status()}
+
+
+def sink_status():
+    """Remote-writer outbox counts published by the pipeline (PL-9): states and parked/blocked reasons."""
+    doc = database().pipeline_sink_status.find_one({'_id': 'remote_writer'})
+    if not doc:
+        return None
+    updated = doc.get('updated_at')
+    if isinstance(updated, datetime) and updated.tzinfo is None:
+        updated = updated.replace(tzinfo=dt_timezone.utc)
+    return {'states': doc.get('states', {}), 'reasons': doc.get('reasons', {}), 'updated_at': _iso(updated)}
 
 
 @api('GET', authenticated=True)
