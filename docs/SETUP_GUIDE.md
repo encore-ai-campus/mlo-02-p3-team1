@@ -3,7 +3,7 @@
 각자 쓰던 개별 저장소 대신 이제 **통합 저장소 하나**를 clone해서 작업합니다.
 아래 순서대로 하면 30분 안에 원래 하던 작업을 이어갈 수 있습니다. 명령은 Windows PowerShell 기준입니다.
 
-> 공용 저장소 주소: `<공용 저장소 URL>`
+> 공용 저장소 주소: `https://github.com/encore-ai-campus/mlo-02-p3-team1.git`
 
 ## 0. 공통 준비 (모든 담당자)
 
@@ -16,8 +16,8 @@
 
 ```powershell
 git lfs install                                  # PC당 한 번
-git clone <공용 저장소 URL> C:\workspace\nodeverse
-cd C:\workspace\nodeverse
+git clone https://github.com/encore-ai-campus/mlo-02-p3-team1.git C:\workspace\mlo-02-p3-team1
+cd C:\workspace\mlo-02-p3-team1
 git lfs pull                                     # 혹시 에셋이 텍스트 포인터로 보이면
 code nodeverse.code-workspace                    # 파트별 폴더가 나뉘어 보이는 워크스페이스
 ```

@@ -13,7 +13,7 @@
 ## 시작하기
 
 ```bash
-git clone <통합 저장소 URL>
+git clone https://github.com/encore-ai-campus/mlo-02-p3-team1.git
 cd mlo-02-p3-team1
 git lfs install        # game/ 의 Godot 에셋은 LFS로 받습니다
 code nodeverse.code-workspace
