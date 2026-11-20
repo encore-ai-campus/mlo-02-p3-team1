@@ -176,19 +176,28 @@ def load_snapshot(members, start, end, filters):
     events = {key: from_document(BehaviorEvent, doc) for key, doc in event_docs.items()}
     for key, session in sessions.items():
         session.player = member_map[str(session.player_id)]
+    for key in [k for k, r in runs.items() if str(r.session_id) not in sessions or str(r.task_id) not in problems]:
+        runs.pop(key)
+    cohort_docs = [doc for doc in cohort_docs if doc['_id'] in runs]
     for run in runs.values():
         run.session = sessions[str(run.session_id)]
         run.task = problems[str(run.task_id)]
         run._prefetched_objects_cache = {'attempts': Records(), 'events': Records()}
+    # The pipeline writes these collections while this page reads them, so a row can reference a run or
+    # attempt that was inserted after the query above. Skip such links instead of failing the page (500).
+    attempts = {k: a for k, a in attempts.items() if str(a.run_id) in runs}
     for attempt in attempts.values():
         attempt.run = runs[str(attempt.run_id)]
         attempt.run._prefetched_objects_cache['attempts'].append(attempt)
+    for key in [k for k, e in events.items() if str(e.session_id) not in sessions]:
+        events.pop(key)
+    window_events = [doc for doc in window_events if doc['_id'] in events]
     for event in events.values():
         event.session = sessions[str(event.session_id)]
-        if event.run_id:
+        if event.run_id and str(event.run_id) in runs:
             event.run = runs[str(event.run_id)]
             event.run._prefetched_objects_cache['events'].append(event)
-        if event.attempt_id:
+        if event.attempt_id and str(event.attempt_id) in attempts:
             event.attempt = attempts[str(event.attempt_id)]
     # Real game play arrives only in pipeline_learning_events; add it to the same analytics.
     from .pipeline_events import analytics_snapshot

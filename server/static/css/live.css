@@ -94,3 +94,8 @@ td.low,.numeric.low{color:var(--red);font-weight:bold}
 [data-theme=light] .catalog-status.observed::before{background:#1f9d61;box-shadow:none}
 tr.is-observed>td:first-child{box-shadow:inset 3px 0 0 #46d68f}
 tr.no-record>td:not(:first-child):not(:nth-child(3)){opacity:.5}
+
+/* KPI trend arrows (stock-ticker style: up = red, down = blue) */
+.live-stats .trend{display:inline-block;margin-left:10px;font-size:15px;font-weight:600;letter-spacing:0;vertical-align:middle}
+.live-stats .trend.up{color:#d6336c}
+.live-stats .trend.down{color:#1c7ed6}

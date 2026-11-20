@@ -6,10 +6,10 @@
 
 {% if tab == 'live' %}
 <div class="stats live-stats">
-  <article class="card stat featured"><span class="mini-label">최근 1분 이벤트</span><strong id="kpi-events">—</strong><span class="muted">rt_summary.events_last_1m</span></article>
-  <article class="card stat"><span class="mini-label">5분 활성 세션</span><strong id="kpi-sessions">—</strong><span class="muted">rt_summary.active_sessions_5m</span></article>
-  <article class="card stat"><span class="mini-label">최근 30분 시도</span><strong id="kpi-attempts">—</strong><span class="muted">24개 미니게임 합계</span></article>
-  <article class="card stat"><span class="mini-label">실패 급증 경고 (60분)</span><strong id="kpi-alerts">—</strong><span class="muted">시도 20↑ · 실패율 0.4↑ · 평소 1.5배↑</span></article>
+  <article class="card stat featured"><span class="mini-label">최근 1분 이벤트</span><strong><span id="kpi-events">—</span><span class="trend" id="kpi-events-trend"></span></strong><span class="muted" id="kpi-events-note">게임에서 들어온 학습 행동 수</span></article>
+  <article class="card stat"><span class="mini-label">5분 활성 세션</span><strong><span id="kpi-sessions">—</span><span class="trend" id="kpi-sessions-trend"></span></strong><span class="muted" id="kpi-sessions-note">5분 안에 행동이 있었던 플레이</span></article>
+  <article class="card stat"><span class="mini-label">최근 30분 시도</span><strong><span id="kpi-attempts">—</span><span class="trend" id="kpi-attempts-trend"></span></strong><span class="muted" id="kpi-attempts-note">24개 미니게임 합계</span></article>
+  <article class="card stat"><span class="mini-label">실패 급증 경고 (60분)</span><strong><span id="kpi-alerts">—</span><span class="trend" id="kpi-alerts-trend"></span></strong><span class="muted">시도 20↑ · 실패율 0.4↑ · 평소 1.5배↑</span></article>
 </div>
 <section class="card viz-card full" id="sink-card"><div class="chart-head"><div><span class="eyebrow">REMOTE WRITER</span><h2>분석 화면 적재 상태</h2></div><span class="chart-number" id="sink-updated">—</span></div>
   <p class="chart-note" id="sink-states">불러오는 중…</p>
@@ -38,4 +38,4 @@
 </div>
 {% endif %}
 <script id="live-config" type="application/json">{"tab": "{{ tab }}", "releasesUrl": "{% url 'releases' %}"}</script>
-{% endblock %}{% block scripts %}<script src="{% static 'js/live.js' %}"></script>{% endblock %}
+{% endblock %}{% block scripts %}<script src="{% static 'js/live.js' %}?v=2"></script>{% endblock %}

@@ -86,11 +86,42 @@
     $('sink-updated').textContent = sink.updated_at ? time(sink.updated_at) + ' 기준' : '—';
   }
 
+  // Trend arrows (like a stock ticker): compare each KPI with its value about one minute ago.
+  // Shown only for a clear change: at least TREND_MIN_ABS and TREND_MIN_RATIO of the earlier value.
+  var TREND_WINDOW_MS = 60000, TREND_MIN_ABS = 3, TREND_MIN_RATIO = 0.2;
+  var history = {};
+
+  function setKpi(key, value, noteBase) {
+    $('kpi-' + key).textContent = Number(value).toLocaleString();
+    var now = Date.now();
+    var h = history[key] || (history[key] = []);
+    h.push({ t: now, v: value });
+    while (h.length > 2 && now - h[1].t >= TREND_WINDOW_MS) h.shift();  // keep the newest sample older than 1 min
+    var trend = $('kpi-' + key + '-trend');
+    var note = $('kpi-' + key + '-note');
+    var base = h[0];
+    if (!trend) return;
+    if (now - base.t < TREND_WINDOW_MS * 0.9) {  // not enough history yet (page just opened)
+      trend.textContent = ''; trend.className = 'trend';
+      if (note && noteBase) note.textContent = noteBase;
+      return;
+    }
+    var diff = value - base.v;
+    var big = Math.abs(diff) >= TREND_MIN_ABS && Math.abs(diff) >= Math.abs(base.v) * TREND_MIN_RATIO;
+    trend.className = 'trend' + (big ? (diff > 0 ? ' up' : ' down') : '');
+    trend.textContent = big ? (diff > 0 ? '▲ ' : '▼ ') + Math.abs(diff).toLocaleString() : '';
+    trend.title = big ? '1분 전 ' + base.v.toLocaleString() + ' → 지금 ' + value.toLocaleString() : '';
+    if (note && noteBase) {
+      var pct = base.v ? ' (' + (diff > 0 ? '+' : '') + Math.round(diff / base.v * 100) + '%)' : '';
+      note.textContent = big ? '1분 전보다 ' + (diff > 0 ? '급증' : '급감') + pct : noteBase;
+    }
+  }
+
   function renderLive(summary, games, alerts) {
     renderSink(summary.sink);
-    $('kpi-events').textContent = summary.events_last_1m;
-    $('kpi-sessions').textContent = summary.active_sessions_5m;
-    $('kpi-alerts').textContent = alerts.alerts.length;
+    setKpi('events', summary.events_last_1m, '게임에서 들어온 학습 행동 수');
+    setKpi('sessions', summary.active_sessions_5m, '5분 안에 행동이 있었던 플레이');
+    setKpi('alerts', alerts.alerts.length);
     var minutes = [];
     var now = Date.now();
     for (var m = games.minutes; m >= 1; m--) minutes.push(Math.floor((now - m * 60000) / 60000));
@@ -107,7 +138,7 @@
       total += g.attempts;
       return { game: game, g: g };
     }).sort(function (a, b) { return b.g.attempts - a.g.attempts; });
-    $('kpi-attempts').textContent = total;
+    setKpi('attempts', total, '24개 미니게임 합계');
     $('game-rows').innerHTML = rows.map(function (r) {
       var rate = r.g.attempts ? r.g.successes / r.g.attempts : null;
       return '<tr><td><strong>' + esc(r.game.minigame_id) + '</strong><small>' + esc(r.game.title) + '</small></td><td>' +
