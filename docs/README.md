@@ -5,6 +5,12 @@
 - [DATA_FLOW_AND_GAPS.md](DATA_FLOW_AND_GAPS.md) — 합친 코드 기준 데이터 흐름과 보완·추가 구현 목록 (우선순위별)
 - [INTEGRATION_REVIEW_2026-11-20.md](INTEGRATION_REVIEW_2026-11-20.md) — 게임·파이프라인·서버 연동 종합 검토
 
+## changes/ — 파트별 변경 구현서 (각 파트 AI 에이전트 학습용)
+
+- [2026-11-20_game.md](changes/2026-11-20_game.md) — UUIDv7 이벤트 ID, 전송 큐·만료, 미등록 미니게임, player-login, 테스트 봇
+- [2026-11-20_pipeline.md](changes/2026-11-20_pipeline.md) — 모듈 구조, 원격 적재 병렬화, Silver MERGE 조건, 측정 결과
+- [2026-11-20_server.md](changes/2026-11-20_server.md) — 마이그레이션 순서, recovery_key 해시
+
 ## reports/ — 보고서
 
 - `NODEVERSE_중간보고서_v1.0.pdf` (2026-11-10)
