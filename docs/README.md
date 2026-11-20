@@ -1,6 +1,7 @@
 # docs/ — 팀 공통 문서
 
 - [BRANCH_STRATEGY.md](BRANCH_STRATEGY.md) — 브랜치·PR 규칙, 비밀값 규칙, 원본 저장소에서 가져오는 방법
+- [INTEGRATION_REVIEW_2026-11-20.md](INTEGRATION_REVIEW_2026-11-20.md) — 게임·파이프라인·서버 연동 종합 검토
 
 ## instructions/ — 파트별 구현 지시서 (2026-11-16)
 
