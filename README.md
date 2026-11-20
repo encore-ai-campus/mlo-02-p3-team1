@@ -8,7 +8,7 @@ git clone https://github.com/encore-ai-campus/mlo-02-p3-team1.git
 code mlo-02-p3-team1/nodeverse.code-workspace
 ```
 
-> 처음 받는 사람은 [개발환경 구성 가이드](docs/SETUP_GUIDE.md)부터 보세요.
+> 처음 받는 사람은 [개발환경 구성 가이드](docs/SETUP_GUIDE.md)부터 보세요. 한 PC에서 전체를 띄우려면 저장소 루트의 **`전체실행.cmd`** 를 더블클릭하세요(중지: `전체중지.cmd`, 상태: `상태확인.cmd`, 자세히: [LOCAL_RUN_WINDOWS_ARM.md](docs/LOCAL_RUN_WINDOWS_ARM.md)).
 
 ---
 
@@ -75,12 +75,11 @@ mlo-02-p3-team1/
 4. 시작할 때 `/api/game/manifest`로 새 버전·리소스 팩을 확인하고 업데이트 이벤트를 보냅니다.
 5. 실행·종료 감시는 `launcher.exe`(`pipeline/launcher.py`)가 맡아 `/v1/events`로 보냅니다.
 
-**실행 화면** (캡처 예정)
+**실행 화면**
 
-<!-- 스크린샷 자리: docs/screenshots/game-*.png -->
-- [ ] 메인 월드(섬·다리)
-- [ ] 미니게임 플레이 화면
-- [ ] F6 네트워크 디버그 패널(전송 상태)
+| 로비 | 3D 월드 · 테스트 봇(F5) |
+|---|---|
+| ![게임 로비](docs/screenshots/game-1-lobby.png) | ![게임 월드](docs/screenshots/game-2-world-bot.png) |
 
 자세히: [`game/README.md`](game/README.md), [`game/MINIGAME_GUIDE.md`](game/MINIGAME_GUIDE.md), [`game/docs/`](game/docs/)
 
@@ -101,13 +100,9 @@ mlo-02-p3-team1/
 - **지연:** 이벤트가 대시보드 `rt_*`에 반영되기까지 평시 약 10~18초입니다(구조상 제약, D22).
 - **원격 적재:** 회원 매핑이 없거나 세션 순서가 비면 `waiting_context`로 기다리고, 잘못된 데이터는 `blocked`, 일시 오류는 `retrying`으로 둡니다.
 
-**실행 화면** (캡처 예정)
+**실행 화면**
 
-<!-- 스크린샷 자리: docs/screenshots/pipeline-*.png -->
-- [ ] `docker compose ps` 서비스 상태
-- [ ] 수집 API 202 응답
-- [ ] Spark 로그(started queries)
-- [ ] MongoDB `rt_*` 조회 결과
+![파이프라인 로컬 실행 상태](docs/screenshots/pipeline-1-status.png)
 
 자세히: [`pipeline/README.md`](pipeline/README.md), [`pipeline/docs/DECISIONS.md`](pipeline/docs/DECISIONS.md), [`pipeline/docs/LIVE_REMOTE_SINK.md`](pipeline/docs/LIVE_REMOTE_SINK.md)
 
@@ -123,12 +118,11 @@ mlo-02-p3-team1/
 
 **동작 방식:** 서버는 학습 이벤트를 직접 받지 않습니다. 실시간 화면은 파이프라인이 채운 `rt_*`를 읽고, 분석 화면은 remote-writer가 적재한 `game_sessions`·`problem_runs`·`solution_attempts`·`gameplay_events`·`pipeline_learning_events`를 읽습니다. 게임이 서버를 직접 부르는 것은 회원가입·로그인·세이브·업데이트 확인뿐입니다.
 
-**실행 화면** (캡처 예정)
+**실행 화면**
 
-<!-- 스크린샷 자리: docs/screenshots/server-*.png -->
-- [ ] `/staff/` 개요
-- [ ] `/staff/live/` 실시간 현황
-- [ ] `/staff/events/` 이벤트 목록
+| 전체 현황 | 실시간 현황 | 행동 로그 |
+|---|---|---|
+| ![전체 현황](docs/screenshots/server-1-overview.png) | ![실시간 현황](docs/screenshots/server-2-live.png) | ![행동 로그](docs/screenshots/server-3-events.png) |
 
 자세히: [`server/README.md`](server/README.md), [`server/docs/`](server/docs/)
 
