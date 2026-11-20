@@ -57,7 +57,7 @@ mlo-02-p3-team1/
 이 저장소는 `git filter-repo`로 원본 히스토리를 폴더 아래로 옮긴 뒤 병합하는 방식으로 만들었습니다.
 준비: `pip install git-filter-repo`
 
-### 5-1. game/ 가져오기 (아직 안 함)
+### 5-1. game/ 가져오기 (2026-11-20 완료, 다시 가져올 때 참고)
 
 ```bash
 # 임시 폴더에서
@@ -105,7 +105,7 @@ python -m git_filter_repo --replace-text replace.txt --force
 |---|---|---|---|
 | `pipeline/` | jobless-fish/NVG, `pipeline-v2/` 하위만 | `feature/codex-pipeline-v2-20261120` | 2026-11-20 |
 | `server/` | ericsw2727/MLO_3rd_project_dashboard | `main` | 2026-11-20 |
-| `game/` | junbum8398-blip/nodeverse-game | `main` | 대기 중 |
+| `game/` | junbum8398-blip/nodeverse-game (`fd2f390`까지, Groq 키 제거·바이너리 974개 LFS 전환) | `main` | 2026-11-20 |
 
 NVG 저장소에 함께 있는 옛 게임 코드와 `pipeline/`(v1)은 가져오지 않았습니다.
 서버 원본의 `server/live-members-releases` 브랜치도 가져오지 않았습니다(필요하면 같은 방식으로 추가).
