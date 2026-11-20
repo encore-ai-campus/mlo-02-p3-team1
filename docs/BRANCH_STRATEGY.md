@@ -103,9 +103,9 @@ python -m git_filter_repo --replace-text replace.txt --force
 
 | 폴더 | 원본 | 브랜치 | 가져온 날짜 |
 |---|---|---|---|
-| `pipeline/` | jobless-fish/NVG, `pipeline-v2/` 하위만 | `feature/codex-pipeline-v2-20261120` | 2026-11-20 |
-| `server/` | ericsw2727/MLO_3rd_project_dashboard | `main` | 2026-11-20 |
-| `game/` | junbum8398-blip/nodeverse-game (`fd2f390`까지, Groq 키 제거·바이너리 974개 LFS 전환) | `main` | 2026-11-20 |
+| `pipeline/` | jobless-fish/NVG, `pipeline-v2/` 하위만 (`32b0248`까지) | `feature/codex-v2-remote-sink` (처음엔 `feature/codex-pipeline-v2-20261120`) | 2026-11-20 15:22 |
+| `server/` | ericsw2727/MLO_3rd_project_dashboard (`3dfece8`까지) | `main` | 2026-11-20 15:52 |
+| `game/` | junbum8398-blip/nodeverse-game (`88394b1`까지, Groq 키 제거·바이너리 LFS 전환) | `main` | 2026-11-20 15:24 |
 
 NVG 저장소에 함께 있는 옛 게임 코드와 `pipeline/`(v1)은 가져오지 않았습니다.
 서버 원본의 `server/live-members-releases` 브랜치도 가져오지 않았습니다(필요하면 같은 방식으로 추가).

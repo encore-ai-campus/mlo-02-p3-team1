@@ -5,7 +5,7 @@
 | 폴더 | 내용 | 원본 저장소 |
 |---|---|---|
 | `game/` | Godot 게임 클라이언트 + 소개 웹사이트 | junbum8398-blip/nodeverse-game (`main`) |
-| `pipeline/` | 이벤트 수집기 + Kafka + Spark/Delta 파이프라인 v2 | jobless-fish/NVG (`feature/codex-pipeline-v2-20261120`의 `pipeline-v2/`) |
+| `pipeline/` | 이벤트 수집기 + Kafka + Spark/Delta 파이프라인 v2 | jobless-fish/NVG (`feature/codex-v2-remote-sink`의 `pipeline-v2/`) |
 | `server/` | Django 대시보드·계정·게임 연동 서버 | ericsw2727/MLO_3rd_project_dashboard (`main`) |
 | `contracts/` | 세 파트가 공유하는 이벤트 스키마·Kafka 토픽 | pipeline의 `contract.py`, `topics.py`에서 시작 |
 | `docs/` | 팀 공통 문서 (브랜치 전략 등) | — |
