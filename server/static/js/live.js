@@ -86,6 +86,34 @@
     $('sink-updated').textContent = sink.updated_at ? time(sink.updated_at) + ' 기준' : '—';
   }
 
+  var REJECT_LABELS = { invalid_json: 'JSON 형식 오류', unknown_event_type: '알 수 없는 이벤트 종류',
+    schema_error: '필드 검증 실패', too_old: '6일 넘은 이벤트', id_conflict: '같은 ID 다른 내용',
+    invalid_schema: '필수 필드 누락', unknown: '사유 없음' };
+
+  function renderRejects(rej) {  // PL-8
+    var counts = $('reject-counts');
+    if (!counts) return;
+    if (!rej) { counts.textContent = '거절·격리 집계 기록 없음'; return; }
+    counts.textContent = '수집 거절(DLQ) 60분 ' + rej.dlq.last_60m.toLocaleString() + '건 · 24시간 ' + rej.dlq.last_24h.toLocaleString() +
+      '건  |  Silver 격리 60분 ' + rej.quarantine.last_60m.toLocaleString() + '건 · 24시간 ' + rej.quarantine.last_24h.toLocaleString() + '건';
+    var parts = [];
+    [['거절', rej.dlq.reasons_60m], ['격리', rej.quarantine.reasons_60m]].forEach(function (pair) {
+      (pair[1] || []).slice(0, 3).forEach(function (r) {
+        parts.push(pair[0] + ': ' + (REJECT_LABELS[r.reason] || r.reason) + ' ' + r.n.toLocaleString() + '건');
+      });
+    });
+    var reasons = $('reject-reasons');
+    reasons.hidden = !parts.length;
+    reasons.textContent = parts.join(' · ');
+    var recent = rej.dlq.recent || [];
+    $('reject-recent-wrap').hidden = !recent.length;
+    $('reject-recent').innerHTML = recent.map(function (r) {
+      return '<tr><td>' + time(r.at) + '</td><td>' + esc(REJECT_LABELS[r.reason] || r.reason) + '</td><td>' + esc(r.endpoint) +
+        '</td><td>' + esc(r.field) + '</td><td>' + esc(r.message) + '</td></tr>';
+    }).join('');
+    $('reject-updated').textContent = rej.updated_at ? time(rej.updated_at) + ' 기준 · 1분마다' : '—';
+  }
+
   // Trend arrows (like a stock ticker): compare each KPI with its value about one minute ago.
   // Shown only for a clear change: at least TREND_MIN_ABS and TREND_MIN_RATIO of the earlier value.
   var TREND_WINDOW_MS = 60000, TREND_MIN_ABS = 3, TREND_MIN_RATIO = 0.2;
@@ -119,6 +147,7 @@
 
   function renderLive(summary, games, alerts) {
     renderSink(summary.sink);
+    renderRejects(summary.rejects);
     setKpi('events', summary.events_last_1m, '게임에서 들어온 학습 행동 수');
     setKpi('sessions', summary.active_sessions_5m, '5분 안에 행동이 있었던 플레이');
     setKpi('alerts', alerts.alerts.length);

@@ -5,6 +5,7 @@
   - **공용 git 정리 시점:** 세 파트를 통합 저장소에 합친 직후. 파이프라인은 NVG `feature/codex-v2-remote-sink` 32b0248, 담당자 결정 기록 D1~D29까지 반영된 상태.
   - **1차 보완:** D29 상태의 코드를 기준으로 한 첫 보완. 커밋 `9a6e513` → `6d499b0` (17:46~19:03 KST)
   - **2차 보완:** PL-9(멈춘 이벤트 처리). 커밋 `17b1999` (22:18 KST)
+  - **3차 보완:** CPU 경량화(codex 검토 반영) + PL-8(거절·격리 이벤트 표시). 커밋 `5a44124`, PL-8 커밋 (23:40 KST 전후)
 - 수치는 이 PC(Windows 11 ARM64 20코어, WSL2 Docker, Spark 4코어)에서 직접 잰 값입니다. 운영 환경 값은 아닙니다.
 - 문제 번호(PL-·BN-·GM-·SV-·CM-·RF-)는 `docs/DATA_FLOW_AND_GAPS.md`의 항목 번호입니다.
 
@@ -196,14 +197,96 @@
 | BN-5 | 끝까지 적재(초당 60~90건)가 유입(150~185건)보다 느림 → 투영 코드의 이벤트당 Mongo 왕복(약 10회) 축소 |
 | BN-1 | Silver MERGE: v7만 쌓인 새 레이크에서 효과 측정, 부족하면 D19(append) 복귀 또는 ZORDER 정기 실행 |
 | PL-1 | 운영 게이트웨이 설정을 저장소로 |
-| PL-8 | DLQ·격리 건수를 서버 화면에 |
+| PL-8 | DLQ·격리 건수를 서버 화면에 → 3차 보완에서 완료 |
 | RF-9·10 | Spark 처리 로직 단위 테스트, 시험 스크립트 정리 |
 
 ---
 
-## 5. 파이프라인 코드 외 변경 전체
+## 5. 3차 보완 (CPU 경량화 + PL-8)
 
-### 5-1. 저장소 구성 (공용 git)
+### 5-1. 3차 보완 전에 남아 있던 문제
+
+| 문제 | 실제 관측 (유휴 5분, `docker stats` 약 2초 간격, 100% = 1코어) |
+|---|---|
+| Kafka 헬스체크가 10초마다 JVM 관리 도구(`kafka-topics.sh --list`) 실행 | 브로커당 p95 81~123%, 최대 153%. 1코어 넘은 표본 3대 합계 27개 |
+| MongoDB 헬스체크가 10초마다 `mongosh`(Node.js) 실행 | p95 39%, 최대 47% |
+| `rt_summary`(10초)가 이틀 치 파티션 전체(약 21만 행)를 집계 | Spark 유휴 p95 147%, 1코어 넘은 표본 11개 |
+| 버전 보급률(60초)이 값이 같아도 매번 Delta MERGE + Mongo 재쓰기 | 쉬는 중에도 MERGE 1회/분 |
+| 원격 적재 상태(10초)가 outbox 전체를 `$group` | 13.5만 문서 전체 읽기(COLLSCAN) 42 ms |
+| 원격 적재가 이벤트마다 archive를 두 번 기록 시도 | 두 번째는 조회·비교만 하지만 이벤트당 Mongo 왕복 1회 추가 |
+| PL-8: 수집 거절(DLQ)·Silver 격리를 읽는 곳이 없음 | 422 이벤트는 `nv.dlq.v1`에 쌓이기만 하고 확인 수단 없음 |
+
+### 5-2. 바꾼 것
+
+| 항목 | 이후 | 파일 |
+|---|---|---|
+| Kafka 헬스체크 | `nc -z localhost 9092` (포트 수신만 확인) | `pipeline/build_compose.py` |
+| topic-init | 토픽 생성 전체를 5초 간격 최대 36회 재시도. 실제 Kafka API(쿼럼, RF3용 브로커 3대)가 응답해야 통과 | `pipeline/build_compose.py` |
+| MongoDB 헬스체크 | `/dev/tcp/127.0.0.1/27017` 연결 (mongod는 저장소 복구 뒤에 포트를 엶) | `pipeline/build_compose.py` |
+| rt_summary | 파티션 필터 + 최근 5분(`received_at`)으로 먼저 거른 뒤 두 열만 집계 | `pipeline/spark/periodic.py` |
+| 버전 보급률 | 매분 다시 계산(24시간 만료 반영)하되 (종류·버전·설치 수)가 같으면 MERGE·재쓰기 생략. Mongo 쓰기 실패 시 다음 분에 다시 | `pipeline/spark/periodic.py`, `sinks.py` |
+| 원격 적재 상태 | 상태별 개수는 인덱스(`distinct` + `count`), 사유 집계는 60초마다 | `pipeline/remote/requeue.py`, `worker.py` |
+| archive | 행마다 한 번. 재시도 행은 건너뜀 | `pipeline/remote/worker.py`, `projection.py` |
+| PL-8 집계 | Spark가 1분마다 `nv.dlq.v1`(최근 24시간)과 `silver.quarantine`을 읽어 MongoDB `rt_rejects`에 60분·24시간 건수, 사유 상위 10개, 최근 거절 5건(원문 제외) 기록 | `pipeline/spark/periodic.py` |
+| PL-8 화면 | 실시간 현황에 "거절·격리 이벤트" 카드 | `server/telemetry/live.py`, `live.html`, `live.js` |
+| PL-8 원문 확인 | `python -m tools.dlq_peek --minutes 60 [--reason …] [--raw]` (collector 컨테이너 안, 오프셋을 커밋하지 않음) | `pipeline/tools/dlq_peek.py` |
+
+### 5-3. 측정 결과
+
+**유휴 5분 (p95 / 최대 / 1코어 넘은 표본)**
+
+| 컨테이너 | 이전 | 이후 |
+|---|---|---|
+| kafka-1 / 2 / 3 | 118 / 81 / 123% · 최대 154% · 27개 | 6 / 5 / 6% · 최대 17% · 0개 |
+| mongo | 39% · 47% · 0개 | 5% · 7% · 0개 |
+| spark | 147% · 310% · 11개 | 57% · 321% · 5개 |
+
+**부하 시험 (같은 조건: 6,002건, 초당 100건, 592세션)**
+
+| 항목 | 이전 | 이후 |
+|---|---|---|
+| Silver learning 배치 중앙값 (MERGE) | 5.55초 (5.30초) | 5.50초 (5.10초) |
+| 대시보드 지연 최대 (15초 기준) | 11.1초 통과 | 12.4초 통과 |
+| 원격 적재 완료 / 최종 잔량 | 114초 / 0 | 120초 / 0 |
+| 부하 중 Kafka 1코어 넘은 표본 | 20개 | 1개 |
+| sink 실패 · 쿼리 재시작 | 0 · 0 | 0 · 0 |
+
+부하 처리량은 그대로입니다. 이번 보완은 쉬는 중·주기 작업 비용을 줄이는 것입니다.
+
+**정확성·장애 확인**
+
+| 확인 | 결과 |
+|---|---|
+| rt_summary 이전·이후 식 (같은 시각 3회씩) | 값 동일 (4,758 / 592, 4,635 / 592). 첫 실행 5.8초 → 2.3초 |
+| 원격 적재 상태 개수 | 기존 `$group`과 동일. 읽은 문서 134,580 → 0 |
+| 브로커 3대를 늦게 기동 (25초) | topic-init 5회 재시도 후 41초에 정상 종료 |
+| 브로커 1대만 있을 때 RF3 토픽 생성 | 포트는 열려 있어도 생성 실패 → 재시도 계속 (포트만으로 통과하지 않음) |
+| MongoDB 30초 정지 | 38초 만에 healthy, 25초 안에 rt_summary·적재 상태 갱신 재개, 재시작 0 |
+| 같은 이벤트 207건 두 번 전송 | Bronze 414행, Silver 207행, outbox 207행 |
+| PL-8 | 잘못된 요청 5건 → 1분 안에 화면에 "수집 거절(DLQ) 60분 5건", 사유별 건수, 최근 5건 표시 |
+| 테스트 | 파이프라인 60개(+2), 서버 57개(+1) 통과 |
+
+![3차 보완: 거절·격리 이벤트 카드](../screenshots/server-5-live-rejects.png)
+
+### 5-4. 3차 보완 후에도 남은 과제
+
+| 번호 | 내용 |
+|---|---|
+| - | 포트 헬스체크는 "프로세스는 멈췄는데 포트는 열린" 상태를 못 잡음. 실행 중 장애는 sink 실패 수·화면의 수집 지연 표시로 확인 |
+| PL-8 후속 | DLQ 재처리 스크립트(원인 수정 후 다시 넣기)는 아직 없음. 지금은 확인(`dlq_peek`)까지 |
+| BN-5 | 원격 적재(초당 약 50건)가 유입보다 느림 |
+| BN-1 | Silver MERGE 배치당 약 5초. v7만 쌓인 새 레이크에서 비교 필요 |
+| - | 상세 수치: `docs/changes/2026-11-20_pipeline_cpu.md` |
+
+## 6. 4차 보완 (신뢰성 검토 반영)
+
+진행 중입니다. 다음 갱신에 반영합니다.
+
+---
+
+## 7. 파이프라인 코드 외 변경 전체
+
+### 7-1. 저장소 구성 (공용 git)
 
 | 내용 | 커밋·위치 |
 |---|---|
@@ -213,7 +296,7 @@
 | GitHub Actions: 파이프라인(단위 테스트 + compose 생성물 검사 + 컴파일), 서버·게임(골격) | `.github/workflows/` |
 | 세 파트 최신화: 게임 88394b1, 서버 3dfece8, 파이프라인 32b0248(remote-sink 브랜치로 전환) | `fdbe457`, `3c2e70d` 등 |
 
-### 5-2. 게임 (`game/scripts/`)
+### 7-2. 게임 (`game/scripts/`)
 
 | 변경 | 파일 |
 |---|---|
@@ -224,16 +307,17 @@
 | player-login 비활성화 (GM-3) | `network_manager.gd` |
 | 테스트 봇 멈춤 수정: 월드가 트리에서 빠졌는지 확인, 컴퓨터 근처에서 상호작용 생략 (GM-9) | `tools/live_test_bot_overlay.gd` |
 
-### 5-3. 서버 (`server/`)
+### 7-3. 서버 (`server/`)
 
 | 변경 | 파일 |
 |---|---|
 | 빈 DB에서 실패하던 마이그레이션 순서 수정 (`accounts.0005` → `sessions` 의존) | `accounts/migrations/0005_…` |
 | recovery_key를 HMAC-SHA256으로 저장, 기존 평문은 마이그레이션·사용 시 변환 (SV-2) | `telemetry/game_auth_api.py`, `telemetry/migrations/0010_hash_recovery_keys.py` |
+| 실시간 화면 "거절·격리 이벤트" 카드 (PL-8) | `telemetry/live.py`, `templates/telemetry/live.html`, `static/js/live.js` |
 | 실시간 화면 "분석 화면 적재 상태" 카드 (PL-9·SV-1) | `telemetry/live.py`, `templates/telemetry/live.html`, `static/js/live.js` |
 | 테스트 보강 (해시 저장, 옛 평문 계정 전환) | `telemetry/test_server_part.py` |
 
-### 5-4. 문서
+### 7-4. 문서
 
 | 문서 | 내용 |
 |---|---|
@@ -248,7 +332,7 @@
 | `docs/screenshots/` | 게임 3장, 파이프라인 1장, 서버 4장 |
 | 삭제 | `docs/BRANCH_STRATEGY.md`, 파트별 구현 지시서 PDF(`docs/instructions/`) |
 
-### 5-5. 로컬 실행 환경 (이 PC)
+### 7-5. 로컬 실행 환경 (이 PC)
 
 | 변경 | 위치 |
 |---|---|
@@ -261,7 +345,7 @@
 | 바탕화면 PDF `NODEVERSE_DB조회_방법.pdf`, Compass 연결 파일, DBeaver 연결 미리 등록 | 바탕화면, DBeaver 설정 폴더 |
 | `.env` 파일들(키·비밀번호)은 이 PC에서 새로 생성, git에서 제외 | `pipeline/.env*`, `server/.env*` |
 
-### 5-6. push 상태
+### 7-6. push 상태
 
-- 공용 저장소 `main`: `a35e7ca`까지 반영
-- 로컬에만 있는 커밋 6개(이 리포트 작성 전 기준): `50915b7` Silver 7일 범위, `b585381` DB 조회 화면, `6d499b0` 세 파트 보완, `3b885f4` 구현서, `58f5720` WSL 메모리 문서, `17b1999` PL-9 — push 승인 대기
+- 2차 보완까지: 공용 저장소 `main` `313ea43`에 반영
+- 3차 보완(CPU 경량화 + PL-8): 이 리포트와 함께 push

@@ -67,7 +67,20 @@ def summary_data():
     age = (timezone.now() - updated).total_seconds() if isinstance(updated, datetime) else None
     return {'events_last_1m': doc.get('events_last_1m', 0), 'active_sessions_5m': doc.get('active_sessions_5m', 0),
             'updated_at': _iso(updated), 'age_seconds': round(age, 1) if age is not None else None,
-            'stale': age is None or age > STALE_SECONDS, 'sink': sink_status()}
+            'stale': age is None or age > STALE_SECONDS, 'sink': sink_status(), 'rejects': rejects_status()}
+
+
+def rejects_status():
+    """PL-8: collector DLQ (422) and Silver quarantine counts published by the pipeline every minute."""
+    doc = database().rt_rejects.find_one({'_id': 'global'})
+    if not doc:
+        return None
+    pick = lambda part: {'last_60m': part.get('last_60m', 0), 'last_24h': part.get('last_24h', 0),
+                         'reasons_60m': part.get('reasons_60m', [])}
+    dlq = doc.get('dlq') or {}
+    recent = [{key: _iso(value) for key, value in row.items()} for row in dlq.get('recent', [])]
+    return {'dlq': {**pick(dlq), 'recent': recent}, 'quarantine': pick(doc.get('quarantine') or {}),
+            'updated_at': _iso(doc.get('updated_at'))}
 
 
 def sink_status():

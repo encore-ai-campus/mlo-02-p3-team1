@@ -1,10 +1,11 @@
-"""Driver timers: rt_summary (10 s), gold.version_adoption -> rt_versions (60 s), progress file."""
+"""Driver timers: rt_summary (10 s), gold.version_adoption -> rt_versions (60 s), rt_rejects (60 s), progress file."""
 from __future__ import annotations
 
 import json
 import logging
 import threading
 import time
+from datetime import timedelta
 from pathlib import Path
 
 from pyspark.sql import functions as F
@@ -78,6 +79,52 @@ def refresh_version_adoption(spark) -> bool:
         latest.unpersist()
 
 
+REJECT_SAMPLES = 5
+
+
+def _reason_counts(df, since) -> list[dict]:
+    return [{"reason": r["reason"] or "unknown", "n": int(r["n"])}
+            for r in df.where(F.col("at") >= F.lit(since)).groupBy("reason").agg(F.count(F.lit(1)).alias("n"))
+            .orderBy(F.desc("n")).limit(10).collect()]
+
+
+def refresh_rejects(spark) -> None:
+    """PL-8: what the pipeline rejected, for the server live page (rt_rejects/global).
+
+    dlq        collector 422 rejects in Kafka nv.dlq.v1 (invalid_json, unknown_event_type, schema_error, too_old)
+    quarantine silver.quarantine rows (id_conflict, invalid_json, invalid_schema found after Kafka)
+    Counts for the last 60 minutes and 24 hours, top reasons (60 min), and a few recent DLQ samples without the
+    raw body (it can hold player data; read it with tools/dlq_peek.py when needed)."""
+    now = utc_now()
+    h1, h24 = now - timedelta(hours=1), now - timedelta(hours=24)
+    dlq = (spark.read.format("kafka").option("kafka.bootstrap.servers", tb.KAFKA).option("subscribe", "nv.dlq.v1")
+           .option("startingTimestamp", str(int(h24.timestamp() * 1000)))
+           .option("startingOffsetsByTimestampStrategy", "latest")  # no record in 24 h -> empty, not an error
+           .option("endingOffsets", "latest").load()
+           .select(F.col("timestamp").alias("at"),
+                   F.get_json_object(F.col("value").cast("string"), "$.reason").alias("reason"),
+                   F.get_json_object(F.col("value").cast("string"), "$.endpoint").alias("endpoint"),
+                   F.get_json_object(F.col("value").cast("string"), "$.errors[0].loc").alias("loc"),
+                   F.get_json_object(F.col("value").cast("string"), "$.errors[0].msg").alias("msg"))
+           .where(F.col("at") >= F.lit(h24))).persist()
+    quarantine = (spark.read.format("delta").load(tb.path("silver.quarantine"))
+                  .where(F.col("detected_at") >= F.lit(h24))
+                  .select(F.col("detected_at").alias("at"), "reason")).persist()
+    try:
+        samples = [{"at": r["at"], "reason": r["reason"], "endpoint": r["endpoint"],
+                    "field": r["loc"], "message": (r["msg"] or "")[:160]}
+                   for r in dlq.orderBy(F.desc("at")).limit(REJECT_SAMPLES).collect()]
+        doc = {"_id": "global", "updated_at": now,
+               "dlq": {"last_60m": dlq.where(F.col("at") >= F.lit(h1)).count(), "last_24h": dlq.count(),
+                       "reasons_60m": _reason_counts(dlq, h1), "recent": samples},
+               "quarantine": {"last_60m": quarantine.where(F.col("at") >= F.lit(h1)).count(),
+                              "last_24h": quarantine.count(), "reasons_60m": _reason_counts(quarantine, h1)}}
+    finally:
+        dlq.unpersist()
+        quarantine.unpersist()
+    sinks.upsert("rt_rejects", [doc])
+
+
 def write_progress(spark, restarts: dict) -> None:
     """Observability outside stdout; rows/rates are per query, not end-to-end throughput."""
     destination = Path(settings.get().progress_path)
@@ -102,6 +149,12 @@ def run(spark, stop: threading.Event, restarts: dict) -> None:
                 started = time.monotonic()
                 wrote = refresh_version_adoption(spark)
                 log.info("version adoption in %.2fs (%s)", time.monotonic() - started, "written" if wrote else "unchanged")
+                started = time.monotonic()
+                try:
+                    refresh_rejects(spark)
+                    log.info("rt_rejects in %.2fs", time.monotonic() - started)
+                except Exception:  # never let the reject view stop rt_summary / versions
+                    log.exception("rt_rejects refresh failed")
                 last_versions = time.monotonic()
         except Exception:  # keep the streams alive; next tick retries
             log.exception("periodic refresh failed")

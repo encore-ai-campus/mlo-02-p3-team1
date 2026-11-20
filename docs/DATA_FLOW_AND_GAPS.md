@@ -169,7 +169,7 @@ flowchart LR
 | PL-5 | P1 | 본문 크기 확인 전에 전체를 메모리로 읽음 | `collector.py` 105행 | `Content-Length` 먼저 확인, 스트리밍으로 16KiB에서 중단 |
 | PL-6 | P1 | `GET /v2/events/{id}`는 로컬 Mongo가 죽으면 처리되지 않은 500 | `collector.py` 168행 | 503과 사유 반환 |
 | PL-7 | P1 | `/health/ready`가 Kafka 연결만 보고 토픽 5개 존재·Mongo·Spark 진행 여부는 보지 않음 | `collector.py` 146행 | 토픽 확인, Spark 마지막 배치 시각을 `rt_summary`로 노출 |
-| PL-8 | P1 | **DLQ를 읽는 쪽이 없음.** 422 이벤트는 `nv.dlq.v1`에 쌓이기만 하고 확인·재처리 수단이 없음. Silver 격리(`silver.quarantine`)도 마찬가지 | `collector.py` 69행, `delta_stream.py` 219행 | DLQ·격리 건수와 사유를 `rt_summary`나 서버 화면에 표시, 재처리 스크립트 |
+| PL-8 | P1 | **(2026-11-20 3차 보완에서 표시·확인 도구 추가, 재처리 스크립트는 남음)** **DLQ를 읽는 쪽이 없음.** 422 이벤트는 `nv.dlq.v1`에 쌓이기만 하고 확인·재처리 수단이 없음. Silver 격리(`silver.quarantine`)도 마찬가지 | `collector.py` 69행, `delta_stream.py` 219행 | DLQ·격리 건수와 사유를 `rt_summary`나 서버 화면에 표시, 재처리 스크립트 |
 | PL-9 | P1 | outbox의 `blocked`(데이터 오류)는 영구 정지, `retrying`은 무한 재시도, `waiting_context`(회원 매핑 대기)는 기한 없음. 알림도 없음 | `remote/worker.py` 132~146행 | 상태별 건수를 서버 화면에 노출, 최대 시도 횟수·기한 후 `blocked`로, 재처리 명령 제공 |
 | PL-10 | P1 | outbox·conflict 컬렉션이 계속 커짐(정리 없음) | `remote/outbox.py` | `stored` 후 N일 지난 문서 TTL 인덱스 |
 | PL-11 | P1 | `mirror_metrics`가 5초마다 `rt_*` 전체를 읽어 원격에 하나씩 씀. `rt_minigame_1m`은 1분마다 미니게임 수만큼 늘어나므로 시간이 갈수록 느려지고, 이 루프가 느리면 이벤트 적재도 같이 밀림 | `remote/worker.py` 50행 | `updated_at` 이후 변경분만 복사, bulk_write, 이벤트 처리와 다른 스레드로 분리 |

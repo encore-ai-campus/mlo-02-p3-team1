@@ -84,3 +84,11 @@ codex 검토 "NODEVERSE 파이프라인 CPU 최적화 요청"을 반영한 변�
 - 24시간 창 만료: 버전 집계는 매분 다시 계산하므로 플레이어가 24시간을 넘기면 설치 수가 바뀌고 그때 MERGE·재쓰기가 일어납니다. 이번 측정 동안 실제로 만료되는 플레이어는 없어서 만료 시점 쓰기는 코드로만 확인했습니다.
 - 유휴 Spark 최대값(약 320%)은 그대로입니다. audit·마이크로배치 트리거 쪽 비용이며 이번 범위 밖입니다.
 - 부하 처리량 병목은 Silver MERGE(배치당 약 5초, UUIDv4·v7 혼합 데이터)와 원격 적재(초당 약 50건)입니다. UUIDv7만 있는 새 lake에서의 MERGE 비교는 아직 하지 않았습니다.
+
+## 6. PL-8: 거절·격리 이벤트 표시 (같은 날 추가)
+
+- `spark/periodic.py` `refresh_rejects()`: 60초마다(버전 집계 직후) Kafka `nv.dlq.v1`을 최근 24시간 범위로 배치 읽기(`startingTimestamp`, 해당 구간에 기록이 없으면 빈 결과)하고 `silver.quarantine`을 `detected_at` 24시간으로 읽어 MongoDB `rt_rejects/global`에 기록합니다. 필드: `dlq.last_60m`, `dlq.last_24h`, `dlq.reasons_60m`(상위 10), `dlq.recent`(최근 5건: 시각·사유·경로·첫 오류 필드·메시지, 원문 제외), `quarantine.last_60m`, `quarantine.last_24h`, `quarantine.reasons_60m`, `updated_at`. 실패해도 rt_summary·버전 집계는 계속 돕니다. 소요 약 2초/분.
+- `tools/dlq_peek.py`: DLQ 원문 확인. collector 컨테이너 안에서 `python -m tools.dlq_peek --minutes 60 [--reason schema_error] [--limit 20] [--raw]`. 컨슈머 오프셋을 커밋하지 않습니다. collector 이미지에 포함(`Dockerfile`).
+- 서버: `/api/admin/live/summary` 응답에 `rejects` 추가, 실시간 현황에 "거절·격리 이벤트" 카드(60분·24시간 건수, 사유, 최근 5건). 테스트 `test_rejects_from_pipeline`.
+- 확인: 잘못된 요청 5건(알 수 없는 종류 3, JSON 오류 1, 필드 누락 1)을 보내고 1분 안에 카드에 같은 건수와 사유가 표시됨.
+- 남은 것: DLQ 재처리 스크립트.

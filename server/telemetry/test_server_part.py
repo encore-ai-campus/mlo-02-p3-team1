@@ -275,6 +275,25 @@ class LiveApiTests(TestCase):
         self.client.force_login(self.admin)
         self.assertTrue(self.client.get('/api/admin/live/summary').json()['stale'])
 
+    def test_rejects_from_pipeline(self):  # PL-8
+        self.client.force_login(self.admin)
+        database().rt_rejects.delete_many({})
+        self.assertIsNone(self.client.get('/api/admin/live/summary').json()['rejects'])
+        now = timezone.now()
+        database().rt_rejects.insert_one({'_id': 'global', 'updated_at': now,
+            'dlq': {'last_60m': 3, 'last_24h': 9, 'reasons_60m': [{'reason': 'schema_error', 'n': 3}],
+                    'recent': [{'at': now, 'reason': 'schema_error', 'endpoint': '/v2/events', 'field': 'sequence',
+                                'message': 'Input should be greater than 0'}]},
+            'quarantine': {'last_60m': 1, 'last_24h': 2, 'reasons_60m': [{'reason': 'id_conflict', 'n': 1}]}})
+        try:
+            rejects = self.client.get('/api/admin/live/summary').json()['rejects']
+            self.assertEqual(rejects['dlq']['last_24h'], 9)
+            self.assertEqual(rejects['quarantine']['reasons_60m'][0]['reason'], 'id_conflict')
+            self.assertTrue(rejects['dlq']['recent'][0]['at'].endswith('Z'))
+            self.assertContains(self.client.get('/staff/live/'), 'reject-card')
+        finally:
+            database().rt_rejects.delete_many({})
+
     def test_members_page_shows_accounts_with_cloud_save_progress(self):
         cache.clear()
 
