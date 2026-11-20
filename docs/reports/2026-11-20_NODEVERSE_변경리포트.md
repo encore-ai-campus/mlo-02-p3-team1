@@ -24,22 +24,9 @@
 
 ### 1-2. 처리 흐름
 
-```
-게임 → [게이트웨이 :8000, 저장소 밖] → 수집기 FastAPI :8003 (/v2/events, /v1/events)
-  → 키 확인(INGEST_KEY 24자 이상) → JSON·스키마 검사(contract.py) → 토픽 분류 → Kafka acks=all 확인 후 202
-  → Spark 앱 1개, 스트리밍 쿼리 8개 (delta_stream.py 한 파일 484줄)
-      bronze        Kafka → bronze.game_events (append, 5초)
-      silver_*      bronze → 필수 필드 → 상태 저장소 중복 제거(7일) → event_id insert-only MERGE (D23, 1초)
-                    → (REMOTE_EXPORT_ENABLED=1) outbox 적재 (이벤트마다 Mongo 왕복 2회)
-      silver_audit  bronze → id_conflict·invalid_json·invalid_schema → silver.quarantine (30초)
-      gold_1m / gold_alert / gold_update  1분·5분 집계 → Delta MERGE(창 시작 하한, D21) → Mongo rt_*
-      remote_runtime  런처 이벤트 → outbox
-      주기 작업     rt_summary 10초, rt_versions 60초
-  → 원격 적재 작업자 (remote/worker.py, 1개, lease)
-      outbox에서 1건씩 → 원격 Mongo 원본 보관 → MySQL 새 연결 + GET_LOCK → 관계형 투영
-      (세션·문제 실행·풀이 시도·행동 이벤트) → 서버 DB / 5초마다 rt_* 전체를 원격으로 복사
-  → Django 서버: rt_*(실시간), 세션·시도·이벤트(분석 화면)
-```
+![공용 git 정리 시점 처리 흐름](images/flow-1-consolidation.png)
+
+(원본 SVG: `docs/reports/images/flow-1-consolidation.svg`)
 
 ### 1-3. 예외 처리
 
@@ -110,20 +97,9 @@
 
 ### 3-2. 처리 흐름
 
-```
-수집기: Kafka 대기 12초 → 5초 (KAFKA_DELIVERY_TIMEOUT_S), 폴링 스레드 예외 보호
-Spark: delta_stream.py(진입점) + bronze / silver / gold / sinks / periodic / audit_state 모듈
-  SparkSession은 main()에서만 생성, 쿼리 8개를 QuerySpec으로 등록·감시
-  silver_*: MERGE 조건 = event_id 일치
-            AND event_date ∈ [배치 최소 - 7일, 배치 최대 + 1일]
-            AND event_id ∈ [배치 최소 ID, 배치 최대 ID]  (UUID 형식일 때)
-            → outbox 묶음 쓰기(500건 단위 bulk_write)
-원격 작업자: Worker 클래스
-  200건 묶음 가져오기 → 세션별 묶음 → 스레드 8개 병렬 (세션 안 순서 유지)
-  MySQL: DBUtils PooledDB 연결 풀(8개), GET_LOCK은 전용 연결 하나로 작업자 수명 동안 유지
-  지표 복사: 별도 스레드, 변경분(updated_at)만 bulk_write
-공통: common/settings.py(환경 변수 전부), common/db.py(Mongo 클라이언트), common/timeutil.py(시간 형식)
-```
+![1차 보완 후 처리 흐름](images/flow-3-after-fix1.png)
+
+(원본 SVG: `docs/reports/images/flow-3-after-fix1.svg`)
 
 ### 3-3. 예외 처리
 
@@ -168,20 +144,11 @@ Spark: delta_stream.py(진입점) + bronze / silver / gold / sinks / periodic / 
 
 **토픽:** 변경 없음.
 
-**처리 흐름 (원격 작업자에 추가된 부분)**
+**처리 흐름** (아래쪽 상자가 2차 보완으로 추가된 부분)
 
-```
-대기·오류 → 기한 확인 → 기한 지남: parked (재시도 멈춤, 행 보관)
-  회원 매핑 없음     24시간  (REMOTE_WAIT_MEMBER_HOURS)
-  순서 빈칸           10분   (REMOTE_WAIT_GAP_MINUTES)
-  일시 오류           20회   (REMOTE_MAX_RETRIES)
-되살리기
-  회원 수·최신 등록 시각·매핑 파일이 바뀜 → 회원 대기 parked → pending  (60초마다 확인)
-  앞 번호 적재 완료 → 다음 번호 parked → pending  (projection.receipt)
-  운영 명령: python -m remote.requeue status | requeue --reason … | park --reason …
-상태 공개: 10초마다 pipeline_sink_status (로컬·서버 DB) → 서버 /staff/live '분석 화면 적재 상태' 카드
-정리: stored·quarantined 행은 completed_at 기준 30일 뒤 TTL 삭제 (REMOTE_DONE_TTL_DAYS)
-```
+![2차 보완 후 처리 흐름](images/flow-4-after-pl9.png)
+
+(원본 SVG: `docs/reports/images/flow-4-after-pl9.svg`)
 
 **예외 처리 (원격 작업자 상태)**
 
