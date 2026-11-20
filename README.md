@@ -19,7 +19,7 @@ git lfs install        # game/ 의 Godot 에셋은 LFS로 받습니다
 code nodeverse.code-workspace
 ```
 
-각 파트의 실행 방법은 파트 폴더의 README를 보세요: [`pipeline/README.md`](pipeline/README.md), [`server/README.md`](server/README.md).
+처음 받는 사람은 [`docs/SETUP_GUIDE.md`](docs/SETUP_GUIDE.md)부터 보세요. 각 파트의 자세한 실행 방법은 파트 폴더의 README를 보세요: [`pipeline/README.md`](pipeline/README.md), [`server/README.md`](server/README.md).
 
 ## 협업 규칙 요약
 
