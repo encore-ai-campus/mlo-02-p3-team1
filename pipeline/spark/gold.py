@@ -11,6 +11,7 @@ from pathlib import Path
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as F
 
+import compaction
 import sinks
 import tables as tb
 from common import settings
@@ -116,6 +117,7 @@ def merge(spark, table: str, df: DataFrame, keys: list[str]) -> None:
     cond += f" AND t.window_start >= TIMESTAMP '{lo.strftime('%Y-%m-%d %H:%M:%S')}'"
     (DeltaTable.forPath(spark, tb.path(table)).alias("t").merge(df.alias("s"), cond)
      .whenMatchedUpdateAll().whenNotMatchedInsertAll().execute())
+    compaction.compact_after_write(spark, table)  # single writer per Gold table, same thread
 
 
 def gold_minigame(agg: DataFrame, batch_id: int) -> None:
@@ -182,8 +184,17 @@ def start_gold_1m(spark):
             .trigger(processingTime=settings.get().stage_trigger).start())
 
 
+def on_time():
+    """Not late (common.lateness): play and receive time within LATE_SECONDS."""
+    from common.lateness import LATE_SECONDS
+    return F.abs(F.col("received_at").cast("long") - F.col("occurred_at").cast("long")) <= LATE_SECONDS
+
+
 def start_gold_alert(spark):
-    silver = spark.readStream.format("delta").load(tb.path("silver.learning_events"))
+    # 7th round: a failure spike is judged on events played now. Late events (an offline queue or an outage
+    # backlog) still count in gold_1m and in the play-date daily table, but cannot raise a false spike alert.
+    # A stateless filter before the aggregation keeps the existing checkpoint compatible.
+    silver = spark.readStream.format("delta").load(tb.path("silver.learning_events")).where(on_time())
     five_min = (silver.withWatermark("event_time", "2 minutes")
                 .groupBy(F.window("event_time", "5 minutes", "1 minute"), "minigame_id", "category")
                 .agg(count_of("attempt_started").alias("attempts"), count_of("attempt_succeeded").alias("successes"),

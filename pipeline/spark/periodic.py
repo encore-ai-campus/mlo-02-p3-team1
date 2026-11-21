@@ -10,10 +10,12 @@ from pathlib import Path
 
 from pyspark.sql import functions as F
 
+import compaction
 import gold
 import sinks
 import tables as tb
 from common import settings
+from common.lateness import LATE_SECONDS
 from common.timeutil import iso_ms, utc_now
 
 log = logging.getLogger("periodic")
@@ -24,12 +26,15 @@ def refresh_summary(spark) -> None:
               .where(F.col("event_date") >= F.date_sub(F.current_date(), 1))  # partition pruning
               # only the last 5 minutes feed either metric; filter before aggregating (CPU review, item 2)
               .where(F.col("received_at") >= F.expr("current_timestamp() - INTERVAL 5 MINUTES"))
-              .select("received_at", "session_id"))
+              .select("received_at", "occurred_at", "session_id"))
+    last_1m = F.col("received_at") >= F.expr("current_timestamp() - INTERVAL 1 MINUTE")
+    late = F.abs(F.col("received_at").cast("long") - F.col("occurred_at").cast("long")) > LATE_SECONDS
     r = recent.agg(
-        F.sum(F.when(F.col("received_at") >= F.expr("current_timestamp() - INTERVAL 1 MINUTE"), 1).otherwise(0))
-        .alias("events_last_1m"),
+        F.sum(F.when(last_1m, 1).otherwise(0)).alias("events_last_1m"),
+        F.sum(F.when(last_1m & late, 1).otherwise(0)).alias("late_last_1m"),  # 7th round: counted, shown apart
         F.countDistinct("session_id").alias("active_sessions_5m")).first()
     sinks.upsert("rt_summary", [{"_id": "global", "events_last_1m": int(r.events_last_1m or 0),
+                                 "late_last_1m": int(r.late_last_1m or 0),
                                  "active_sessions_5m": int(r.active_sessions_5m or 0),
                                  "updated_at": utc_now()}])
 
@@ -44,12 +49,16 @@ def refresh_version_adoption(spark) -> bool:
     tb.register_names(spark)
     latest = spark.sql("""
         SELECT player_id, build_version, content_version,
-               row_number() OVER (PARTITION BY player_id ORDER BY event_time DESC) AS rn
-        FROM (SELECT player_id, build_version, content_version, event_time FROM silver.learning_events
-              WHERE event_date >= date_sub(current_date(), 1)
-              UNION ALL
-              SELECT player_id, build_version, content_version, event_time FROM silver.update_events
-              WHERE event_date >= date_sub(current_date(), 1))
+               row_number() OVER (PARTITION BY player_id ORDER BY play_ts DESC, build_version DESC) AS rn
+        FROM (SELECT player_id, build_version, content_version, event_time,
+                     -- 7th round: "current version" = newest by play time (clamped device time), not by receive
+                     -- time, so an old-version event that arrives late does not look like a downgrade
+                     least(greatest(occurred_at, received_at - INTERVAL 6 DAYS), received_at) AS play_ts
+              FROM (SELECT player_id, build_version, content_version, event_time, occurred_at, received_at
+                    FROM silver.learning_events WHERE event_date >= date_sub(current_date(), 1)
+                    UNION ALL
+                    SELECT player_id, build_version, content_version, event_time, occurred_at, received_at
+                    FROM silver.update_events WHERE event_date >= date_sub(current_date(), 1)))
         WHERE event_time >= current_timestamp() - INTERVAL 24 HOURS""").where("rn = 1")
     latest = latest.persist()
     try:
@@ -141,6 +150,10 @@ def write_progress(spark, restarts: dict) -> None:
 
 def run(spark, stop: threading.Event, restarts: dict) -> None:
     last_versions = 0.0
+    s = settings.get()
+    last_bronze = time.monotonic()
+    vacuum_thread = None
+    last_vacuum = time.monotonic() - max(0, s.vacuum_interval_hours * 3600 - 600)  # first VACUUM ~10 min after start
     while not stop.wait(10):
         try:
             write_progress(spark, restarts)
@@ -160,5 +173,16 @@ def run(spark, stop: threading.Event, restarts: dict) -> None:
                 except Exception:  # never let the reject view stop rt_summary / versions
                     log.exception("rt_rejects refresh failed")
                 last_versions = time.monotonic()
+            # Bronze is append-only, so compacting it from this thread never conflicts with the Bronze stream
+            if s.compact_bronze_minutes > 0 and time.monotonic() - last_bronze >= s.compact_bronze_minutes * 60:
+                last_bronze = time.monotonic()
+                compaction.compact_append_only(spark)
+            if s.vacuum_interval_hours > 0 and time.monotonic() - last_vacuum >= s.vacuum_interval_hours * 3600:
+                last_vacuum = time.monotonic()
+                # its own thread: VACUUM of all tables takes ~1-2 minutes and must not make rt_summary stale
+                if vacuum_thread is None or not vacuum_thread.is_alive():
+                    vacuum_thread = threading.Thread(target=compaction.vacuum_safely, args=(spark,), daemon=True,
+                                                     name="vacuum")
+                    vacuum_thread.start()
         except Exception:  # keep the streams alive; next tick retries
             log.exception("periodic refresh failed")

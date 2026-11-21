@@ -17,16 +17,17 @@ from datetime import timedelta
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
+import compaction
 import sinks
 import tables as tb
 from audit_state import DECISION_SCHEMA, STATE_SCHEMA, audit
 from common import settings
+from common.lateness import LATE_SECONDS  # event_time falls back to received_at beyond this gap
 
 log = logging.getLogger("silver")
 
 _UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")  # also guards the SQL literal
 LOOKBACK_DAYS = 7  # >= collector MAX_EVENT_AGE (6 days) and Kafka retention (7 days)
-LATE_SECONDS = 300  # event_time falls back to received_at when the clock gap exceeds 5 minutes
 SPECS = {
     # topic: (json schema, table)
     "nv.learning.v2": (tb.LEARNING_JSON, "silver.learning_events"),
@@ -69,6 +70,24 @@ def merge_condition(lo, hi, id_lo=None, id_hi=None) -> str:
     return cond
 
 
+def id_day_col():
+    """Spark mirror of common.lateness.v7_day: creation day of an UUIDv7 event_id, 'other' for other ids."""
+    hexs = F.regexp_replace(F.col("event_id"), "-", "")
+    ms = F.conv(F.substring(hexs, 1, 12), 16, 10).cast("long")
+    return F.when(F.substring(F.col("event_id"), 15, 1) == "7",
+                  F.date_format(F.from_unixtime(ms / 1000), "yyyy-MM-dd")).otherwise(F.lit("other"))
+
+
+def merge_groups(source: DataFrame) -> list:
+    """Split a batch by the creation day of its ids (7th round). One late event (an offline queue flushed days later,
+    or a v4 id) used to stretch the batch's single event_id range back to its own day, so the MERGE read every
+    file in between. Each group now gets its own narrow range. Usually there is one group (one MERGE as before)."""
+    days = [r.d for r in source.select(id_day_col().alias("d")).distinct().collect()]
+    if len(days) <= 1:
+        return [source]
+    return [source.where(id_day_col() == d) for d in sorted(days)]
+
+
 def _write_silver(table: str, name: str):
     def write(batch: DataFrame, batch_id: int) -> None:
         from delta.tables import DeltaTable
@@ -79,11 +98,19 @@ def _write_silver(table: str, name: str):
         source = batch.drop("kafka_ts").persist()
         try:
             if not source.isEmpty():
-                lo, hi, id_lo, id_hi = source.agg(F.min("event_date"), F.max("event_date"),
-                                                  F.min("event_id"), F.max("event_id")).first()
-                (DeltaTable.forPath(spark, tb.path(table)).alias("t")
-                 .merge(source.alias("s"), merge_condition(lo, hi, id_lo, id_hi))
-                 .whenNotMatchedInsertAll().execute())
+                touched = set()
+                groups = merge_groups(source)
+                for part in groups:  # insert-only MERGE is idempotent: a batch replayed half-way is safe
+                    lo, hi, id_lo, id_hi = part.agg(F.min("event_date"), F.max("event_date"),
+                                                    F.min("event_id"), F.max("event_id")).first()
+                    (DeltaTable.forPath(spark, tb.path(table)).alias("t")
+                     .merge(part.alias("s"), merge_condition(lo, hi, id_lo, id_hi))
+                     .whenNotMatchedInsertAll().execute())
+                    touched.update({lo, hi})
+                if len(groups) > 1:
+                    log.info("silver %s batch %s split into %d MERGE groups by id day", name, batch_id, len(groups))
+                # every COMPACT_EVERY_BATCHES batches, in this thread (cannot conflict with this MERGE)
+                compaction.compact_after_write(spark, table, "event_date", touched)
                 merged = time.monotonic()
                 if settings.get().remote_export_enabled:
                     sinks.stage_outbox(row.asDict(recursive=True) for row in source.toLocalIterator())

@@ -10,7 +10,7 @@ from pathlib import Path
 KAFKA_IMAGE = 'apache/kafka:3.9.1'
 BOOTSTRAP = 'kafka-1:9092,kafka-2:9092,kafka-3:9092'
 # helper modules shipped to the Spark driver and Python workers (delta_stream.py is the entry point)
-SPARK_MODULES = ['tables.py', 'audit_state.py', 'sinks.py', 'bronze.py', 'silver.py', 'gold.py', 'periodic.py']
+SPARK_MODULES = ['tables.py', 'audit_state.py', 'sinks.py', 'compaction.py', 'bronze.py', 'silver.py', 'gold.py', 'periodic.py']
 SPARK_PACKAGES = 'org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.3,io.delta:delta-spark_2.12:3.2.1'
 
 services = {}
@@ -94,7 +94,7 @@ services['spark'] = {
                 '/app/delta_stream.py'],
     'environment': {'KAFKA_BOOTSTRAP': BOOTSTRAP, 'MONGO_URI': 'mongodb://mongo:27017', 'MONGO_DB': 'nodeverse_logs',
                     'REMOTE_EXPORT_ENABLED': '${REMOTE_EXPORT_ENABLED:-0}', 'BRONZE_TRIGGER': '${BRONZE_TRIGGER:-5 seconds}', 'STAGE_TRIGGER': '${STAGE_TRIGGER:-1 second}',
-                    'SHUFFLE_PARTITIONS': '${SHUFFLE_PARTITIONS:-4}', 'MAX_OFFSETS_PER_TRIGGER': '${MAX_OFFSETS_PER_TRIGGER:-10000}',
+                    'SHUFFLE_PARTITIONS': '${SHUFFLE_PARTITIONS:-4}', 'COMPACT_EVERY_BATCHES': '${COMPACT_EVERY_BATCHES:-300}', 'MAX_OFFSETS_PER_TRIGGER': '${MAX_OFFSETS_PER_TRIGGER:-10000}',
                     'LAKE_ROOT': '/data/delta', 'CHECKPOINT_ROOT': '/data/checkpoints', 'TZ': 'UTC',
                     'INGEST_KEY': '${INGEST_KEY:?Set INGEST_KEY in .env}', 'COLLECTOR_URL': 'http://collector:8000'},
     'volumes': ['./spark:/app:ro', './common:/opt/nodeverse/common:ro', './remote:/opt/nodeverse/remote:ro',

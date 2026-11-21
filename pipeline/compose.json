@@ -253,7 +253,7 @@
         "--conf",
         "spark.sql.session.timeZone=UTC",
         "--py-files",
-        "/app/tables.py,/app/audit_state.py,/app/sinks.py,/app/bronze.py,/app/silver.py,/app/gold.py,/app/periodic.py",
+        "/app/tables.py,/app/audit_state.py,/app/sinks.py,/app/compaction.py,/app/bronze.py,/app/silver.py,/app/gold.py,/app/periodic.py",
         "/app/delta_stream.py"
       ],
       "environment": {
@@ -264,6 +264,7 @@
         "BRONZE_TRIGGER": "${BRONZE_TRIGGER:-5 seconds}",
         "STAGE_TRIGGER": "${STAGE_TRIGGER:-1 second}",
         "SHUFFLE_PARTITIONS": "${SHUFFLE_PARTITIONS:-4}",
+        "COMPACT_EVERY_BATCHES": "${COMPACT_EVERY_BATCHES:-300}",
         "MAX_OFFSETS_PER_TRIGGER": "${MAX_OFFSETS_PER_TRIGGER:-10000}",
         "LAKE_ROOT": "/data/delta",
         "CHECKPOINT_ROOT": "/data/checkpoints",

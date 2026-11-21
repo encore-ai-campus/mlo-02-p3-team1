@@ -38,6 +38,11 @@ class Settings:
     audit_trigger: str = field(default_factory=lambda: os.getenv("AUDIT_TRIGGER", "30 seconds"))
     max_offsets_per_trigger: int = field(default_factory=lambda: _int("MAX_OFFSETS_PER_TRIGGER", 10000))
     dedup_ttl_hours: int = field(default_factory=lambda: _int("DEDUP_TTL_HOURS", 7 * 24))
+    # small-file compaction and VACUUM (spark/compaction.py); 0 disables the step
+    compact_every_batches: int = field(default_factory=lambda: _int("COMPACT_EVERY_BATCHES", 300))
+    compact_bronze_minutes: int = field(default_factory=lambda: _int("COMPACT_BRONZE_MINUTES", 10))
+    vacuum_interval_hours: int = field(default_factory=lambda: _int("VACUUM_INTERVAL_HOURS", 6))
+    vacuum_retain_hours: int = field(default_factory=lambda: _int("VACUUM_RETAIN_HOURS", 168))
     progress_path: str = field(default_factory=lambda: os.getenv("PROGRESS_PATH", "/data/metrics/streaming-progress.json"))
     remote_export_enabled: bool = field(default_factory=lambda: _flag("REMOTE_EXPORT_ENABLED"))
     sink_retry_attempts: int = field(default_factory=lambda: _int("SINK_RETRY_ATTEMPTS", 5))

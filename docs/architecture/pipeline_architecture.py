@@ -24,7 +24,7 @@ C = {
     "ops": ("#f4f5f7", "#7b8494", "#3b4250"),
     "inner": ("#ffffff", "#b9c3cf", "#2a3442"),
 }
-TAG = {"3": "#2f8a57", "4": "#3b78c2", "5": "#b8506a"}  # round of fixes that introduced a part
+TAG = {"3": "#2f8a57", "4": "#3b78c2", "5": "#b8506a", "6": "#c47a12", "7": "#6b4fb8"}  # round of fixes that introduced a part
 
 
 def tagged(text):
@@ -84,7 +84,7 @@ def build():
     o.append("</defs>")
     o.append(f'<rect width="{W}" height="{H}" fill="#ffffff"/>')
     o.append('<text x="30" y="42" font-size="28" font-weight="800" fill="#1f2430">NODEVERSE 파이프라인 동작 아키텍처</text>')
-    o.append('<text x="30" y="70" font-size="15" fill="#5b6472">2026-11-21 · 1~5차 보완 반영 (커밋 f3c197d) · '
+    o.append('<text x="30" y="70" font-size="15" fill="#5b6472">2026-11-21 · 1~7차 보완 반영 · '
              '배지 = 그 부분을 바꾼 보완 차수 · 실선 = 데이터, 파선 = 기동·상태 확인, 점선 = 화면 조회, 빨간 점선 = 실패 경로</text>')
 
     # ------------------------------------------------------------------ row 1: game -> collector -> kafka, gates, server
@@ -144,8 +144,9 @@ def build():
         "  미니게임 성공률 30분 · 실패 급증 경고",
         "  분석 화면 적재 상태 카드 (outbox 상태)",
         "[3]   거절·격리 이벤트 카드 (PL-8)",
+        "[7]   도착 시각 기준 + 늦게 도착 N건 표시",
         "  업데이트 탭: 팩 다운로드·버전 보급률",
-        "/staff/ 전체 현황 · 게임 분석 · 플레이어 · 행동 로그",
+        "/staff/ 전체 현황 · 게임 분석 · 플레이어 · 행동 로그 (플레이 시각 기준)",
         "  원격 대시보드 DB의 세션·시도·이벤트",
         "  참조가 아직 없으면 건너뜀 (500 없음)",
         "회원 MySQL: 계정·클라우드 저장 (게임 로그인 API)",
@@ -170,6 +171,7 @@ def build():
         "중복 제거: 상태 저장소 7일 (kafka_ts)",
         "insert-only MERGE: event_id",
         "  + event_date [lo−7일, hi+1일] + v7 ID 범위",
+        "[7] ID 생성일별 묶음마다 MERGE (늦은 ID 분리)",
         "→ 원격 outbox 적재 (500건 bulk)",
     ]))
     o.append(box(320, 695, 400, 125, "silver_audit (30초)", [
@@ -180,7 +182,7 @@ def build():
     ]))
     o.append(box(740, 530, 470, 150, "gold 쿼리 (1초, 워터마크 2·10분)", [
         "gold_1m: 1분 텀블링 미니게임 시도·성공·실패",
-        "gold_alert: 5분 창 1분 이동 + 직전 30분 기준",
+        "[7] gold_alert: 5분 창 1분 이동, 정시 이벤트만",
         "  실패 급증 (시도 20↑·실패율 0.4↑·1.5배↑)",
         "gold_update: 5분 창 업데이트·팩 다운로드",
         "Delta MERGE (window_start 하한) → rt_*",
@@ -197,8 +199,8 @@ def build():
         "(REMOTE_EXPORT_ENABLED=1)",
     ]))
     o.append(box(50, 840, 1160, 170, "드라이버 주기 작업 spark/periodic.py (10초 루프)", [
-        "[3] rt_summary 10초: 최근 5분만 먼저 걸러 1분 이벤트·5분 활성 세션 집계 (이전 이틀 치 21만 행 → 수천 행)",
-        "[3] 버전 보급률 60초: 24시간 창을 매분 다시 계산, (종류·버전·설치 수) 같으면 Delta MERGE·Mongo 재쓰기 생략",
+        "[3] rt_summary 10초: 최근 5분만 먼저 걸러 집계  [7] 늦게 도착 건수 함께 (총계 포함)",
+        "[3] 버전 보급률 60초: 같으면 MERGE·재쓰기 생략  [7] 최신 판단은 플레이 시각 순",
         "[3] rt_rejects 60초 (PL-8): Kafka nv.dlq.v1 24시간 + silver.quarantine → 60분·24시간 건수, 사유, 최근 5건",
         "[4] Gold 재게시 대기분이 있으면 처리 · 진행 파일 metrics/streaming-progress.json (sink 실패, 재시작, 재게시 대기)",
         "로그: rt_summary·버전·rt_rejects 소요 시간 (주기 작업 비용 관측)",
@@ -224,11 +226,11 @@ def build():
         "metrics/streaming-progress.json",
         "[4] metrics/gold-republish.json",
     ]))
-    o.append(box(1290, 855, 430, 155, "오프라인 정비 spark/maintain.py", [
-        "OPTIMIZE … ZORDER BY",
-        "  (minigame_id, player_id, event_id)",
-        "스트리밍 정지 후 실행 (계획만이 기본)",
-        "[5] 복사본 비교: 파일 300→1, 0.99→0.63초",
+    o.append(box(1290, 855, 430, 155, "압축·정리 spark/compaction.py", [
+        "[6] 자동 압축 끔 (매 배치 파티션 재작성 제거)",
+        "[6] 쓰기 스레드가 300배치마다 작은 파일만",
+        "[6] Bronze 10분 · VACUUM 6시간 (보존 7일)",
+        "ZORDER(maintain.py): 현행 유지, 스트림 정지 후",
     ]))
     o.append(arrow([(1210, 560), (1290, 560)], "data", "MERGE·append", 1250, 552))
 
@@ -345,11 +347,15 @@ def build():
         "[5] 게임 디스크 큐·계정 전환, P2 시험",
         "    6,000건·역순 30세션: 섞임·누락 0",
         "    같은 ID 재전송: Silver 1행, Gold 불변",
+        "[6] Silver MERGE 단계 5.35초 → 1.55초,",
+        "    시험 1회 디스크 +420MB → +2MB",
+        "[7] 늦게 도착: 사흘 전 602건 → 실시간 표시,",
+        "    경고에서만 제외 (366 vs 282, 차이 84 = 늦은 시도)",
         "",
         "남은 과제",
         "· 최신 EXE 실제 종단 시험, 디스크 부족 재현",
         "· Silver 같은 배치 중복 선택 규칙 (설계 검토)",
-        "· ZORDER 정기 실행 일정, DLQ 재처리 스크립트",
+        "· 중복 제거 상태 TTL 축소, DLQ 재처리 스크립트",
         "· 원격 적재(초당 약 50~90건) < 유입",
     ], kind="ops"))
     o.append("</svg>")

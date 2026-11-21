@@ -162,7 +162,7 @@ mlo-02-p3-team1/
 
 ## 4. 종합 구조와 동작 흐름
 
-![파이프라인 동작 아키텍처 (1~5차 보완 반영)](docs/architecture/pipeline-architecture-2026-11-21.png)
+![파이프라인 동작 아키텍처 (1~7차 보완 반영)](docs/architecture/pipeline-architecture-2026-11-21.png)
 
 원본 SVG: [`docs/architecture/pipeline-architecture-2026-11-21.svg`](docs/architecture/pipeline-architecture-2026-11-21.svg) (생성: `python docs/architecture/pipeline_architecture.py`). 보완 전 흐름과 문제 지점은 아래 그림입니다.
 

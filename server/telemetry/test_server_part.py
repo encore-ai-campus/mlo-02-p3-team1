@@ -275,6 +275,12 @@ class LiveApiTests(TestCase):
         self.client.force_login(self.admin)
         self.assertTrue(self.client.get('/api/admin/live/summary').json()['stale'])
 
+    def test_late_count_in_summary(self):  # 7th round
+        self.client.force_login(self.admin)
+        database().rt_summary.update_one({'_id': 'global'}, {'$set': {'late_last_1m': 4}})
+        self.assertEqual(self.client.get('/api/admin/live/summary').json()['late_last_1m'], 4)
+        self.assertContains(self.client.get('/staff/live/'), '도착 시각')
+
     def test_rejects_from_pipeline(self):  # PL-8
         self.client.force_login(self.admin)
         database().rt_rejects.delete_many({})

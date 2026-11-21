@@ -148,7 +148,8 @@
   function renderLive(summary, games, alerts) {
     renderSink(summary.sink);
     renderRejects(summary.rejects);
-    setKpi('events', summary.events_last_1m, '게임에서 들어온 학습 행동 수');
+    var late = summary.late_last_1m || 0;  // counted in the total, shown apart (7th round)
+    setKpi('events', summary.events_last_1m, '게임에서 들어온 학습 행동 수' + (late ? ' · 늦게 도착 ' + late.toLocaleString() + '건 포함' : ''));
     setKpi('sessions', summary.active_sessions_5m, '5분 안에 행동이 있었던 플레이');
     setKpi('alerts', alerts.alerts.length);
     var minutes = [];

@@ -103,10 +103,12 @@ def spark_session(app: str, shuffle_partitions: int = 4) -> SparkSession:
              .config("spark.databricks.delta.snapshotPartitions", "2")
              .config("spark.sql.streaming.stateStore.providerClass",
                      "org.apache.spark.sql.execution.streaming.state.RocksDBStateStoreProvider")
-             # compaction runs inside the writing batch (no concurrent OPTIMIZE conflicts), but only once
-             # 100 small files pile up, so it does not add seconds to every micro-batch
-             .config("spark.databricks.delta.autoCompact.enabled", "true")
-             .config("spark.databricks.delta.autoCompact.minNumFiles", "100")
+             # Auto compaction is off: in practice it ran after nearly every commit and rewrote the whole date
+             # partition each time (spark/compaction.py has the measurements and the replacement). OPTIMIZE
+             # only rewrites files below minFileSize, so files that reached 64 MB are never rewritten again.
+             .config("spark.databricks.delta.autoCompact.enabled", "false")
+             .config("spark.databricks.delta.optimize.minFileSize", str(64 * 1024 * 1024))
+             .config("spark.databricks.delta.optimize.maxFileSize", str(128 * 1024 * 1024))
              .config("spark.sql.adaptive.coalescePartitions.minPartitionSize", "1MB")
              .getOrCreate())
     spark.sparkContext.setLogLevel(os.getenv("SPARK_LOG_LEVEL", "WARN"))

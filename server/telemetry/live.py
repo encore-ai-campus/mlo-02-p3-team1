@@ -65,7 +65,8 @@ def summary_data():
     if isinstance(updated, datetime) and updated.tzinfo is None:
         updated = updated.replace(tzinfo=dt_timezone.utc)
     age = (timezone.now() - updated).total_seconds() if isinstance(updated, datetime) else None
-    return {'events_last_1m': doc.get('events_last_1m', 0), 'active_sessions_5m': doc.get('active_sessions_5m', 0),
+    return {'events_last_1m': doc.get('events_last_1m', 0), 'late_last_1m': doc.get('late_last_1m', 0),
+            'active_sessions_5m': doc.get('active_sessions_5m', 0),
             'updated_at': _iso(updated), 'age_seconds': round(age, 1) if age is not None else None,
             'stale': age is None or age > STALE_SECONDS, 'sink': sink_status(), 'rejects': rejects_status()}
 
