@@ -398,3 +398,16 @@ def test_member_lookup_is_cached(monkeypatch):
   except Waiting:pass
  assert ('b',None) not in p._member_cache  # a missing mapping is checked again every time
  p._member_cache.clear()
+
+
+def test_member_cache_can_be_disabled(monkeypatch):
+ import remote.projection as p
+ from common import settings
+ p._member_cache.clear();calls=[]
+ monkeypatch.setattr(p,'_resolve_member',lambda sql,player,ctx:(calls.append(player),'m')[1])
+ monkeypatch.setenv('REMOTE_MEMBER_CACHE_SECONDS','0');settings.get.cache_clear() if hasattr(settings.get,'cache_clear') else None
+ try:
+  p.resolve_member(None,'z',{});p.resolve_member(None,'z',{})
+  assert calls==['z','z'] and not p._member_cache
+ finally:
+  monkeypatch.delenv('REMOTE_MEMBER_CACHE_SECONDS');settings.get.cache_clear() if hasattr(settings.get,'cache_clear') else None

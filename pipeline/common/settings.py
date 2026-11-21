@@ -58,6 +58,8 @@ class Settings:
     remote_context_path: str = field(default_factory=lambda: os.getenv("REMOTE_CONTEXT_PATH", "/run/private/remote-context.json"))
     remote_workers: int = field(default_factory=lambda: _int("REMOTE_WORKERS", 8))
     remote_batch: int = field(default_factory=lambda: _int("REMOTE_BATCH", 200))
+    # 8th round: how long a resolved live member is reused before MySQL is asked again (0 = no cache)
+    remote_member_cache_seconds: int = field(default_factory=lambda: _int("REMOTE_MEMBER_CACHE_SECONDS", 300))
     remote_sql_pool_size: int = field(default_factory=lambda: _int("REMOTE_SQL_POOL_SIZE", 0))  # 0 = remote_workers
     # PL-9: when waiting rows stop retrying and become 'parked' (kept, revivable)
     remote_wait_member_hours: float = field(default_factory=lambda: float(os.getenv("REMOTE_WAIT_MEMBER_HOURS", "24")))

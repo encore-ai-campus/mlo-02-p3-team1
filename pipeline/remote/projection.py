@@ -43,7 +43,6 @@ def ensure(collection, doc, immutable):
         raise Conflict("id_content_conflict:" + collection.name)
     return old
 
-MEMBER_CACHE_SECONDS = 300
 _member_cache: dict = {}  # (player, external key) -> (member uuid, expires at monotonic)
 _member_lock = threading.Lock()
 
@@ -51,6 +50,10 @@ _member_lock = threading.Lock()
 def resolve_member(sql, player, contexts):
     """Cached front of _resolve_member (8th round). Only a member that exists and is 'live' is cached, so a missing
     mapping or a non-live member is checked again on every attempt; a changed row is picked up within the TTL."""
+    from common import settings
+    ttl = settings.get().remote_member_cache_seconds  # REMOTE_MEMBER_CACHE_SECONDS, default 300
+    if ttl <= 0:
+        return _resolve_member(sql, player, contexts)
     binding = contexts.get("members", {}).get(player)
     key = (player, binding["external_member_key"] if binding else None)
     now_m = time.monotonic()
@@ -60,7 +63,7 @@ def resolve_member(sql, player, contexts):
             return hit[0]
     member = _resolve_member(sql, player, contexts)
     with _member_lock:
-        _member_cache[key] = (member, now_m + MEMBER_CACHE_SECONDS)
+        _member_cache[key] = (member, now_m + ttl)
     return member
 
 
