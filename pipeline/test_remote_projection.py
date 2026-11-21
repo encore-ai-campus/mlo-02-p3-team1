@@ -411,3 +411,13 @@ def test_member_cache_can_be_disabled(monkeypatch):
   assert calls==['z','z'] and not p._member_cache
  finally:
   monkeypatch.delenv('REMOTE_MEMBER_CACHE_SECONDS');settings.get.cache_clear() if hasattr(settings.get,'cache_clear') else None
+
+def test_member_cache_is_bounded(monkeypatch):
+ # follow-up review #3: many distinct members never grow the cache past MEMBER_CACHE_MAX
+ import remote.projection as p
+ p._member_cache.clear()
+ monkeypatch.setattr(p,'MEMBER_CACHE_MAX',5)
+ monkeypatch.setattr(p,'_resolve_member',lambda sql,player,ctx:'m-'+player)
+ for i in range(20):p.resolve_member(None,f'u{i}',{})
+ assert len(p._member_cache)<=5 and ('u19',None) in p._member_cache
+ p._member_cache.clear()

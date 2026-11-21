@@ -117,7 +117,6 @@ def merge(spark, table: str, df: DataFrame, keys: list[str]) -> None:
     cond += f" AND t.window_start >= TIMESTAMP '{lo.strftime('%Y-%m-%d %H:%M:%S')}'"
     (DeltaTable.forPath(spark, tb.path(table)).alias("t").merge(df.alias("s"), cond)
      .whenMatchedUpdateAll().whenNotMatchedInsertAll().execute())
-    compaction.compact_after_write(spark, table)  # single writer per Gold table, same thread
 
 
 def gold_minigame(agg: DataFrame, batch_id: int) -> None:
@@ -130,6 +129,8 @@ def gold_minigame(agg: DataFrame, batch_id: int) -> None:
     try:
         merge(agg.sparkSession, "gold.minigame_1m", rows, ["window_start", "minigame_id"])
         publish("rt_minigame_1m", [r.asDict() for r in rows.collect()])
+        # after the MongoDB publish, so the live page never waits for a compaction (follow-up review #2)
+        compaction.compact_after_write(agg.sparkSession, "gold.minigame_1m")
     finally:
         rows.unpersist()
     log.info("gold_1m batch %s in %.1fs", batch_id, time.monotonic() - started)
@@ -168,6 +169,7 @@ def gold_alerts(agg: DataFrame, batch_id: int) -> None:
     try:
         merge(spark, "gold.failure_alerts", rows, ["window_start", "minigame_id"])
         publish("rt_alerts", [r.asDict() for r in rows.collect()])
+        compaction.compact_after_write(spark, "gold.failure_alerts")
     finally:
         rows.unpersist()
 
@@ -232,6 +234,7 @@ def gold_updates(agg: DataFrame, batch_id: int) -> None:
         try:
             merge(spark, "gold.update_progress_5m", rows, ["window_start", "target_version"])
             publish("rt_updates", [r.asDict() for r in rows.collect()])
+            compaction.compact_after_write(spark, "gold.update_progress_5m")
         finally:
             rows.unpersist()
     finally:

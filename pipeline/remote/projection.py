@@ -44,6 +44,7 @@ def ensure(collection, doc, immutable):
     return old
 
 _member_cache: dict = {}  # (player, external key) -> (member uuid, expires at monotonic)
+MEMBER_CACHE_MAX = 50_000  # entries; ~100 bytes each
 _member_lock = threading.Lock()
 
 
@@ -63,6 +64,11 @@ def resolve_member(sql, player, contexts):
             return hit[0]
     member = _resolve_member(sql, player, contexts)
     with _member_lock:
+        if len(_member_cache) >= MEMBER_CACHE_MAX:  # follow-up review #3: bounded memory
+            for k in [k for k, v in _member_cache.items() if v[1] <= now_m]:
+                del _member_cache[k]  # expired first
+            while len(_member_cache) >= MEMBER_CACHE_MAX:
+                del _member_cache[next(iter(_member_cache))]  # then oldest inserted
         _member_cache[key] = (member, now_m + ttl)
     return member
 

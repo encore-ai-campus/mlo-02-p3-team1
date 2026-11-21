@@ -101,20 +101,24 @@ def _write_silver(table: str, name: str):
                 touched = set()
                 groups = merge_groups(source)
                 for part in groups:  # insert-only MERGE is idempotent: a batch replayed half-way is safe
-                    lo, hi, id_lo, id_hi = part.agg(F.min("event_date"), F.max("event_date"),
-                                                    F.min("event_id"), F.max("event_id")).first()
+                    # the same aggregation also lists every date this group writes (not only min/max), so a
+                    # middle date of a late burst is a compaction candidate too (follow-up review 2026-11-21 #4)
+                    lo, hi, id_lo, id_hi, dates = part.agg(F.min("event_date"), F.max("event_date"),
+                                                           F.min("event_id"), F.max("event_id"),
+                                                           F.collect_set("event_date")).first()
                     (DeltaTable.forPath(spark, tb.path(table)).alias("t")
                      .merge(part.alias("s"), merge_condition(lo, hi, id_lo, id_hi))
                      .whenNotMatchedInsertAll().execute())
-                    touched.update({lo, hi})
+                    touched.update(dates or ())
                 if len(groups) > 1:
                     log.info("silver %s batch %s split into %d MERGE groups by id day", name, batch_id, len(groups))
-                # every COMPACT_EVERY_BATCHES batches, in this thread (cannot conflict with this MERGE)
-                compaction.compact_after_write(spark, table, "event_date", touched)
                 merged = time.monotonic()
                 if settings.get().remote_export_enabled:
                     sinks.stage_outbox(row.asDict(recursive=True) for row in source.toLocalIterator())
                 staged = time.monotonic()
+                # every COMPACT_EVERY_BATCHES batches, in this thread (cannot conflict with this MERGE), after the
+                # outbox staging so the remote export never waits for a compaction (follow-up review #2)
+                compaction.compact_after_write(spark, table, "event_date", touched)
         finally:
             source.unpersist()
         log.info("silver %s batch %s in %.1fs (merge %.1fs, outbox %.1fs)", name, batch_id,
