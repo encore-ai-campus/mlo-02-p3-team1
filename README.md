@@ -234,4 +234,5 @@ mlo-02-p3-team1/
 | [docs/DATA_FLOW_AND_GAPS.md](docs/DATA_FLOW_AND_GAPS.md) | 데이터 흐름, 병목, 보완·추가 구현 목록 |
 | [docs/INTEGRATION_REVIEW_2026-11-20.md](docs/INTEGRATION_REVIEW_2026-11-20.md) | 세 파트 연동 검토 |
 | [docs/reports/](docs/reports/) | 중간보고서, 델타레이크 오류수정내역, 로그인·클라우드세이브 정리 |
+| [docs/presentation/](docs/presentation/) | 파이프라인 처음 구조·현재 구조·최적화(1~7차) 비교 PDF와 발표용 그림 5장 (16:9 PNG·SVG) |
 | [contracts/README.md](contracts/README.md) | 공통 이벤트 규약과 남은 차이 |
