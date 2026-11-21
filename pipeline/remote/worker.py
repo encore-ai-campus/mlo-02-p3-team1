@@ -136,18 +136,47 @@ def _set(local, job, fields, unset=None):
         raise LostClaim(job["_id"])
 
 
-def process_job(job, local, remote, pool, ctx, have_lock):
+def process_job(job, local, remote, pool, ctx, have_lock, cache=None):
     """Project one outbox row and record its terminal or retry state. Never raises.
 
     Returns None when the row reached a terminal state, PARKED_SENTINEL when it was parked,
     else the time it becomes due again."""
     try:
-        return _process(job, local, remote, pool, ctx, have_lock)
+        return _process(job, local, remote, pool, ctx, have_lock, cache)
     except LostClaim:
         return None
 
 
-def _process(job, local, remote, pool, ctx, have_lock):
+class LazyConnection:
+    """Takes a pooled MySQL connection only when the projection really queries MySQL (8th round). With the member
+    cache most events never do, which saves the pool's ping on checkout and its rollback on return."""
+
+    def __init__(self, pool):
+        self._pool, self._conn = pool, None
+
+    def _get(self):
+        if self._conn is None:
+            self._conn = self._pool.connection()
+        return self._conn
+
+    def cursor(self, *a, **k):
+        return self._get().cursor(*a, **k)
+
+    def commit(self):
+        return self._get().commit()
+
+    def rollback(self):
+        if self._conn is not None:
+            self._conn.rollback()
+
+    def close(self):
+        if self._conn is not None:
+            self._conn.close()
+            self._conn = None
+
+
+def _process(job, local, remote, pool, ctx, have_lock, cache=None):
+    archived = [bool(job.get("remote_archive_stored_at"))]
     try:
         event = job["event"]
         # The archive is written before the projection so a row that has to wait (member mapping, sequence gap)
@@ -155,39 +184,38 @@ def _process(job, local, remote, pool, ctx, have_lock):
         # restored remote DB is refilled before the row can become 'stored' (P1-5). project() below does not
         # repeat it (it used to, costing a second find_one per event).
         Projector(local, remote, None, {}).archive(event)
-        local.remote_event_outbox.update_one({"_id": job["_id"], "remote_archive_stored_at": {"$exists": False}},
-                                             {"$set": {"archive_stored": True, "remote_archive_stored_at": now()}})
-        conn = None
+        archived_at = job.get("remote_archive_stored_at") or now()  # recorded with the row's next state write
+        archived[0] = True
+        conn = LazyConnection(pool)
         try:
-            if _needs_sql(event):
-                if not have_lock:
-                    raise Waiting("other_database_writer_active")
-                conn = pool.connection()
-            result = Projector(local, remote, conn, ctx).project(event, archived=True)
+            if _needs_sql(event) and not have_lock:
+                raise Waiting("other_database_writer_active")
+            result = Projector(local, remote, conn, ctx, cache).project(event, archived=True)
         finally:
-            if conn is not None:
-                conn.close()  # back to the pool
+            conn.close()  # back to the pool, only if it was taken (member cache hit = no MySQL at all)
         state = "quarantined" if result.get("scope") == "learning_quarantine" else "stored"
         done = now()
         _set(local, job, {"state": state, "completed_at": done,
                           ("quarantined_at" if state == "quarantined" else "stored_at"): done,
                           "updated_at": done, "result": result, "archive_stored": True,
+                          "remote_archive_stored_at": archived_at,
                           "queue_to_terminal_ms": max(0, int((done - job["queued_at"]).total_seconds() * 1000))},
              unset={"reason": "", "last_error": "", "waiting_since": "", "parked_at": ""})
         return None
     except LostClaim:
         return None
     except Waiting as e:
-        kind = Projector.kind(job.get("event") or {})
-        archived = remote["pipeline_" + kind + "_events"].find_one({"_id": job["_id"]}, {"_id": 1}) is not None
         reason = str(e)
         since = job.get("waiting_since") or now()
         limit = wait_limit(reason)
         if limit is not None and now() - since >= limit:
-            _park(local, job, reason, archive_stored=archived, waiting_since=since)
+            _park(local, job, reason, archive_stored=archived[0], waiting_since=since)
             return PARKED_SENTINEL
-        due = now() + timedelta(seconds=min(60, 5 * 2 ** min(job["attempts"] - 1, 4)))
-        _set(local, job, {"state": "waiting_context", "reason": reason, "archive_stored": archived, "updated_at": now(),
+        # a sequence gap is usually closed within a second by a predecessor staged in the next Silver batch (and
+        # that predecessor wakes this row anyway); other waits keep the slower 5-60 s backoff
+        base = 1 if reason.startswith("sequence_gap") else 5
+        due = now() + timedelta(seconds=min(60, base * 2 ** min(job["attempts"] - 1, 4)))
+        _set(local, job, {"state": "waiting_context", "reason": reason, "archive_stored": archived[0], "updated_at": now(),
                           "next_attempt_at": due, "waiting_since": since})
         return due
     except (Conflict, ValueError, KeyError, TypeError) as e:
@@ -230,8 +258,9 @@ def process_group(jobs, local, *args):
     """Process one session's rows in order. When a row must wait, the later rows of the same session go back
     to the queue with the same due time instead of each failing on a sequence gap with its own growing
     backoff, so the whole session is retried together and in order."""
+    cache = {}  # 8th round: shared by this session's events in this batch (one thread, sequence order)
     for i, job in enumerate(jobs):
-        due = process_job(job, local, *args)
+        due = process_job(job, local, *args, cache=cache)
         if due is PARKED_SENTINEL:
             due = now() + timedelta(seconds=60)
         if due is not None and i + 1 < len(jobs):
@@ -326,6 +355,8 @@ class Worker:
     def _ensure_indexes(self):
         self.local.remote_event_outbox.create_index([("state", 1), ("next_attempt_at", 1)])
         self.local.remote_event_outbox.create_index([("state", 1), ("reason", 1)])
+        # wake_successor looks up later rows of one session after every stored event
+        self.local.remote_event_outbox.create_index([("source_session_id", 1), ("sequence", 1)])
         days = settings.get().remote_done_ttl_days
         if days > 0:  # PL-10: finished rows are removed after N days; parked/blocked/waiting rows are kept
             try:

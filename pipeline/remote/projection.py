@@ -1,6 +1,8 @@
 """Explicit v2 -> dashboard relation projection. Unknown identity/context stays pending."""
 import hashlib
 import json
+import threading
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,19 +30,41 @@ def dt(value):
     return value.replace(microsecond=value.microsecond // 1000 * 1000)
 
 def ensure(collection, doc, immutable):
-    """Insert immutable identity fields; never overwrite existing content on replay."""
-    old = collection.find_one({"_id": doc["_id"]})
-    if old is None:
-        try:
-            collection.insert_one(doc)
-            return doc
-        except DuplicateKeyError:
-            old = collection.find_one({"_id": doc["_id"]})
+    """Insert immutable identity fields; never overwrite existing content on replay.
+
+    8th round: insert first and read only when the id already exists. New documents (almost every event) cost one
+    round trip instead of two; a replay still compares the immutable fields and raises Conflict on a difference."""
+    try:
+        collection.insert_one(doc)
+        return doc
+    except DuplicateKeyError:
+        old = collection.find_one({"_id": doc["_id"]})
     if old is None or any(old.get(k) != doc.get(k) for k in immutable):
         raise Conflict("id_content_conflict:" + collection.name)
     return old
 
+MEMBER_CACHE_SECONDS = 300
+_member_cache: dict = {}  # (player, external key) -> (member uuid, expires at monotonic)
+_member_lock = threading.Lock()
+
+
 def resolve_member(sql, player, contexts):
+    """Cached front of _resolve_member (8th round). Only a member that exists and is 'live' is cached, so a missing
+    mapping or a non-live member is checked again on every attempt; a changed row is picked up within the TTL."""
+    binding = contexts.get("members", {}).get(player)
+    key = (player, binding["external_member_key"] if binding else None)
+    now_m = time.monotonic()
+    with _member_lock:
+        hit = _member_cache.get(key)
+        if hit and hit[1] > now_m:
+            return hit[0]
+    member = _resolve_member(sql, player, contexts)
+    with _member_lock:
+        _member_cache[key] = (member, now_m + MEMBER_CACHE_SECONDS)
+    return member
+
+
+def _resolve_member(sql, player, contexts):
     """Use real member UUID or exact external key. Provision only trusted configured contexts."""
     try:
         member_hex = uuid.UUID(player).hex
@@ -76,9 +100,24 @@ def resolve_member(sql, player, contexts):
         sql.commit()
         return str(ident)
 
+_problem_ids: dict = {}  # (task_id, content_version) -> problem _id; definitions never change once written
+
+
 class Projector:
-    def __init__(self, local, remote, sql, contexts):
+    def __init__(self, local, remote, sql, contexts, cache=None):
+        """cache (8th round): a dict shared by the events of one session group in one batch. One thread processes a
+        group in sequence order, so the cursor, run context, run and attempt documents it already read or wrote can
+        be reused instead of being read again for every event. Only states confirmed by the database go in."""
         self.local, self.remote, self.sql, self.contexts = local, remote, sql, contexts
+        self.cache = cache if cache is not None else {}
+
+    def _cached(self, key, load):
+        if key in self.cache:
+            return self.cache[key]
+        value = load()
+        if value is not None:
+            self.cache[key] = value
+        return value
 
     @staticmethod
     def kind(event):
@@ -96,6 +135,7 @@ class Projector:
     def receipt(self, event, result):
         ensure(self.local.remote_projection_receipts, {"_id": event["event_id"], "payload_hash": event["payload_hash"], "result": result}, ["payload_hash"])
         self.local.remote_session_cursors.update_one({"_id": event["session_id"]}, {"$set": {"last_sequence": event["sequence"], "last_event_id": event["event_id"]}}, upsert=True)
+        self.cache[("cursor", event["session_id"])] = {"last_sequence": event["sequence"]}
         self.wake_successor(event)
         return result
 
@@ -103,12 +143,25 @@ class Projector:
         """Wake the next sequence of this session. Called after a receipt and again when an already projected
         event is replayed, so a failure between the cursor update and this wake is repaired by the retry of the
         predecessor (reliability review P1-2)."""
+        # 8th round: one probe instead of two updates per event; almost always nothing is waiting.
+        # Later rows of the session can wait in two ways: the first one that hit the gap is waiting_context, and
+        # the rest of its group were put back as pending with the same future due time (worker.process_group).
+        # Both are woken now; waking only sequence+1 let the session advance one row per backoff interval
+        # (44 % of rows were retried in the 9,000-event drain test).
+        now_ = datetime.now(timezone.utc)
+        sid, seq = event["session_id"], event["sequence"]
+        later = {"source_session_id": sid, "sequence": {"$gt": seq}}
+        nxt = self.local.remote_event_outbox.find_one(
+            {**later, "$or": [{"state": {"$in": ["waiting_context", "parked"]}},
+                              {"state": "pending", "next_attempt_at": {"$gt": now_}}]}, {"_id": 1})
+        if nxt is None:
+            return
         # A newly available predecessor removes this wait immediately; do not make
         # a valid next event sleep through an old exponential retry interval.
-        self.local.remote_event_outbox.update_many({"source_session_id": event["session_id"],
-            "sequence": event["sequence"] + 1, "state": "waiting_context",
-            "reason": {"$regex": "^sequence_gap:"}},
-            {"$set": {"next_attempt_at": datetime.now(timezone.utc)}})
+        self.local.remote_event_outbox.update_many(
+            {**later, "$or": [{"state": "waiting_context", "reason": {"$regex": "^sequence_gap:"}},
+                              {"state": "pending", "next_attempt_at": {"$gt": now_}}]},
+            {"$set": {"next_attempt_at": now_}})
         # PL-9: a successor parked after the gap deadline comes back as soon as its predecessor is stored.
         self.local.remote_event_outbox.update_many({"source_session_id": event["session_id"],
             "sequence": event["sequence"] + 1, "state": "parked",
@@ -135,7 +188,8 @@ class Projector:
         sequence = event["sequence"]
         seqkey = source_session + ":" + str(sequence)
         ensure(self.local.remote_sequence_registry, {"_id": seqkey, "event_id": event["event_id"], "payload_hash": event["payload_hash"]}, ["event_id", "payload_hash"])
-        cursor = self.local.remote_session_cursors.find_one({"_id": source_session}) or {"last_sequence": 0}
+        cursor = (self.cache.get(("cursor", event["session_id"]))
+                  or self.local.remote_session_cursors.find_one({"_id": source_session}) or {"last_sequence": 0})
         if sequence > cursor["last_sequence"] + 1:
             raise Waiting("sequence_gap:expected_" + str(cursor["last_sequence"] + 1))
         if sequence <= cursor["last_sequence"]:
@@ -153,7 +207,7 @@ class Projector:
         details = event.get("details", {})
         et = event["event_type"]
         contextkey = source_session + ":" + source_run
-        context = self.local.remote_run_contexts.find_one({"_id": contextkey})
+        context = self._cached(("ctx", contextkey), lambda: self.local.remote_run_contexts.find_one({"_id": contextkey}))
         session_id = uid("session", source_session, player, game_id)
         metadata = {"game_id": game_id, "minigame_id": game_id, "category": game["category"],
                     "content_version": event["content_version"], "projection_version": 1}
@@ -162,8 +216,11 @@ class Projector:
             # Dashboard catalog resolves exact task_id; level belongs to the run, not the game code.
             task_code = game_id
             # Use existing definition UUID for the same (task_id, content_version).
-            existing = self.remote.game_problems.find_one({"task_id": task_code, "content_version": event["content_version"]})
-            problem_id = existing["_id"] if existing else uid("problem", task_code, event["content_version"])
+            pkey = (task_code, event["content_version"])
+            if pkey not in _problem_ids:
+                existing = self.remote.game_problems.find_one({"task_id": task_code, "content_version": event["content_version"]})
+                _problem_ids[pkey] = existing["_id"] if existing else uid("problem", task_code, event["content_version"])
+            problem_id = _problem_ids[pkey]
             definition = {"_id": problem_id, "task_id": task_code, "content_version": event["content_version"],
                           "title": game["title"],
                           "topic": game["topic"], **metadata}
@@ -175,10 +232,11 @@ class Projector:
             ensure(self.remote.game_sessions, session, ["player_id", "topic", "source_session_id"])
             run = {"_id": source_run, "session_id": session_id, "task_id": problem_id, "started_at": occurred,
                    "ended_at": None, "status": "in_progress", "active_ms": None, "paused_ms": None, "level": level, **metadata}
-            ensure(self.remote.problem_runs, run, ["session_id", "task_id", "started_at"])
+            self.cache[("run", source_run)] = ensure(self.remote.problem_runs, run, ["session_id", "task_id", "started_at"])
             context = {"_id": contextkey, "player_id": player, "session_id": session_id, "run_id": source_run,
                        "problem_id": problem_id, "game_id": game_id, "started_at": occurred}
-            ensure(self.local.remote_run_contexts, context, ["player_id", "session_id", "problem_id", "started_at"])
+            context = ensure(self.local.remote_run_contexts, context, ["player_id", "session_id", "problem_id", "started_at"])
+            self.cache[("ctx", contextkey)] = context
         if context is None:
             return self.quarantine(event, "event_without_prior_problem_start")
         if context["game_id"] != game_id or context["player_id"] != player:
@@ -193,24 +251,30 @@ class Projector:
             if not event.get("attempt_id"):
                 return self.quarantine(event, "attempt_id_required")
             attempt_id = str(uuid.UUID(event["attempt_id"]))
-            existing = self.remote.solution_attempts.find_one({"_id": attempt_id})
-            last = self.remote.solution_attempts.find_one({"run_id": source_run}, sort=[("number", -1)])
-            number = existing["number"] if existing else (last["number"] + 1 if last else 1)
+            existing = self.cache.get(("att", attempt_id)) or self.remote.solution_attempts.find_one({"_id": attempt_id})
+            if existing:
+                number = existing["number"]
+            elif ("lastnum", source_run) in self.cache:
+                number = self.cache[("lastnum", source_run)] + 1
+            else:
+                last = self.remote.solution_attempts.find_one({"run_id": source_run}, sort=[("number", -1)])
+                number = last["number"] + 1 if last else 1
             attempt = {"_id": attempt_id, "run_id": source_run, "number": number, "started_at": occurred,
                        "ended_at": None, "outcome": "in_progress", **metadata}
-            ensure(self.remote.solution_attempts, attempt, ["run_id", "number", "started_at"])
+            self.cache[("att", attempt_id)] = ensure(self.remote.solution_attempts, attempt, ["run_id", "number", "started_at"])
+            self.cache[("lastnum", source_run)] = max(number, self.cache.get(("lastnum", source_run), 0))
         elif et not in ("problem_started", "problem_completed"):
             if not event.get("attempt_id"):
                 return self.quarantine(event, "attempt_id_required")
             attempt_id = str(uuid.UUID(event["attempt_id"]))
-            attempt = self.remote.solution_attempts.find_one({"_id": attempt_id})
+            attempt = self._cached(("att", attempt_id), lambda: self.remote.solution_attempts.find_one({"_id": attempt_id}))
             if not attempt or attempt["run_id"] != source_run:
                 return self.quarantine(event, "event_without_prior_attempt_start")
             if attempt.get("ended_at") is not None and et not in ("attempt_succeeded", "attempt_failed"):
                 return self.quarantine(event, "event_after_attempt_closed")
             if occurred < attempt["started_at"]:
                 raise Conflict("event_before_attempt_start")
-        run_doc = self.remote.problem_runs.find_one({"_id": source_run})
+        run_doc = self._cached(("run", source_run), lambda: self.remote.problem_runs.find_one({"_id": source_run}))
         if run_doc and run_doc.get("ended_at") is not None and et != "problem_completed":
             return self.quarantine(event, "event_after_run_closed")
         if et in ("operation_succeeded", "operation_failed") and not details.get("operation"):
@@ -235,11 +299,15 @@ class Projector:
         if et in ("attempt_succeeded", "attempt_failed"):
             outcome = "success" if et == "attempt_succeeded" else "failure"
             self.finalize(self.remote.solution_attempts, attempt_id, "outcome", outcome, occurred)
+            if ("att", attempt_id) in self.cache:
+                self.cache[("att", attempt_id)] = dict(self.cache[("att", attempt_id)], outcome=outcome, ended_at=occurred)
         if et == "problem_completed":
             if self.remote.solution_attempts.count_documents({"run_id": source_run, "ended_at": None}):
                 # every earlier sequence is already projected, so no later event can close these attempts
                 return self.quarantine(event, "attempts_still_open")
             self.finalize(self.remote.problem_runs, source_run, "status", "completed", occurred)
+            if ("run", source_run) in self.cache:
+                self.cache[("run", source_run)] = dict(self.cache[("run", source_run)], status="completed", ended_at=occurred)
         result = {"scope": "dashboard_records", "member_id": player, "session_id": context["session_id"],
                   "run_id": source_run, "attempt_id": attempt_id, "event_id": event["event_id"]}
         return self.receipt(event, result)

@@ -131,13 +131,19 @@ def test_due_queue_is_fair_not_sorted_by_source_sequence(dbs):
  assert claim(l)['_id']=='new'
  assert claim(l)['_id']=='retry'
 
-def test_predecessor_wakes_next_sequence_without_changing_other_waits(dbs):
+def test_predecessor_wakes_later_rows_of_its_session_only(dbs):
+ # 8th round: the waiting row and the rest of its group (pending, future due) wake together; other sessions keep waiting
  l,t=dbs;es=rows();future=datetime.now(timezone.utc)+timedelta(hours=1)
- for e in es[1:3]:
-  l.remote_event_outbox.insert_one({'_id':e['event_id'],'source_session_id':e['session_id'],'sequence':e['sequence'],'state':'waiting_context','reason':'sequence_gap:expected_1','next_attempt_at':future})
+ l.remote_event_outbox.insert_one({'_id':es[1]['event_id'],'source_session_id':es[1]['session_id'],'sequence':2,'state':'waiting_context','reason':'sequence_gap:expected_1','next_attempt_at':future})
+ l.remote_event_outbox.insert_one({'_id':es[2]['event_id'],'source_session_id':es[2]['session_id'],'sequence':3,'state':'pending','next_attempt_at':future})
+ l.remote_event_outbox.insert_one({'_id':'other','source_session_id':'another-session','sequence':2,'state':'waiting_context','reason':'sequence_gap:expected_1','next_attempt_at':future})
+ l.remote_event_outbox.insert_one({'_id':'member','source_session_id':es[0]['session_id'],'sequence':4,'state':'waiting_context','reason':'member_mapping_required','next_attempt_at':future})
  Projector(l,t,None,{}).project(es[0])
- assert l.remote_event_outbox.find_one({'sequence':2})['next_attempt_at']<future-timedelta(minutes=30)
- assert l.remote_event_outbox.find_one({'sequence':3})['next_attempt_at']==future.replace(microsecond=future.microsecond//1000*1000)
+ soon=future-timedelta(minutes=30)
+ assert l.remote_event_outbox.find_one({'sequence':2,'source_session_id':es[0]['session_id']})['next_attempt_at']<soon
+ assert l.remote_event_outbox.find_one({'sequence':3})['next_attempt_at']<soon
+ assert l.remote_event_outbox.find_one({'_id':'other'})['next_attempt_at']>soon
+ assert l.remote_event_outbox.find_one({'_id':'member'})['next_attempt_at']>soon  # not a sequence wait
 
 
 def test_claim_batch_marks_processing_and_counts_attempts(dbs):
@@ -171,7 +177,7 @@ def test_group_requeues_rest_of_session_when_one_waits(dbs, monkeypatch):
  l,_=dbs;n=datetime.now(timezone.utc);later=n+timedelta(seconds=30)
  l.remote_event_outbox.insert_many([{'_id':f'e{i}','state':'processing','sequence':i,'attempts':1,'source_session_id':'S','queued_at':n} for i in (1,2,3)])
  calls=[]
- def fake(job,local,*a):
+ def fake(job,local,*a,**k):
   calls.append(job['_id']); return later if job['_id']=='e2' else None
  monkeypatch.setattr(w,'process_job',fake)
  w.process_group([{'_id':f'e{i}','sequence':i} for i in (1,2,3)], l)
@@ -365,3 +371,30 @@ def test_requeue_gives_a_fresh_retry_budget(dbs, monkeypatch):
  assert job['attempts']==21
  assert w.process_job(job,l,t,_Pool(),{},True) not in (None,w.PARKED_SENTINEL)
  assert l.remote_event_outbox.find_one({'_id':'j7'})['state']=='retrying'
+
+def test_group_cache_gives_same_records_as_uncached(dbs):
+ # 8th round: a session processed with the per-group cache writes exactly what per-event processing wrote
+ l,t=dbs;es=rows()
+ cache={}
+ for e in es:Projector(l,t,None,{},cache).project(e)
+ l2,t2=l.client['l2'],l.client['t2'];es2=rows()
+ for e in es2:Projector(l2,t2,None,{}).project(e)
+ for coll in ('gameplay_events','solution_attempts','problem_runs','game_sessions'):
+  assert t[coll].count_documents({})==t2[coll].count_documents({})
+ a=t.solution_attempts.find_one();assert a['outcome']=='success' and a['ended_at'] is not None
+ assert t.problem_runs.find_one()['status']=='completed'
+ assert l.remote_session_cursors.find_one()['last_sequence']==5
+
+def test_member_lookup_is_cached(monkeypatch):
+ import remote.projection as p
+ p._member_cache.clear();calls=[]
+ monkeypatch.setattr(p,'_resolve_member',lambda sql,player,ctx:(calls.append(player),'m-'+player)[1])
+ assert p.resolve_member(None,'a',{})=='m-a' and p.resolve_member(None,'a',{})=='m-a'
+ assert calls==['a']
+ def missing(*a):raise Waiting('member_mapping_required')
+ monkeypatch.setattr(p,'_resolve_member',missing)
+ for _ in range(2):
+  try:p.resolve_member(None,'b',{})
+  except Waiting:pass
+ assert ('b',None) not in p._member_cache  # a missing mapping is checked again every time
+ p._member_cache.clear()

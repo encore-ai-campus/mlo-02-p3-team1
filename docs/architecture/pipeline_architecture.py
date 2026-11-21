@@ -24,7 +24,7 @@ C = {
     "ops": ("#f4f5f7", "#7b8494", "#3b4250"),
     "inner": ("#ffffff", "#b9c3cf", "#2a3442"),
 }
-TAG = {"3": "#2f8a57", "4": "#3b78c2", "5": "#b8506a", "6": "#c47a12", "7": "#6b4fb8"}  # round of fixes that introduced a part
+TAG = {"3": "#2f8a57", "4": "#3b78c2", "5": "#b8506a", "6": "#c47a12", "7": "#6b4fb8", "8": "#2b8a8a"}  # round of fixes that introduced a part
 
 
 def tagged(text):
@@ -84,7 +84,7 @@ def build():
     o.append("</defs>")
     o.append(f'<rect width="{W}" height="{H}" fill="#ffffff"/>')
     o.append('<text x="30" y="42" font-size="28" font-weight="800" fill="#1f2430">NODEVERSE 파이프라인 동작 아키텍처</text>')
-    o.append('<text x="30" y="70" font-size="15" fill="#5b6472">2026-11-21 · 1~7차 보완 반영 · '
+    o.append('<text x="30" y="70" font-size="15" fill="#5b6472">2026-11-21 · 1~8차 보완 반영 · '
              '배지 = 그 부분을 바꾼 보완 차수 · 실선 = 데이터, 파선 = 기동·상태 확인, 점선 = 화면 조회, 빨간 점선 = 실패 경로</text>')
 
     # ------------------------------------------------------------------ row 1: game -> collector -> kafka, gates, server
@@ -258,7 +258,7 @@ def build():
 
     # ------------------------------------------------------------------ row 3: remote writer, targets, ops
     o.append(group(30, 1130, 1200, 600, "원격 작업자 remote-writer (remote/worker.py, --profile remote)",
-                   "lease 1개 · 200건 묶음 선점 · 세션별 그룹 8스레드 (세션 안은 순번 순서) · MySQL 연결 풀 8 · GET_LOCK 1회 유지", "writer"))
+                   "lease 1개 · 200건 묶음 선점 · 세션별 그룹 8스레드 · MySQL 풀 8 · GET_LOCK 1회 · 이벤트당 DB 왕복 약 26 → 10회 (8차)", "writer"))
     o.append(box(50, 1200, 370, 230, "선점 claim_batch", [
         "기한 된 행 200개 후보 조회",
         "[4] claim_id 토큰을 붙여 processing",
@@ -270,6 +270,7 @@ def build():
     ]))
     o.append(box(440, 1200, 390, 230, "처리 process_job", [
         "[4] 원격 원본 archive: 시도마다 확인",
+        "[8] 삽입 우선 ensure, 회원 캐시, 세션 묶음 캐시",
         "    (DB 교체·복원 뒤 다시 채움)",
         "투영 project(archived=True)",
         "  회원 확인 (MySQL, 확인된 매핑만 생성)",
@@ -351,12 +352,14 @@ def build():
         "    시험 1회 디스크 +420MB → +2MB",
         "[7] 늦게 도착: 사흘 전 602건 → 실시간 표시,",
         "    경고에서만 제외 (366 vs 282, 차이 84 = 늦은 시도)",
+        "[8] 원격 적재 순수 처리 34.7 → 219건/초,",
+        "    초당 200건 유입을 따라감 (평균 대기 2.9초)",
         "",
         "남은 과제",
         "· 최신 EXE 실제 종단 시험, 디스크 부족 재현",
         "· Silver 같은 배치 중복 선택 규칙 (설계 검토)",
         "· 중복 제거 상태 TTL 축소, DLQ 재처리 스크립트",
-        "· 원격 적재(초당 약 50~90건) < 유입",
+        "· 대량 수집 시 중복 제거 TTL 48h 전환 (시험 완료)",
     ], kind="ops"))
     o.append("</svg>")
     return "\n".join(o)

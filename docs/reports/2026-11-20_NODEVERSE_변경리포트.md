@@ -9,7 +9,8 @@
   - **4차 보완:** codex 신뢰성 검토 P1 6건 + 프로토콜 헬스체크. 커밋 `f583cec`
   - **5차 보완:** 같은 검토의 남은 항목(게임 디스크 큐·계정 전환, 부하·중복·조회 시험, ZORDER 비교). 커밋 `f3c197d`
   - **6차 보완:** 데이터 증가 시 Silver MERGE 성능 검토(독립 검토 후 재확인), 자동 압축 → 주기 압축·VACUUM, event_id ZORDER 비교
-  - **7차 보완:** 늦게 도착한 데이터 처리(실시간 표시, 정시 기준 경고, MERGE 입력 분리, 버전 보급률, 시간축 원칙) (11-21 09:00 KST 전후)
+  - **7차 보완:** 늦게 도착한 데이터 처리(실시간 표시, 정시 기준 경고, MERGE 입력 분리, 버전 보급률, 시간축 원칙). 커밋 `ab01976`
+  - **8차 보완:** 원격 적재 처리량(DB 왕복 축소, 순번 역전 선점 해결), 중복 제거 TTL 축소 호환 시험 (11-21 09:00 KST 전후)
 - 수치는 이 PC(Windows 11 ARM64 20코어, WSL2 Docker, Spark 4코어)에서 직접 잰 값입니다. 운영 환경 값은 아닙니다.
 - 문제 번호(PL-·BN-·GM-·SV-·CM-·RF-)는 `docs/DATA_FLOW_AND_GAPS.md`의 항목 번호입니다.
 
@@ -361,9 +362,9 @@ codex 검토 두 건(`pipeline/docs/RELIABILITY_REVIEW_REQUEST_2026-11-20.md`, `
 | 같은 이벤트 재전송 → Gold | 재전송 전후 1분 집계 동일 |
 | OPTIMIZE ZORDER (복사본, 작은 파일 300개) | 행 수 같음, 파일 300 → 1. event_id 200개 조회 299개 파일 0.99초 → 1개 0.63초 |
 
-### 7-3. 동작 아키텍처 (7차까지 반영)
+### 7-3. 동작 아키텍처 (8차까지 반영)
 
-![1~7차 보완 후 파이프라인 동작 아키텍처](../architecture/pipeline-architecture-2026-11-21.png)
+![1~8차 보완 후 파이프라인 동작 아키텍처](../architecture/pipeline-architecture-2026-11-21.png)
 
 (원본 SVG: `docs/architecture/pipeline-architecture-2026-11-21.svg`, 생성 스크립트 `docs/architecture/pipeline_architecture.py`)
 
@@ -459,14 +460,52 @@ codex 검토 두 건(`pipeline/docs/RELIABILITY_REVIEW_REQUEST_2026-11-20.md`, `
 
 | 내용 |
 |---|
-| 원격 적재 처리량(초당 50~90건)은 대량 유입 시 병목으로 남음 |
+| 원격 적재 처리량(초당 50~90건)은 대량 유입 시 병목으로 남음 → 8차에서 초당 약 200건으로 해결 |
 | 상세: `docs/changes/2026-11-21_late_events.md` |
+
+## 10. 8차 보완 (원격 적재 처리량)
+
+파이프라인의 마지막 병목이던 원격 적재(outbox → 분석 화면 DB)를 유입 속도에 맞췄습니다. 세션 안 순서, 충돌 검사, 선점 토큰, 대기 기한 규칙은 그대로입니다.
+
+### 10-1. 원인
+
+| 원인 | 내용 |
+|---|---|
+| 이벤트당 DB 왕복 | Mongo 약 22회 + MySQL 4회 (메모리 DB 계측) |
+| 순번 역전 선점 | Silver가 500건 묶음마다 다른 시각으로 적재해 같은 세션의 3번이 2번보다 먼저 선점됨 → 44%의 행이 순번 대기로 재시도 |
+| 느린 회복 | 앞 순번 저장 시 다음 1건만 깨우고, 나머지는 5초부터 늘어나는 대기 |
+
+### 10-2. 바꾼 것
+
+| 항목 | 이후 |
+|---|---|
+| DB 왕복 | 삽입 우선 `ensure()`, live 회원 300초 캐시, MySQL은 실제로 쓸 때만 연결, 세션 묶음 캐시(커서·컨텍스트·run·attempt), outbox 쓰기 1회 → 이벤트당 Mongo 약 10회 + MySQL 0회 |
+| 순번 역전 | Silver 한 배치는 같은 적재 시각, 앞 순번 저장 시 그 세션의 뒤 대기 행을 함께 깨움, 순번 대기 백오프 1초부터, 인덱스 `(source_session_id, sequence)` |
+
+### 10-3. 확인 결과
+
+| 항목 | 이전 | 이후 |
+|---|---|---|
+| 작업자 순수 처리 (9,000건 비우기) | 34.7건/초 | 219.2건/초 |
+| 초당 200건 유입 12,000건 적재 속도 | 57.0건/초 | 193.6건/초 (유입을 따라감) |
+| 큐 대기 → 완료 평균 | 48.8초 | 2.9초 |
+| 전송 시작부터 다 끝날 때까지 | 224초 | 약 70초 |
+| 테스트 | 78개 | 80개 통과 |
+
+**중복 제거 TTL:** 별도 시험에서 같은 체크포인트로 168시간 → 48시간 변경이 안전함을 확인했습니다. 지금 규모에서는 이득이 없어 기본값을 유지하고, 대량 수집 때 `DEDUP_TTL_HOURS=48`로 바꿉니다.
+
+### 10-4. 남은 과제
+
+| 내용 |
+|---|
+| 초당 200건 이상이 계속되면 원격 작업자를 세션 단위로 나눠 여러 프로세스로 확장 (지금은 lease로 1개 프로세스) |
+| 상세: `docs/changes/2026-11-21_remote_writer_throughput.md` |
 
 ---
 
-## 10. 파이프라인 코드 외 변경 전체
+## 11. 파이프라인 코드 외 변경 전체
 
-### 10-1. 저장소 구성 (공용 git)
+### 11-1. 저장소 구성 (공용 git)
 
 | 내용 | 커밋·위치 |
 |---|---|
@@ -476,7 +515,7 @@ codex 검토 두 건(`pipeline/docs/RELIABILITY_REVIEW_REQUEST_2026-11-20.md`, `
 | GitHub Actions: 파이프라인(단위 테스트 + compose 생성물 검사 + 컴파일), 서버·게임(골격) | `.github/workflows/` |
 | 세 파트 최신화: 게임 88394b1, 서버 3dfece8, 파이프라인 32b0248(remote-sink 브랜치로 전환) | `fdbe457`, `3c2e70d` 등 |
 
-### 10-2. 게임 (`game/scripts/`)
+### 11-2. 게임 (`game/scripts/`)
 
 | 변경 | 파일 |
 |---|---|
@@ -489,7 +528,7 @@ codex 검토 두 건(`pipeline/docs/RELIABILITY_REVIEW_REQUEST_2026-11-20.md`, `
 | 디스크 큐 원자적 쓰기·실패 감지·깨진 파일 보관, 계정 전환 시 새 세션·run·attempt (5차) | `network_manager.gd` |
 | 헤드리스 시험 `test_disk_queue.gd` (5차) | `tools/test_disk_queue.gd` |
 
-### 10-3. 서버 (`server/`)
+### 11-3. 서버 (`server/`)
 
 | 변경 | 파일 |
 |---|---|
@@ -499,7 +538,7 @@ codex 검토 두 건(`pipeline/docs/RELIABILITY_REVIEW_REQUEST_2026-11-20.md`, `
 | 실시간 화면 "분석 화면 적재 상태" 카드 (PL-9·SV-1) | `telemetry/live.py`, `templates/telemetry/live.html`, `static/js/live.js` |
 | 테스트 보강 (해시 저장, 옛 평문 계정 전환) | `telemetry/test_server_part.py` |
 
-### 10-4. 문서
+### 11-4. 문서
 
 | 문서 | 내용 |
 |---|---|
@@ -514,7 +553,7 @@ codex 검토 두 건(`pipeline/docs/RELIABILITY_REVIEW_REQUEST_2026-11-20.md`, `
 | `docs/screenshots/` | 게임 3장, 파이프라인 1장, 서버 4장 |
 | 삭제 | `docs/BRANCH_STRATEGY.md`, 파트별 구현 지시서 PDF(`docs/instructions/`) |
 
-### 10-5. 로컬 실행 환경 (이 PC)
+### 11-5. 로컬 실행 환경 (이 PC)
 
 | 변경 | 위치 |
 |---|---|
@@ -527,10 +566,11 @@ codex 검토 두 건(`pipeline/docs/RELIABILITY_REVIEW_REQUEST_2026-11-20.md`, `
 | 바탕화면 PDF `NODEVERSE_DB조회_방법.pdf`, Compass 연결 파일, DBeaver 연결 미리 등록 | 바탕화면, DBeaver 설정 폴더 |
 | `.env` 파일들(키·비밀번호)은 이 PC에서 새로 생성, git에서 제외 | `pipeline/.env*`, `server/.env*` |
 
-### 10-6. push 상태
+### 11-6. push 상태
 
 - 2차 보완까지: 공용 저장소 `main` `313ea43`에 반영
 - 3차 보완(CPU 경량화 + PL-8): `eb27159`로 push
 - 4차 보완: `f583cec`로 push
 - 5차 보완: `f3c197d`로 push
-- 6차·7차 보완: 이 리포트와 함께 push
+- 6차·7차 보완: `ab01976`로 push
+- 8차 보완: 이 리포트와 함께 커밋

@@ -90,7 +90,7 @@ def flow(stage):
     r = box(60, 880, 1220, 170, "원격 작업자 → MySQL·대시보드 MongoDB", [
         *(["! 1건씩, 매 건 MySQL 새 연결 + GET_LOCK → 초당 17~24건 (유입의 1/8)",
            "! 대기·재시도 기한 없음, blocked 안 보임, outbox 무한 증가"] if first else
-          ["+ 200건 묶음·세션별 8스레드·연결 풀 → 초당 60~90건 · 선점 토큰·순번 복구",
+          ["+ 묶음·세션 병렬·풀 + 왕복 26→10회·순번 역전 해결 → 초당 219건 (유입 따라감)",
            "+ 기한 후 parked, 상태 카드, 완료 행 30일 TTL, 상태 집계는 인덱스만"])], "writer", 20)
     sv = box(1330, 170, 530, 670, "관리자 서버 (Django)", [
         "실시간 현황 (rt_*, 3초)", "전체 현황·게임 분석·플레이어",
@@ -114,8 +114,8 @@ def fig_first():
 
 
 def fig_current():
-    return svg(flow("current"), "② 현재 구조 (1~7차 보완 후)",
-               "2026-11-21 · 커밋 ab01976 · 초록 글씨 = 바뀐 부분 · 처리 경로(Kafka→Bronze→Silver→Gold→rt_*→원격 적재)는 그대로")
+    return svg(flow("current"), "② 현재 구조 (1~8차 보완 후)",
+               "2026-11-21 · 1~8차 · 초록 글씨 = 바뀐 부분 · 처리 경로(Kafka→Bronze→Silver→Gold→rt_*→원격 적재)는 그대로")
 
 
 ROUNDS = [
@@ -133,12 +133,14 @@ ROUNDS = [
      "Silver MERGE 5.35 → 1.55초"),
     ("7차", "늦게 도착한 데이터", ["늦게 도착 건수 표시", "경고는 정시 이벤트만", "MERGE ID 생성일별 분리, 버전 보급률"],
      "사흘 전 602건 경고에서만 제외"),
+    ("8차", "원격 적재 처리량", ["DB 왕복 26 → 10회 (캐시·삽입 우선)", "순번 역전 선점 해결", "중복 제거 TTL 축소 시험"],
+     "34.7 → 219건/초"),
 ]
 
 
 def fig_rounds():
-    o, x0, w, gap = [], 60, 248, 14
-    colors = ["#2f8a57", "#3b78c2", "#2f8a57", "#3b78c2", "#b8506a", "#c47a12", "#6b4fb8"]
+    o, x0, w, gap = [], 50, 216, 12
+    colors = ["#2f8a57", "#3b78c2", "#2f8a57", "#3b78c2", "#b8506a", "#c47a12", "#6b4fb8", "#2b8a8a"]
     for i, (no, name, items, result) in enumerate(ROUNDS):
         x = x0 + i * (w + gap)
         col = colors[i]
@@ -149,19 +151,19 @@ def fig_rounds():
         o.append(text(x + w / 2, 284, name, 19, "#fff", 700, "middle"))
         ly = 350
         for it in items:
-            for part in wrap(it, 13):
+            for part in wrap(it, 11):
                 o.append(text(x + 18, ly, part, 19, INK))
                 ly += 30
             ly += 14
         o.append(f'<line x1="{x + 16}" y1="760" x2="{x + w - 16}" y2="760" stroke="#d5dae1" stroke-width="2"/>')
         o.append(text(x + 18, 800, "실측", 17, MUTED, 700))
         ly = 836
-        for part in wrap(result, 12):
+        for part in wrap(result, 10):
             o.append(text(x + 18, ly, part, 21, col, 800))
             ly += 32
         if i < len(ROUNDS) - 1:
             o.append(arrow([(x + w + 1, 580), (x + w + gap - 1, 580)]))
-    return svg("".join(o), "③ 보완 차수별 변경점 (1~7차)", "각 차수의 핵심 변경과 그 차수에서 직접 잰 대표 결과")
+    return svg("".join(o), "③ 보완 차수별 변경점 (1~8차)", "각 차수의 핵심 변경과 그 차수에서 직접 잰 대표 결과")
 
 
 def wrap(s, n):
@@ -178,7 +180,8 @@ def wrap(s, n):
 
 
 METRICS = [  # label, before, after, unit, higher_is_better, note
-    ("원격 적재 처리량 (끝까지 적재)", 20, 75, "건/초", True, "17~24 → 60~90"),
+    ("원격 적재 처리량 (작업자 순수 처리)", 34.7, 219, "건/초", True, "9,000건 쌓아 두고 비우기 · 처음 구조는 17~24"),
+    ("초당 200건 유입 시 큐 대기 → 완료 평균", 48.8, 2.9, "초", False, "12,000건 부하"),
     ("Silver MERGE 단계 (6,000건 부하, 중앙값)", 5.35, 1.55, "초", False, ""),
     ("Kafka 브로커 유휴 CPU p95", 120, 6, "%", False, "81~123 → 5~6"),
     ("MongoDB 유휴 CPU p95", 39, 5, "%", False, ""),
@@ -224,6 +227,7 @@ SCENARIOS = [
     ("같은 이벤트 재전송", "Silver 중복 제거만 (단계별 검증 기록 없음)", "Bronze 이력 보존 · Silver 1행 · Gold 값 불변 확인"),
     ("며칠 늦게 도착한 기록", "경고·버전 보급률 왜곡, MERGE 범위 확대", "총계 포함·따로 표시, 경고 제외, MERGE 분리"),
     ("원격 적재 대기·재시도", "기한 없이 무한 재시도 (CPU 143%)", "기한 후 parked, 자동 재개, 재처리 예산"),
+    ("유입이 초당 200건으로 몰릴 때", "초당 17~24건 (8차 직전에도 57건, 대기 48.8초)", "초당 193~219건으로 따라감, 평균 대기 2.9초"),
     ("운영자 park ↔ 작업자 선점", "처리돼 버림", "선점 토큰: park가 이김, 늦은 결과 무시"),
     ("원격 DB 교체·복원", "원본 없이 완료 처리 가능", "시도마다 원본 확인·재기록"),
 ]
@@ -234,12 +238,12 @@ def fig_scenarios():
          text(90, 210, "상황", 24, "#fff", 700), text(560, 210, "처음 구조", 24, "#fff", 700),
          text(1180, 210, "현재 구조", 24, "#fff", 700)]
     for i, (sc, before, after) in enumerate(SCENARIOS):
-        y = 240 + i * 100
+        y = 240 + i * 90
         fill = "#ffffff" if i % 2 else "#f6f8f9"
-        o.append(f'<rect x="60" y="{y}" width="1800" height="92" rx="8" fill="{fill}" stroke="#e1e5ea"/>')
-        o.append(text(90, y + 55, sc, 23, INK, 700))
-        o.append(text(560, y + 55, "⚠ " + before, 21, RED))
-        o.append(text(1180, y + 55, "✔ " + after, 21, GREEN, 600))
+        o.append(f'<rect x="60" y="{y}" width="1800" height="84" rx="8" fill="{fill}" stroke="#e1e5ea"/>')
+        o.append(text(90, y + 50, sc, 23, INK, 700))
+        o.append(text(560, y + 50, "⚠ " + before, 21, RED))
+        o.append(text(1180, y + 50, "✔ " + after, 21, GREEN, 600))
     return svg("".join(o), "⑤ 장애·예외 상황 대응 비교", "로컬 스택에서 직접 재현해 확인한 결과")
 
 
