@@ -75,13 +75,13 @@ class AlertBook:
         self.events = deque(maxlen=100)
         self.candidates = {}
 
-    def update(self, findings, now):
+    def update(self, findings, now, unknown=()):
         present = {item['id']: item for item in findings}
         for ident in list(self.candidates):
             if ident not in present:
                 self.candidates.pop(ident)
         for ident in list(self.active):
-            if ident not in present:
+            if ident not in present and ident not in unknown:
                 item = self.active.pop(ident)
                 self.events.appendleft(dict(item, phase='resolved', at=iso(now)))
         for ident, item in present.items():
@@ -95,6 +95,8 @@ class AlertBook:
                 self.events.appendleft(dict(clean, phase='opened', at=iso(now)))
                 self.active[ident] = clean
             else:
+                if self.active[ident]['level'] != clean['level']:
+                    self.events.appendleft(dict(clean, first_seen=self.active[ident]['first_seen'], phase='changed', at=iso(now)))
                 self.active[ident].update(clean)
         return list(self.active.values()), list(self.events)
 
@@ -155,6 +157,13 @@ class Sampler:
         return self.db
 
     def load_history(self):
+        try:
+            saved = self._database().observatory_alert_state.find_one({'_id': 'current'})
+            if saved:
+                self.alerts.active = {item['id']: item for item in saved.get('active', [])}
+                self.alerts.events.extend(saved.get('events', [])[:100])
+        except Exception:
+            pass
         try:
             since = self.clock()-timedelta(hours=6)
             rows = list(self._database().observatory_samples.find({'at': {'$gte': since}}, {'_id': 0})
@@ -253,9 +262,20 @@ class Sampler:
                 out['remote'] = {'state': 'ok'}
             except Exception as e:
                 out['remote'] = {'state': 'error', 'error_type': type(e).__name__}
-        active, events = self.alerts.update(findings(out), now)
+        unknown = set()
+        if out['mongo']['state'] != 'ok':
+            unknown.update(('blocked', 'parked', 'queue-age', 'context-age'))
+        if out['progress']['state'] != 'ok':
+            unknown.update(k for k in self.alerts.active if k.startswith(('stopped:', 'stalled:', 'slow:')))
+        active, events = self.alerts.update(findings(out), now, unknown)
         out['alerts'] = active
         out['incidents'] = events
+        try:
+            self._database().observatory_alert_state.replace_one({'_id': 'current'},
+                {'_id': 'current', 'active': active, 'events': events, 'updated_at': now}, upsert=True)
+            out['alerts_persistent'] = True
+        except Exception:
+            out['alerts_persistent'] = False
         out['sample_ms'] = round((time.monotonic()-started)*1000)
         self.snapshot = out
         q = next((x for x in out['queries'] if x['name']=='silver_learning_events'), {})
