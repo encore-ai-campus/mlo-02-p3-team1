@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from common import settings
 from common.db import local_mongo, remote_mongo
+from observatory.metrics import DeltaCommits, KafkaLag, read_latency, runtime_config
 
 STATES = ('pending', 'processing', 'waiting_context', 'retrying', 'parked', 'blocked', 'quarantined', 'stored')
 NAMES = {'bronze': 'Bronze', 'silver_learning_events': 'Silver 학습', 'silver_update_events': 'Silver 업데이트',
@@ -143,6 +144,10 @@ class Sampler:
         self.collector_result = {'state': 'unknown'}
         self.history_available = False
         self.last_failure = None
+        self.delta_commits = DeltaCommits(self.cfg.lake_root)
+        self.kafka_lag = KafkaLag(self.cfg.kafka_bootstrap)
+        self.metadata_at = None
+        self.metadata = {}
 
     def _database(self):
         if self.db is None:
@@ -197,6 +202,22 @@ class Sampler:
             out['effective_dedup_hours'] = report.get('effective_dedup_hours')
         except Exception:
             out['progress']['state'] = 'unavailable'
+            report = {}
+        if self.metadata_at is None or time.monotonic()-self.metadata_at >= 30:
+            self.metadata_at = time.monotonic()
+            self.metadata = {'checked_at': iso(now), 'merge': self.delta_commits.sample(),
+                'kafka': self.kafka_lag.sample(report),
+                'deployment': runtime_config(self.cfg.observatory_deployment_path, self.cfg.observatory_spark_ui_url)}
+            try:
+                self.metadata['latency'] = read_latency(self._database(), now)
+            except Exception as e:
+                self.metadata['latency'] = {'state': 'unavailable', 'groups': {}, 'error_type': type(e).__name__}
+        out['diagnostics'] = self.metadata
+        if out['effective_dedup_hours'] is None and self.metadata['deployment'].get('state') == 'ok':
+            out['effective_dedup_hours'] = self.metadata['deployment']['effective_dedup_hours']
+        out['dedup_source'] = 'driver_progress' if report.get('effective_dedup_hours') is not None else self.metadata['deployment'].get('source')
+        out['coverage']['kafka_lag'] = self.metadata['kafka'].get('state') == 'ok'
+        out['coverage']['merge_scan_bytes'] = self.metadata['merge'].get('scan_bytes') is not None
         try:
             db = self._database()
             db.command('ping')
@@ -244,6 +265,8 @@ class Sampler:
                  'state_rows': q.get('state_rows'), 'state_bytes': q.get('state_bytes'),
                  'queue': sum(out['queue']['counts'].get(s,0) for s in ['pending','processing','retrying']) if out['queue']['counts'] is not None else None,
                  'oldest_due_age_s': out['queue']['oldest_due_age_s']}
+        point.update(kafka_pending=self.metadata['kafka'].get('pending'),
+                     merge_commit_ms=self.metadata['merge'].get('execution_ms'))
         self.samples.append(point)
         try:
             db = self._database()
@@ -259,7 +282,7 @@ class Sampler:
 
     def history(self, minutes=15):
         since = self.clock()-timedelta(minutes=minutes)
-        fields = {'at', 'input_rps', 'processed_rps', 'silver_batch_ms', 'state_rows', 'state_bytes', 'queue', 'oldest_due_age_s'}
+        fields = {'at', 'input_rps', 'processed_rps', 'silver_batch_ms', 'state_rows', 'state_bytes', 'queue', 'oldest_due_age_s', 'kafka_pending', 'merge_commit_ms'}
         rows = [{k: v for k, v in p.items() if k in fields} for p in self.samples if date(p['at']) >= since]
         # In-memory history keeps the API independent of database availability and load.
         step = max(1, math.ceil(len(rows)/360))

@@ -340,11 +340,15 @@
         "OBSERVATORY_KEY": "${OBSERVATORY_KEY:-}",
         "OBSERVATORY_NAME": "${OBSERVATORY_NAME:-NODEVERSE}",
         "OBSERVATORY_BIND": "${OBSERVATORY_BIND:-127.0.0.1}",
+        "KAFKA_BOOTSTRAP": "kafka-1:9092,kafka-2:9092,kafka-3:9092",
+        "OBSERVATORY_SPARK_UI_URL": "http://spark:4040",
+        "OBSERVATORY_DEPLOYMENT_PATH": "/run/observatory/runtime.json",
         "OBSERVATORY_INTERVAL_S": "${OBSERVATORY_INTERVAL_S:-10}",
         "OBSERVATORY_COLLECTOR_URL": "http://collector:8000"
       },
       "volumes": [
-        "lake:/data:ro"
+        "lake:/data:ro",
+        "./results/observatory:/run/observatory:ro"
       ],
       "depends_on": {
         "mongo": {

@@ -82,3 +82,7 @@ docker compose -p <기존프로젝트> --env-file .env -f compose.json --profile
 - 브라우저에서 차트 기간 선택·일시 정지/재개·새로고침과 실제 수치를 점검했습니다. 관측 이력은 실제 관측 이후부터 쌓이며 데모 데이터가 아닙니다.
 
 주요 파일: `observatory/app.py`, `sampler.py`, `static/`, `Dockerfile.observatory`, `compose.observatory.attach.yaml`. 공용 generator의 `observatory` 프로필과 설정 예제도 포함했습니다.
+
+## 1단계 계측 보강(후속)
+
+현재 추가된 MERGE 커밋 시간·Kafka→Bronze 미처리 추정·scope별 p50/p95·운영 TTL 확인·인덱스 준비와 실측은 [OBSERVATORY_STEP1_2026-11-23.md](OBSERVATORY_STEP1_2026-11-23.md)를 우선 참고하세요. 위 초기 MVP의 Kafka lag 미수집 설명은 이 후속 변경으로 대체됩니다. 전체 종단 지연과 실제 스캔 바이트는 여전히 별도 계측이 필요합니다.

@@ -49,6 +49,8 @@ class Settings:
     observatory_key: str = field(default_factory=lambda: os.getenv("OBSERVATORY_KEY", ""), repr=False)
     observatory_name: str = field(default_factory=lambda: os.getenv("OBSERVATORY_NAME", "NODEVERSE"))
     observatory_bind: str = field(default_factory=lambda: os.getenv("OBSERVATORY_BIND", "127.0.0.1"))
+    observatory_spark_ui_url: str = field(default_factory=lambda: os.getenv("OBSERVATORY_SPARK_UI_URL", "http://spark:4040"))
+    observatory_deployment_path: str = field(default_factory=lambda: os.getenv("OBSERVATORY_DEPLOYMENT_PATH", "/run/observatory/runtime.json"))
     remote_export_enabled: bool = field(default_factory=lambda: _flag("REMOTE_EXPORT_ENABLED"))
     sink_retry_attempts: int = field(default_factory=lambda: _int("SINK_RETRY_ATTEMPTS", 5))
     query_restart_limit: int = field(default_factory=lambda: _int("QUERY_RESTART_LIMIT", 5))

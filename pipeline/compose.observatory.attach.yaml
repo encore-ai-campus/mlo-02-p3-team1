@@ -20,8 +20,13 @@ services:
       OBSERVATORY_INTERVAL_S: '${OBSERVATORY_INTERVAL_S:-10}'
       OBSERVATORY_KEY: '${OBSERVATORY_KEY:-}'
       OBSERVATORY_BIND: '${OBSERVATORY_BIND:-127.0.0.1}'
+      KAFKA_BOOTSTRAP: '${OBSERVATORY_KAFKA_BOOTSTRAP:-nodeverse-v2-live-kafka-1-1:9092,nodeverse-v2-live-kafka-2-1:9092,nodeverse-v2-live-kafka-3-1:9092}'
+      OBSERVATORY_SPARK_UI_URL: '${OBSERVATORY_SPARK_UI_URL:-http://nodeverse-v2-live-spark-1:4040}'
+      OBSERVATORY_DEPLOYMENT_PATH: /run/observatory/runtime.json
+      LAKE_ROOT: /data/delta
     volumes:
       - source-lake:/data:ro
+      - ./results/observatory:/run/observatory:ro
     networks:
       - source
     healthcheck:
