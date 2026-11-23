@@ -93,6 +93,7 @@ services['spark'] = {
                 '--py-files', ','.join('/app/' + m for m in SPARK_MODULES),
                 '/app/delta_stream.py'],
     'environment': {'KAFKA_BOOTSTRAP': BOOTSTRAP, 'MONGO_URI': 'mongodb://mongo:27017', 'MONGO_DB': 'nodeverse_logs',
+                    'DEDUP_TTL_HOURS': '${DEDUP_TTL_HOURS:-168}',
                     'REMOTE_EXPORT_ENABLED': '${REMOTE_EXPORT_ENABLED:-0}', 'BRONZE_TRIGGER': '${BRONZE_TRIGGER:-5 seconds}', 'STAGE_TRIGGER': '${STAGE_TRIGGER:-1 second}',
                     'SHUFFLE_PARTITIONS': '${SHUFFLE_PARTITIONS:-4}', 'COMPACT_EVERY_BATCHES': '${COMPACT_EVERY_BATCHES:-300}', 'MAX_OFFSETS_PER_TRIGGER': '${MAX_OFFSETS_PER_TRIGGER:-10000}',
                     'LAKE_ROOT': '/data/delta', 'CHECKPOINT_ROOT': '/data/checkpoints', 'TZ': 'UTC',

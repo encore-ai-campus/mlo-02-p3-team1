@@ -260,6 +260,7 @@
         "KAFKA_BOOTSTRAP": "kafka-1:9092,kafka-2:9092,kafka-3:9092",
         "MONGO_URI": "mongodb://mongo:27017",
         "MONGO_DB": "nodeverse_logs",
+        "DEDUP_TTL_HOURS": "${DEDUP_TTL_HOURS:-168}",
         "REMOTE_EXPORT_ENABLED": "${REMOTE_EXPORT_ENABLED:-0}",
         "BRONZE_TRIGGER": "${BRONZE_TRIGGER:-5 seconds}",
         "STAGE_TRIGGER": "${STAGE_TRIGGER:-1 second}",

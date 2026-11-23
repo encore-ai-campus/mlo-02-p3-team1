@@ -5,6 +5,8 @@ Kept in its own module with no project imports, so the Python workers only need 
 import os
 
 DEDUP_TTL_MS = int(os.getenv("DEDUP_TTL_HOURS", str(7 * 24))) * 3600 * 1000
+if DEDUP_TTL_MS <= 0:
+    raise ValueError('DEDUP_TTL_HOURS must be positive')
 DECISION_SCHEMA = ("key string, value string, topic string, partition int, offset long, "
                    "event_id string, action string")
 STATE_SCHEMA = "hash string"

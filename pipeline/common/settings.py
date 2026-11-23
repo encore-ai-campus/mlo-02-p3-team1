@@ -76,6 +76,8 @@ class Settings:
 
     @property
     def dedup_ttl_ms(self) -> int:
+        if self.dedup_ttl_hours <= 0:
+            raise ValueError('DEDUP_TTL_HOURS must be positive')
         return self.dedup_ttl_hours * 3600 * 1000
 
     @property
