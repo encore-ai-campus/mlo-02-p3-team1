@@ -4,6 +4,7 @@ const assert=require('node:assert/strict');
 const elements=new Map();
 const context={document:{getElementById(id){if(!elements.has(id))elements.set(id,{textContent:'',classList:{add(){},remove(){}},setAttribute(){}});return elements.get(id);}},window:{},Date,Set,clearTimeout(){},setTimeout(){}};
 vm.createContext(context);
+context.setObservatoryBadge=()=>{};
 vm.runInContext(readFileSync(__dirname+'/static/notifications.js','utf8')+';this.Center=ObservatoryNotifications',context);
 const n=new context.Center();let deliveries=[];n.notify=events=>deliveries.push(events);
 const event=(id,phase,at)=>({id,phase,at,title:id});

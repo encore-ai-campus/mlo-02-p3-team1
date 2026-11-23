@@ -4,7 +4,7 @@ class ObservatoryNotifications {
  constructor(){this.seen=new Set();this.unread=new Set();this.ready=false;this.mutedUntil=0;this.audio=null;this.sound=false;this.desktop=false;this.failures=0;this.disconnected=false;this.toastTimer=null;}
  id(e){return [e.id,e.phase,e.at].join('|');}
  status(message){document.getElementById('notification-status').textContent=message;}
- draw(){document.getElementById('unread-count').textContent=String(this.unread.size);document.getElementById('notification-mute').textContent=this.mutedUntil>Date.now()?'알림 다시 켜기':'15분 알림 끄기';}
+ draw(){setObservatoryBadge('incidents',this.unread.size,'경고 이력 · 현재 탭의 미확인 알림 수');document.getElementById('unread-count').textContent=String(this.unread.size);document.getElementById('notification-mute').textContent=this.mutedUntil>Date.now()?'알림 다시 켜기':'15분 알림 끄기';}
  toast(message){const el=document.getElementById('toast');el.textContent=message;el.classList.remove('hidden');clearTimeout(this.toastTimer);this.toastTimer=setTimeout(()=>el.classList.add('hidden'),8000);}
  async enableSound(){
   if(this.sound){this.sound=false;this.status('소리 알림을 껐습니다.');return;}
