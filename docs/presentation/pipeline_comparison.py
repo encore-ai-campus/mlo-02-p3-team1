@@ -247,8 +247,57 @@ def fig_scenarios():
     return svg("".join(o), "⑤ 장애·예외 상황 대응 비교", "로컬 스택에서 직접 재현해 확인한 결과")
 
 
+def chip(x, y, label, kind):
+    fill, stroke = {"ok": ("#eaf6ef", GREEN), "bad": ("#fdecea", RED), "wait": ("#fff4e0", "#c47a12"),
+                    "plain": ("#f4f5f7", "#7b8494")}[kind]
+    return (f'<rect x="{x}" y="{y}" width="120" height="54" rx="10" fill="{fill}" stroke="{stroke}" stroke-width="2.5"/>'
+            + text(x + 60, y + 35, label, 22, INK, 700, "middle"))
+
+
+def fig_sequence():
+    o = []
+    # left: before
+    o.append(f'<rect x="50" y="160" width="890" height="880" rx="16" fill="#fff7f6" stroke="{RED}" stroke-width="2.5"/>')
+    o.append(text(80, 205, "이전: 500건 묶음마다 다른 적재 시각", 28, RED, 800))
+    o.append(text(80, 260, "Silver 한 배치(1초)를 500건씩 끊어 outbox에 넣음", 21, INK))
+    o.append(text(80, 330, "묶음 1 · 12:00:00.425", 21, MUTED, 700))
+    o.append(chip(330, 300, "A #1", "plain") + chip(470, 300, "A #3", "bad") + chip(610, 300, "B #1", "plain"))
+    o.append(text(80, 420, "묶음 2 · 12:00:00.447", 21, MUTED, 700))
+    o.append(chip(330, 390, "A #2", "bad") + chip(470, 390, "A #4", "plain") + chip(610, 390, "B #2", "plain"))
+    o.append(text(80, 510, "작업자는 '적재 시각이 빠른 순'으로 200건 선점", 21, INK))
+    o.append(text(80, 550, "→ A #3은 들어가고 A #2는 다음 선점으로 밀림", 21, RED, 700))
+    o.append(chip(80, 590, "A #3", "wait"))
+    o.append(text(220, 625, "앞 순번(#2)이 없음 → 순번 대기, 5초 뒤 재시도", 21, INK))
+    o.append(chip(80, 670, "A #4", "wait"))
+    o.append(text(220, 705, "같은 묶음의 뒤 순번도 5초 뒤로 되돌림", 21, INK))
+    o.append(text(80, 790, "#2가 저장돼도 #3 하나만 깨움, #4 이후는 계속 대기", 21, INK))
+    o.append(f'<rect x="80" y="840" width="830" height="160" rx="12" fill="#fdecea"/>')
+    o.append(text(110, 890, "9,000건 비우기: 44%가 한 번 이상 재시도", 26, RED, 800))
+    o.append(text(110, 940, "처리 속도 53건/초 (왕복만 줄였을 때)", 24, RED, 700))
+    # right: after
+    o.append(f'<rect x="980" y="160" width="890" height="880" rx="16" fill="#f3faf5" stroke="{GREEN}" stroke-width="2.5"/>')
+    o.append(text(1010, 205, "이후: 한 배치는 같은 적재 시각", 28, GREEN, 800))
+    o.append(text(1010, 260, "묶음은 나눠도 시각은 배치 시작 시각 하나로 통일", 21, INK))
+    o.append(text(1010, 330, "모든 묶음 · 12:00:00.425", 21, MUTED, 700))
+    o.append(chip(1260, 300, "A #1", "ok") + chip(1400, 300, "B #1", "ok") + chip(1540, 300, "A #2", "ok"))
+    o.append(chip(1260, 390, "B #2", "ok") + chip(1400, 390, "A #3", "ok") + chip(1540, 390, "A #4", "ok"))
+    o.append(text(1010, 510, "시각이 같으면 '순번이 작은 것부터' 정렬", 21, INK))
+    o.append(text(1010, 550, "→ 같은 세션의 앞 순번이 항상 먼저 선점됨", 21, GREEN, 700))
+    o.append(text(1010, 625, "+ 앞 순번이 저장되면 그 세션의 뒤 대기 행을", 21, INK))
+    o.append(text(1030, 660, "모두 함께 깨움 (예전: 바로 다음 1건만)", 21, INK))
+    o.append(text(1010, 720, "+ 순번 대기 재시도는 1초부터 (예전 5초)", 21, INK))
+    o.append(text(1010, 790, "세션 안 순서 규칙·충돌 검사는 그대로", 21, INK))
+    o.append(f'<rect x="1010" y="840" width="830" height="160" rx="12" fill="#e3f3e8"/>')
+    o.append(text(1040, 890, "9,000건 비우기: 219건/초 (이전 코드 34.7)", 26, GREEN, 800))
+    o.append(text(1040, 940, "초당 200건 유입에서 평균 대기 48.8초 → 2.9초", 24, GREEN, 700))
+    o.append(arrow([(940, 600), (980, 600)]))
+    return svg("".join(o), "⑥ 원격 적재가 느렸던 진짜 원인: 순번 역전 선점",
+               "8차 보완 · 세션 안 이벤트는 순번대로만 적재해야 함 (2번보다 3번이 먼저 들어가면 기록이 꼬임)")
+
+
 FIGS = {"fig-1-first": fig_first, "fig-2-current": fig_current, "fig-3-rounds": fig_rounds,
-        "fig-4-metrics": fig_metrics, "fig-5-scenarios": fig_scenarios}
+        "fig-4-metrics": fig_metrics, "fig-5-scenarios": fig_scenarios,
+        "fig-6-sequence": fig_sequence}
 
 if __name__ == "__main__":
     for name, fn in FIGS.items():
