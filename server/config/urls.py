@@ -67,3 +67,8 @@ urlpatterns = [
     path('api/admin/live/alerts', live.alerts_api),
     path('api/admin/live/updates', live.updates_api),
 ]
+
+handler400 = 'config.errors.bad_request'
+handler403 = 'config.errors.permission_denied'
+handler404 = 'config.errors.page_not_found'
+handler500 = 'config.errors.server_error'

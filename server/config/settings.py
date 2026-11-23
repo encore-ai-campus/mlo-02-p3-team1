@@ -28,6 +28,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'config.errors.FriendlyNotFoundMiddleware',
 ]
 ROOT_URLCONF = 'config.urls'
 TEST_RUNNER = 'telemetry.test_runner.HybridTestRunner'

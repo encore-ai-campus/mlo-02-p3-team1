@@ -194,3 +194,33 @@ class DoubleSubmitLoginTests(TestCase):
         c.get('/staff/login/')
         r = c.post('/staff/login/', {'username': 'x', 'password': 'y', 'csrfmiddlewaretoken': 'wrong' * 8})
         self.assertEqual(r.status_code, 403)
+
+
+class ErrorPageTests(SimpleTestCase):
+    def assert_friendly_404(self, response):
+        self.assertEqual(response.status_code, 404)
+        self.assertContains(response, '페이지를 찾을 수 없습니다', status_code=404)
+        self.assertContains(response, '/sta', status_code=404)
+        self.assertNotContains(response, 'Using the URLconf', status_code=404)
+
+    @override_settings(DEBUG=False)
+    def test_unknown_page_shows_friendly_404(self):
+        self.assert_friendly_404(self.client.get('/sta'))
+
+    @override_settings(DEBUG=True)
+    def test_unknown_page_hides_debug_404(self):
+        self.assert_friendly_404(self.client.get('/sta'))
+
+    @override_settings(DEBUG=True)
+    def test_unknown_api_path_returns_json(self):
+        response = self.client.get('/api/nothing-here')
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json(), {'error': 'not_found'})
+
+    def test_server_error_page_renders_without_context(self):
+        from django.test import RequestFactory
+        from config.errors import server_error
+        response = server_error(RequestFactory().get('/staff/'))
+        self.assertEqual(response.status_code, 500)
+        self.assertIn('서버에 문제가 생겼습니다', response.content.decode())
+        self.assertEqual(json.loads(server_error(RequestFactory().get('/api/x')).content), {'error': 'server_error'})
