@@ -97,7 +97,14 @@ def republish_pending(spark) -> int:
             log.info("republished %s windows %s..%s (%d rows)", item["collection"], item["lo"], item["hi"], len(docs))
     with _pending_lock:  # keep ranges that failed again plus any added while we were copying
         current = _load_pending()
-        added = [i for i in current if i not in items]
+        # Remove only the occurrences that this pass consumed. A new failure may append an
+        # identical range while the copy is in progress; membership filtering loses it.
+        added = list(current)
+        for item in items:
+            try:
+                added.remove(item)
+            except ValueError:
+                pass
         _save_pending(left + added)
     return len(left) + len(added)
 
