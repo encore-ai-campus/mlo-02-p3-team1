@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from common import settings
 from observatory.sampler import Sampler, date
+from observatory.attention import attention_records, ATTENTION_STATES
 
 STATIC = Path(__file__).with_name('static')
 
@@ -83,6 +84,16 @@ def create_app(sampler=None, background=True):
     def history(minutes: int = Query(default=15, ge=1, le=360), x_observatory_key: str = Header(default='')):
         authorize(x_observatory_key)
         return {'points': sampler.history(minutes), 'minutes': minutes}
+
+    @app.get('/api/attention')
+    def attention(state: str = Query(...), x_observatory_key: str = Header(default='')):
+        authorize(x_observatory_key)
+        if state not in ATTENTION_STATES:
+            raise HTTPException(422, 'Unsupported attention state')
+        try:
+            return attention_records(sampler._database(), state)
+        except Exception:
+            raise HTTPException(503, 'Attention records unavailable')
 
     return app
 
