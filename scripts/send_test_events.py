@@ -29,8 +29,19 @@ MINIGAME_ID, CATEGORY = "ST01", "DS"
 BUILD_VERSION, CONTENT_VERSION = "0.1.0", "base"
 
 
+GAME_CONFIG = Path(os.environ.get("APPDATA", "")) / "Godot" / "app_userdata" / "NODEVERSE 3D Assets" / "network_config.json"
+
+
 def load_key() -> str:
+    """Same key the game sends: INGEST_KEY env var, else the game's network_config.json, else pipeline/.env."""
     key = os.environ.get("INGEST_KEY", "")
+    if not key and GAME_CONFIG.exists():
+        cfg = json.loads(GAME_CONFIG.read_text(encoding="utf-8-sig"))
+        key = str(cfg.get("auth_token", "")).strip()
+        if key.startswith("replace"):
+            key = ""
+        if key:
+            print("key source: game network_config.json")
     env = ROOT / "pipeline" / ".env"
     if not key and env.exists():
         for line in env.read_text(encoding="utf-8").splitlines():
