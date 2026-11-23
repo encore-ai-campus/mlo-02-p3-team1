@@ -264,6 +264,11 @@ def process_group(jobs, local, *args):
     for i, job in enumerate(jobs):
         due = process_job(job, local, *args, cache=cache)
         if due is PARKED_SENTINEL:
+            parked = local.remote_event_outbox.find_one({'_id': job['_id'], 'state': PARKED}, {'reason': 1})
+            if parked and str(parked.get('reason', '')).startswith('sequence_gap:'):
+                # Each successor must verify its own archive and deadline. Processing it
+                # now avoids deferring an entire expired group another minute per row.
+                continue
             due = now() + timedelta(seconds=60)
         if due is not None and i + 1 < len(jobs):
             for later in jobs[i + 1:]:
@@ -347,7 +352,8 @@ class Worker:
                 marker = (mtime, members[0], str(members[1]))
                 if seen is not None and marker != seen:
                     from remote.requeue import requeue
-                    n = requeue(self.local, "member_mapping_required", None) + requeue(self.local, "member_is_not_live", None)
+                    n = (requeue(self.local, "member_mapping_required", None, automatic=True)
+                         + requeue(self.local, "member_is_not_live", None, automatic=True))
                     if n:
                         log(task="revive", requeued=n)
                 seen = marker
