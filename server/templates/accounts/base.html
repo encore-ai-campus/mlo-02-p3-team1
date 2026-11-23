@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="{% static 'css/catalog-dashboard.css' %}?v=9">
   <link rel="stylesheet" href="{% static 'css/live.css' %}?v=10">
   <link rel="stylesheet" href="{% static 'css/ui-polish.css' %}?v=10">
+  <link rel="stylesheet" href="{% static 'css/pipeline-alerts.css' %}?v=1">
   <script src="{% static 'js/observatory.js' %}?v=9" defer></script>
   <script src="{% static 'js/dashboard-refresh.js' %}" defer></script>
 </head>
@@ -34,6 +35,7 @@
     <span class="nav-caption">실시간 · 운영</span>
     <nav class="sidebar-nav" aria-label="실시간 및 운영">
       <a {% if request.resolver_match.url_name == 'live' %}class="current" aria-current="page"{% endif %} href="{% url 'live' %}">{% include 'accounts/nav_icon.html' with icon='activity' %}<span>실시간 현황</span></a>
+      <a {% if request.resolver_match.url_name == 'pipeline-alerts' %}class="current" aria-current="page"{% endif %} href="{% url 'pipeline-alerts' %}">{% include 'accounts/nav_icon.html' with icon='bell' %}<span>알림 현황</span><b class="nav-alert-badge" id="pipeline-alert-badge" hidden></b></a>
       <a {% if request.resolver_match.url_name == 'download-tab' %}class="current" aria-current="page"{% endif %} href="{% url 'download-tab' %}">{% include 'accounts/nav_icon.html' with icon='download' %}<span>게임 다운로드</span></a>
       <a {% if request.resolver_match.url_name == 'releases' %}class="current" aria-current="page"{% endif %} href="{% url 'releases' %}">{% include 'accounts/nav_icon.html' with icon='calendar' %}<span>릴리스 관리</span></a>
     </nav>
@@ -48,7 +50,7 @@
   <div class="app-main">
     <header class="topbar">
       {% if user.is_authenticated %}<button class="sidebar-toggle" type="button" aria-label="Toggle navigation" aria-controls="workspace-navigation" aria-expanded="false">&#9776;</button>{% endif %}
-      <a class="workspace-brand" href="{% url 'dashboard' %}"><span>Workspace <b>/</b> <strong>{% if request.resolver_match.url_name == 'players' or request.resolver_match.url_name == 'player-detail' %}Players{% elif request.resolver_match.url_name == 'events' %}Activity{% elif request.resolver_match.url_name == 'live' %}Live{% elif request.resolver_match.url_name == 'members' or request.resolver_match.url_name == 'member-detail' %}Members{% elif request.resolver_match.url_name == 'releases' %}Releases{% elif request.resolver_match.url_name == 'download-tab' %}Download{% elif request.resolver_match.url_name == 'guide' %}Guide{% elif request.resolver_match.url_name == 'me' %}Account{% elif scope == 'game' %}Games{% else %}Overview{% endif %}</strong></span><small>LEARNING INTELLIGENCE</small></a>
+      <a class="workspace-brand" href="{% url 'dashboard' %}"><span>Workspace <b>/</b> <strong>{% if request.resolver_match.url_name == 'players' or request.resolver_match.url_name == 'player-detail' %}Players{% elif request.resolver_match.url_name == 'events' %}Activity{% elif request.resolver_match.url_name == 'live' %}Live{% elif request.resolver_match.url_name == 'pipeline-alerts' %}Pipeline Alerts{% elif request.resolver_match.url_name == 'members' or request.resolver_match.url_name == 'member-detail' %}Members{% elif request.resolver_match.url_name == 'releases' %}Releases{% elif request.resolver_match.url_name == 'download-tab' %}Download{% elif request.resolver_match.url_name == 'guide' %}Guide{% elif request.resolver_match.url_name == 'me' %}Account{% elif scope == 'game' %}Games{% else %}Overview{% endif %}</strong></span><small>LEARNING INTELLIGENCE</small></a>
       <div class="header-tools">
 
         <div class="themes" aria-label="&#54868;&#47732; &#53580;&#47560;"><button type="button" data-set-theme="light" title="Light" aria-label="Light theme">&#9788;</button><button type="button" data-set-theme="dark" title="Dark" aria-label="Dark theme">&#9790;</button></div>
@@ -60,5 +62,6 @@
   </div>
 </div>
 <div class="chart-tooltip" id="chart-tooltip" role="status"></div>
+{% if user.is_authenticated %}<div class="pipeline-toast" id="pipeline-toast" role="status" hidden></div><script src="{% static 'js/pipeline-alerts.js' %}?v=2" data-status-url="/api/admin/pipeline-alerts" data-page-url="{% url 'pipeline-alerts' %}" defer></script>{% endif %}
 {% block scripts %}{% endblock %}
 </body></html>

@@ -1,0 +1,55 @@
+/* Pipeline alerts: sidebar badge, toast, and the alerts page. Theme tokens only, so light and dark both work. */
+.sidebar-nav a .nav-alert-badge{margin-left:auto;min-width:20px;padding:1px 6px;border-radius:10px;font-size:11px;font-weight:700;line-height:18px;text-align:center;color:#fff;background:var(--amber)}
+.sidebar-nav a .nav-alert-badge.error{background:var(--red)}
+.sidebar-nav a .nav-alert-badge[hidden]{display:none}
+.pipeline-toast{position:fixed;right:20px;bottom:20px;z-index:40;display:flex;align-items:center;gap:12px;max-width:min(420px,calc(100vw - 32px));padding:12px 16px;border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:10px;background:var(--panel);color:var(--ink);box-shadow:0 8px 24px #0003;font-size:13px}
+.pipeline-toast[hidden]{display:none}
+.pipeline-toast strong{white-space:nowrap}
+.pipeline-toast span{flex:1;min-width:0}
+.pipeline-toast-link{color:var(--accent);font-weight:700;white-space:nowrap}
+.pa-banner{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:20px;padding:16px 20px;border:1px solid var(--line);border-left:5px solid var(--muted);border-radius:12px;background:var(--panel)}
+.pa-banner.ok{border-left-color:var(--accent)}
+.pa-banner.warning{border-left-color:var(--amber)}
+.pa-banner.error{border-left-color:var(--red)}
+.pa-banner strong{font-size:15px}
+.pa-banner p{margin:4px 0 0;color:var(--muted);font-size:12px}
+.pa-updated{color:var(--muted);font-size:12px;white-space:nowrap}
+.pa-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+.pa-services{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.pa-service{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border:1px solid var(--line);border-left:4px solid var(--muted);border-radius:8px;background:var(--input)}
+.pa-service span{font-size:12px;color:var(--muted)}
+.pa-service strong{font-size:14px}
+.pa-service.ok{border-left-color:var(--accent)}
+.pa-service.warning{border-left-color:var(--amber)}
+.pa-service.error{border-left-color:var(--red)}
+.pa-service.error strong{color:var(--red)}
+.pa-alert,.pa-event{padding:14px 16px;border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:8px;background:var(--input)}
+.pa-alert+.pa-alert,.pa-event+.pa-event{margin-top:10px}
+.pa-alert.error,.pa-event.error{border-left-color:var(--red)}
+.pa-event.resolved{border-left-color:var(--accent)}
+.pa-event.is-read{opacity:.75}
+.pa-alert p,.pa-event p{margin:6px 0;font-size:13px}
+.pa-alert-head{display:flex;align-items:center;gap:10px}
+.pa-level{padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;color:#fff;background:var(--amber)}
+.pa-level.error{background:var(--red)}
+.pa-queue{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.pa-queue-item{display:flex;flex-direction:column;align-items:flex-start;gap:4px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--input);color:var(--ink);text-align:left}
+.pa-queue-item span{font-size:12px;color:var(--muted)}
+.pa-queue-item strong{font-size:18px}
+.pa-queue-item.has strong{color:var(--amber)}
+.pa-queue-item[aria-pressed=true]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.pa-ages{grid-column:1/-1;margin:4px 0 0;font-size:12px}
+.pa-records{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.pa-records h3{margin:0 0 6px}
+.pa-records p{font-size:13px}
+.pa-filters{display:flex;gap:6px}
+.pa-filters button{padding:5px 12px;border:1px solid var(--line);border-radius:16px;background:none;color:var(--muted);font-size:12px}
+.pa-filters button[aria-pressed=true]{border-color:var(--accent);color:var(--accent);font-weight:700}
+.pa-history-tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.pa-event{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
+.pa-event>div:first-child{min-width:0}
+.pa-event-actions{display:flex;gap:6px;flex-shrink:0}
+.pa-settings{display:flex;flex-wrap:wrap;gap:8px}
+.pa-setting-status{min-height:1.6em;margin:10px 0 0;font-size:12px}
+@media(max-width:1100px){.pa-stats,.pa-queue{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:720px){.pa-banner{flex-direction:column;align-items:flex-start}.pa-event{flex-direction:column}.pa-filters{flex-wrap:wrap}.pipeline-toast{right:16px;left:16px;bottom:16px;max-width:none}}

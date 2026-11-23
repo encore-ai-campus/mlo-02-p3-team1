@@ -271,3 +271,70 @@ class MongoAnalyticsTests(TestCase):
         module.preserve_players(apps,SimpleNamespace(connection=connection))
         self.assertEqual(Player.objects.get(pk=user.pk).display_name,'Legacy')
         self.assertTrue(get_user_model().objects.filter(pk=user.pk).exists())
+
+
+SNAPSHOT = {
+    'at': '2026-11-23T05:00:00+00:00', 'snapshot_age_s': 3, 'sampler_error': None, 'alerts_persistent': True,
+    'alerts': [{'id': 'blocked', 'level': 'error', 'title': '적재 중단 이벤트가 있습니다', 'detail': 'ID 충돌', 'first_seen': '2026-11-23T04:59:00+00:00'}],
+    'incidents': [{'id': 'blocked', 'level': 'error', 'title': '적재 중단 이벤트가 있습니다', 'detail': 'ID 충돌', 'phase': 'opened', 'at': '2026-11-23T04:59:00+00:00'}],
+    'collector': {'state': 'ok'}, 'progress': {'state': 'ok', 'age_s': 2}, 'mongo': {'state': 'error', 'error_type': 'ServerSelectionTimeoutError'},
+    'remote': {'state': 'ok'}, 'queue': {'counts': {'blocked': 2, 'stored': 9}, 'oldest_due_age_s': 0, 'oldest_context_age_s': 0, 'source': 'writer_snapshot'},
+    'queries': [{'name': 'bronze', 'label': 'Bronze', 'active': True, 'batch_id': 4, 'input_rows': 0, 'batch_ms': 120, 'state_rows': 9}],
+    'diagnostics': {'deployment': {'path': '/run/secret'}},
+}
+
+
+@override_settings(OBSERVATORY_URL='http://observatory.test:8011', OBSERVATORY_KEY='test-observatory-key')
+class PipelineAlertsTests(TestCase):
+    def setUp(self):
+        from . import pipeline_alerts
+        self.module = pipeline_alerts
+        pipeline_alerts.clear_cache()
+        self.addCleanup(pipeline_alerts.clear_cache)
+        self.admin = get_user_model().objects.create_user('alerts-admin', password='Admin-Only!4972', display_name='Admin')
+        self.client.force_login(self.admin)
+
+    def test_status_relays_only_needed_fields_and_shares_one_upstream_call(self):
+        with patch.object(self.module, '_fetch', return_value=SNAPSHOT) as fetch:
+            first = self.client.get('/api/admin/pipeline-alerts').json()
+            second = self.client.get('/api/admin/pipeline-alerts').json()
+        self.assertEqual(fetch.call_count, 1)  # Cached: more staff screens never mean more calls to .81.
+        self.assertEqual(first, second)
+        self.assertEqual(first['state'], 'ok')
+        self.assertEqual(first['alerts'][0]['id'], 'blocked')
+        self.assertEqual(first['services']['mongo'], 'error')
+        self.assertEqual(first['queue']['counts']['blocked'], 2)
+        self.assertEqual(first['queue']['counts']['parked'], 0)
+        body = json.dumps(first)
+        self.assertNotIn('ServerSelectionTimeoutError', body)
+        self.assertNotIn('/run/secret', body)
+
+    def test_upstream_failure_is_reported_and_backed_off(self):
+        with patch.object(self.module, '_fetch', side_effect=self.module.UpstreamError('unauthorized')) as fetch:
+            self.assertEqual(self.client.get('/api/admin/pipeline-alerts').json()['state'], 'unauthorized')
+            self.assertEqual(self.client.get('/api/admin/pipeline-alerts').json()['state'], 'unauthorized')
+        self.assertEqual(fetch.call_count, 1)
+
+    @override_settings(OBSERVATORY_KEY='')
+    def test_without_key_nothing_is_called(self):
+        with patch.object(self.module, '_fetch') as fetch:
+            self.assertEqual(self.client.get('/api/admin/pipeline-alerts').json(), {'state': 'unconfigured'})
+        fetch.assert_not_called()
+
+    def test_attention_validates_state_and_relays_records(self):
+        self.assertEqual(self.client.get('/api/admin/pipeline-alerts/attention?state=stored').status_code, 400)
+        upstream = {'state': 'ok', 'more': True, 'records': [{'reference': 'abc123', 'reason_code': 'retry_limit',
+                    'reason_label': '자동 재시도 한도 초과', 'attempts': 20, 'archive_stored': True, 'queued_at': None,
+                    'updated_at': None, 'raw': 'should not pass'}]}
+        with patch.object(self.module, '_fetch', return_value=upstream) as fetch:
+            data = self.client.get('/api/admin/pipeline-alerts/attention?state=parked').json()
+        fetch.assert_called_once_with('/api/attention?state=parked')
+        self.assertTrue(data['more'])
+        self.assertEqual(data['records'][0]['reason_code'], 'retry_limit')
+        self.assertNotIn('raw', data['records'][0])
+
+    def test_page_and_api_are_admin_only(self):
+        self.assertContains(self.client.get('/staff/pipeline-alerts/'), 'pipeline-alerts-page')
+        anonymous = Client()
+        self.assertEqual(anonymous.get('/api/admin/pipeline-alerts').status_code, 401)
+        self.assertRedirects(anonymous.get('/staff/pipeline-alerts/'), '/staff/login/')

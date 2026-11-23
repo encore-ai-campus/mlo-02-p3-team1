@@ -11,7 +11,7 @@ from telemetry.game_auth_api import (
     game_auth_reset_password,
     game_auth_save,
 )
-from telemetry import releases, live
+from telemetry import releases, live, pipeline_alerts
 
 urlpatterns = [
     path('api/game/records', game_records, name='game-records'),
@@ -36,6 +36,7 @@ urlpatterns = [
     path('staff/events/', analytics.events_page, name='events'),
     path('staff/guide/', analytics.guide_page, name='guide'),
     path('staff/live/', live.live_page, name='live'),
+    path('staff/pipeline-alerts/', pipeline_alerts.alerts_page, name='pipeline-alerts'),
     path('staff/members/', live.members_page, name='members'),
     path('staff/members/<uuid:player_id>/', live.member_detail_page, name='member-detail'),
     path('staff/download/', releases.download_admin_page, name='download-tab'),
@@ -66,6 +67,8 @@ urlpatterns = [
     path('api/admin/live/minigames', live.minigames_api),
     path('api/admin/live/alerts', live.alerts_api),
     path('api/admin/live/updates', live.updates_api),
+    path('api/admin/pipeline-alerts', pipeline_alerts.status_api),
+    path('api/admin/pipeline-alerts/attention', pipeline_alerts.attention_api),
 ]
 
 handler400 = 'config.errors.bad_request'
