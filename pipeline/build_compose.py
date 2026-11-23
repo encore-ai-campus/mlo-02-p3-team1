@@ -111,6 +111,23 @@ services['remote-writer'] = {
     'volumes': ['./.env.remote-context.json:/run/private/remote-context.json:ro'],
     'depends_on': {'deps-ready': {'condition': 'service_completed_successfully'}}}
 
+services['observatory'] = {
+    'profiles': ['observatory'], 'restart': 'unless-stopped',
+    'build': {'context': '.', 'dockerfile': 'Dockerfile.observatory'},
+    'ports': ['${OBSERVATORY_BIND:-127.0.0.1}:${OBSERVATORY_PORT:-8011}:8011'],
+    'env_file': [{'path': '.env.remote', 'required': False}],
+    'environment': {'MONGO_URI': 'mongodb://mongo:27017', 'MONGO_DB': 'nodeverse_logs',
+                    'MONGO_TIMEOUT_MS': '1000', 'PROGRESS_PATH': '/data/metrics/streaming-progress.json',
+                    'OBSERVATORY_KEY': '${OBSERVATORY_KEY:-}', 'OBSERVATORY_NAME': '${OBSERVATORY_NAME:-NODEVERSE}',
+                    'OBSERVATORY_BIND': '${OBSERVATORY_BIND:-127.0.0.1}',
+                    'OBSERVATORY_INTERVAL_S': '${OBSERVATORY_INTERVAL_S:-10}',
+                    'OBSERVATORY_COLLECTOR_URL': 'http://collector:8000'},
+    'volumes': ['lake:/data:ro'],
+    'depends_on': {'mongo': {'condition': 'service_healthy'}},
+    'healthcheck': {'test': ['CMD', 'python', '-c',
+        'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8011/health", timeout=3)'],
+        'interval': '15s', 'timeout': '5s', 'retries': 3}}
+
 Path(__file__).with_name('compose.json').write_text(
     json.dumps({'name': 'nodeverse-dev', 'services': services, 'volumes': volumes}, indent=2) + '\n', encoding='utf-8')
 print('wrote compose.json')

@@ -15,6 +15,7 @@ import gold
 import sinks
 import tables as tb
 from common import settings
+from common.observability import stages
 from common.lateness import LATE_SECONDS
 from common.timeutil import iso_ms, utc_now
 
@@ -140,6 +141,7 @@ def write_progress(spark, restarts: dict) -> None:
     destination = Path(settings.get().progress_path)
     destination.parent.mkdir(parents=True, exist_ok=True)
     report = {"updated_at": iso_ms(), "sink_failures": sinks.failures(), "query_restarts": restarts,
+              "effective_dedup_hours": settings.get().dedup_ttl_hours, "stage_timings": stages(),
               "gold_republish_pending": gold.pending_republish(),
               "queries": [{"name": q.name, "active": q.isActive, "status": q.status, "progress": q.lastProgress}
                           for q in spark.streams.active]}

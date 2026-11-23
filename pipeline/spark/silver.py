@@ -22,6 +22,7 @@ import sinks
 import tables as tb
 from audit_state import DECISION_SCHEMA, STATE_SCHEMA, audit
 from common import settings
+from common.observability import record_stage
 from common.lateness import LATE_SECONDS  # event_time falls back to received_at beyond this gap
 
 log = logging.getLogger("silver")
@@ -96,8 +97,10 @@ def _write_silver(table: str, name: str):
         merged = staged = started
         # Events are immutable: replay inserts no extra rows; conflicting payloads never overwrite.
         source = batch.drop("kafka_ts").persist()
+        had_rows = False
         try:
             if not source.isEmpty():
+                had_rows = True
                 touched = set()
                 groups = merge_groups(source)
                 for part in groups:  # insert-only MERGE is idempotent: a batch replayed half-way is safe
@@ -123,6 +126,11 @@ def _write_silver(table: str, name: str):
             source.unpersist()
         log.info("silver %s batch %s in %.1fs (merge %.1fs, outbox %.1fs)", name, batch_id,
                  time.monotonic() - started, max(0.0, merged - started), max(0.0, staged - merged))
+        if had_rows:  # don't replace a useful measurement with an empty no-data batch
+            record_stage("silver_" + name, batch_id=int(batch_id),
+                         merge_ms=round(max(0.0, merged-started)*1000),
+                         outbox_ms=round(max(0.0, staged-merged)*1000),
+                         maintenance_ms=round(max(0.0, time.monotonic()-staged)*1000))
     return write
 
 
