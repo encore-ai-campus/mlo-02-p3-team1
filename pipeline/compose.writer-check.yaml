@@ -47,4 +47,8 @@ services:
       - .:/app:ro
     entrypoint: ["python", "/app/tools/isolated_writer_check.py"]
 networks:
-  isolated: {internal: true}
+  isolated:
+    internal: true
+    ipam:
+      config:
+        - subnet: '${WRITER_TEST_SUBNET:-10.203.201.0/24}'
