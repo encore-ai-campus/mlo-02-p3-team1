@@ -158,6 +158,20 @@ def test_claim_batch_marks_processing_and_counts_attempts(dbs):
  assert {j['_id'] for j in claim_batch(l,10)}=={'3','4'}
  assert claim_batch(l,10)==[]
 
+
+def test_claim_batch_does_not_claim_a_record_postponed_after_candidate_read(dbs, monkeypatch):
+ from remote.worker import claim_batch
+ l,_=dbs;n=datetime.now(timezone.utc);c=l.remote_event_outbox
+ c.insert_one({'_id':'postponed','state':'pending','next_attempt_at':n-timedelta(seconds=1),'queued_at':n,'attempts':0})
+ original=c.update_many
+ def postpone_before_claim(query, update):
+  c.update_one({'_id':'postponed'},{'$set':{'next_attempt_at':n+timedelta(hours=1)}})
+  return original(query,update)
+ monkeypatch.setattr(c,'update_many',postpone_before_claim)
+ assert claim_batch(l,10)==[]
+ row=c.find_one({'_id':'postponed'})
+ assert row['state']=='pending' and row['attempts']==0
+
 def test_group_by_session_keeps_sequence_order():
  from remote.worker import group_by_session
  n=datetime.now(timezone.utc)
