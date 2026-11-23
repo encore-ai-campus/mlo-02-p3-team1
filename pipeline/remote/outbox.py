@@ -22,7 +22,7 @@ def plain(value):
     return value
 
 
-def stage(records, db=None, chunk=500):
+def stage(records, db=None, chunk=500, queued_at=None):
     """Insert-once outbox rows for validated events, in bulk (BN-8: was 2 round trips per event).
 
     Existing rows are never reset. A different payload for a known event_id is recorded as a conflict."""
@@ -31,7 +31,7 @@ def stage(records, db=None, chunk=500):
     # 8th round: one timestamp for the whole Silver batch. Chunks used to get their own time, so a session's
     # sequence 3 (first chunk) could sort before its sequence 2 (second chunk, a few ms later); the worker then
     # claimed 3 without 2 and hit a sequence gap. With equal times the claim order falls back to sequence.
-    now = datetime.now(timezone.utc)
+    now = queued_at if queued_at is not None else datetime.now(timezone.utc)
     buf = []
     for record in records:
         buf.append(plain(record))

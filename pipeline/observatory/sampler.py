@@ -206,7 +206,7 @@ class Sampler:
                 'query_restarts': sum((report.get('query_restarts') or {}).values()) if 'query_restarts' in report else None,
                 'gold_republish_pending': report.get('gold_republish_pending')}
             out['stage_timings'] = {name: {k: number(row.get(k)) for k in
-                ['batch_id', 'merge_ms', 'outbox_ms', 'maintenance_ms']} | {'completed_at': row.get('completed_at')}
+                ['batch_id', 'merge_ms', 'outbox_ms', 'maintenance_ms', 'plan_ms', 'merge_groups', 'input_rows']} | {'completed_at': row.get('completed_at')}
                 for name, row in (report.get('stage_timings') or {}).items() if name in NAMES}
             out['effective_dedup_hours'] = report.get('effective_dedup_hours')
         except Exception:

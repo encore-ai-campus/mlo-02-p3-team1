@@ -60,5 +60,14 @@ def delete_missing(collection: str, keep_ids: list) -> bool:
 def stage_outbox(records) -> None:
     """Durable remote export staging. Raises after retries so the batch is replayed, never skipped."""
     from remote.outbox import stage
-    rows = list(records)
-    _retry(lambda: stage(rows), "outbox", True)
+    if not settings.get().silver_optimization_enabled:
+        rows = list(records)
+        _retry(lambda: stage(rows), "outbox", True)
+        return
+    from datetime import datetime, timezone
+    from itertools import islice
+    iterator = iter(records)
+    queued_at = datetime.now(timezone.utc)  # same timestamp across all chunks and retries
+    size = max(1, settings.get().outbox_stage_chunk)
+    while rows := list(islice(iterator, size)):
+        _retry(lambda: stage(rows, queued_at=queued_at), "outbox", True)

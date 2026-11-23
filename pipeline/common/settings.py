@@ -38,6 +38,9 @@ class Settings:
     audit_trigger: str = field(default_factory=lambda: os.getenv("AUDIT_TRIGGER", "30 seconds"))
     max_offsets_per_trigger: int = field(default_factory=lambda: _int("MAX_OFFSETS_PER_TRIGGER", 10000))
     dedup_ttl_hours: int = field(default_factory=lambda: _int("DEDUP_TTL_HOURS", 7 * 24))
+    silver_optimization_enabled: bool = field(default_factory=lambda: os.getenv("SILVER_OPTIMIZATION_ENABLED", "0") == "1")
+    silver_max_merge_groups: int = field(default_factory=lambda: _int("SILVER_MAX_MERGE_GROUPS", 16))
+    outbox_stage_chunk: int = field(default_factory=lambda: _int("OUTBOX_STAGE_CHUNK", 500))
     # small-file compaction and VACUUM (spark/compaction.py); 0 disables the step
     compact_every_batches: int = field(default_factory=lambda: _int("COMPACT_EVERY_BATCHES", 300))
     compact_bronze_minutes: int = field(default_factory=lambda: _int("COMPACT_BRONZE_MINUTES", 10))

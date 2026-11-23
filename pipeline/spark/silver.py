@@ -75,8 +75,8 @@ def id_day_col():
     """Spark mirror of common.lateness.v7_day: creation day of an UUIDv7 event_id, 'other' for other ids."""
     hexs = F.regexp_replace(F.col("event_id"), "-", "")
     ms = F.conv(F.substring(hexs, 1, 12), 16, 10).cast("long")
-    return F.when(F.substring(F.col("event_id"), 15, 1) == "7",
-                  F.date_format(F.from_unixtime(ms / 1000), "yyyy-MM-dd")).otherwise(F.lit("other"))
+    return F.coalesce(F.when(F.substring(F.col("event_id"), 15, 1) == "7",
+                  F.date_format(F.from_unixtime(ms / 1000), "yyyy-MM-dd")), F.lit("other"))
 
 
 def merge_groups(source: DataFrame) -> list:
@@ -89,6 +89,27 @@ def merge_groups(source: DataFrame) -> list:
     return [source.where(id_day_col() == d) for d in sorted(days)]
 
 
+def merge_plan(source: DataFrame, max_groups: int = 16) -> list:
+    """One cached-source aggregation for group bounds; cap driver metadata and MERGE fan-out.
+
+    Falling back to the whole batch changes performance only, never the match predicate's safety.
+    Each tuple is (source, lo, hi, id_lo, id_hi, dates, row_count).
+    """
+    limit = max(1, int(max_groups))
+    aggregates = [F.min('event_date').alias('lo'), F.max('event_date').alias('hi'),
+                  F.min('event_id').alias('id_lo'), F.max('event_id').alias('id_hi'),
+                  F.collect_set('event_date').alias('dates'), F.count('*').alias('rows')]
+    bounds = source.groupBy(id_day_col().alias('_id_day')).agg(*aggregates).limit(limit+1).collect()
+    if len(bounds) > limit:
+        log.warning('silver MERGE groups exceed %d; using one safe whole-batch range', limit)
+        row = source.agg(*aggregates).first()
+        return [(source, row.lo, row.hi, row.id_lo, row.id_hi, row.dates, row.rows)]
+    single = len(bounds) == 1
+    return [(source if single else source.where(id_day_col() == row._id_day),
+             row.lo, row.hi, row.id_lo, row.id_hi, row.dates, row.rows)
+            for row in sorted(bounds, key=lambda r: r._id_day)]
+
+
 def _write_silver(table: str, name: str):
     def write(batch: DataFrame, batch_id: int) -> None:
         from delta.tables import DeltaTable
@@ -99,16 +120,23 @@ def _write_silver(table: str, name: str):
         source = batch.drop("kafka_ts").persist()
         had_rows = False
         try:
-            if not source.isEmpty():
+            if settings.get().silver_optimization_enabled:
+                groups = merge_plan(source, settings.get().silver_max_merge_groups)
+            elif not source.isEmpty():
+                groups = []
+                for part in merge_groups(source):
+                    r = part.agg(F.min('event_date'), F.max('event_date'), F.min('event_id'),
+                                 F.max('event_id'), F.collect_set('event_date'), F.count('*')).first()
+                    groups.append((part, *r))
+            else:
+                groups = []
+            planned = time.monotonic()
+            if groups:
                 had_rows = True
                 touched = set()
-                groups = merge_groups(source)
-                for part in groups:  # insert-only MERGE is idempotent: a batch replayed half-way is safe
+                for part, lo, hi, id_lo, id_hi, dates, row_count in groups:
                     # the same aggregation also lists every date this group writes (not only min/max), so a
                     # middle date of a late burst is a compaction candidate too (follow-up review 2026-11-21 #4)
-                    lo, hi, id_lo, id_hi, dates = part.agg(F.min("event_date"), F.max("event_date"),
-                                                           F.min("event_id"), F.max("event_id"),
-                                                           F.collect_set("event_date")).first()
                     (DeltaTable.forPath(spark, tb.path(table)).alias("t")
                      .merge(part.alias("s"), merge_condition(lo, hi, id_lo, id_hi))
                      .whenNotMatchedInsertAll().execute())
@@ -129,6 +157,8 @@ def _write_silver(table: str, name: str):
         if had_rows:  # don't replace a useful measurement with an empty no-data batch
             record_stage("silver_" + name, batch_id=int(batch_id),
                          merge_ms=round(max(0.0, merged-started)*1000),
+                         plan_ms=round(max(0.0, planned-started)*1000),
+                         merge_groups=len(groups), input_rows=sum(group[-1] for group in groups),
                          outbox_ms=round(max(0.0, staged-merged)*1000),
                          maintenance_ms=round(max(0.0, time.monotonic()-staged)*1000))
     return write
