@@ -86,3 +86,10 @@ docker compose -p <기존프로젝트> --env-file .env -f compose.json --profile
 ## 1단계 계측 보강(후속)
 
 현재 추가된 MERGE 커밋 시간·Kafka→Bronze 미처리 추정·scope별 p50/p95·운영 TTL 확인·인덱스 준비와 실측은 [OBSERVATORY_STEP1_2026-11-23.md](OBSERVATORY_STEP1_2026-11-23.md)를 우선 참고하세요. 위 초기 MVP의 Kafka lag 미수집 설명은 이 후속 변경으로 대체됩니다. 전체 종단 지연과 실제 스캔 바이트는 여전히 별도 계측이 필요합니다.
+
+
+## 내부망 접속과 최근 수신 목록
+
+`compose.observatory.attach.yaml`은 기본적으로 localhost에만 연결합니다. 팀 내부망에서 사용하려면 Git에 포함되지 않는 설정 파일에 `OBSERVATORY_BIND=<서버의 내부 IP>`, `OBSERVATORY_PORT=8011`, 길고 임의의 `OBSERVATORY_KEY`를 설정하고 `docker compose --env-file <설정파일> -f compose.observatory.attach.yaml up -d --build`로 관측소를 시작합니다. Windows 방화벽은 해당 TCP 포트를 신뢰하는 내부망으로만 제한합니다. 키는 별도 안전한 경로로 전달합니다. HTTP는 전송을 암호화하지 않으므로 신뢰할 수 없는 네트워크에서는 HTTPS 등을 사용해야 합니다. 브라우저 알림은 HTTP 환경에서 제한될 수 있습니다.
+
+최근 목록은 원격 outbox에 도달한 항목 중 대기열 진입 시각으로 최대 20건을 표시합니다. 동일 배치 시각은 임의 순서이며 수신 순서가 아닙니다. 거부된 요청, 아직 outbox에 도착하지 않은 이벤트는 빠집니다. 참조는 이벤트 ID의 SHA-256 앞 12자리입니다. 원격 원본 저장은 대시보드 반영을 뜻하지 않습니다. 읽기 부담을 제한하기 위해 `python -m observatory.setup_indexes --execute`로 `observatory_recent_v1` 인덱스를 명시적으로 준비해야 합니다. 인덱스가 없으면 목록을 조회하지 않습니다.
