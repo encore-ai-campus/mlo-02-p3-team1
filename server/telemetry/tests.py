@@ -58,6 +58,12 @@ class MongoAnalyticsTests(TestCase):
         self.assertEqual(collection(PlaySession).count_documents({}),1)
         self.assertEqual(Player.objects.count(),1)
 
+    def test_pipeline_learning_events_indexes(self):
+        keys = {tuple(index['key'].items()) for index in database().pipeline_learning_events.list_indexes()}
+        for expected in ((('player_id', 1), ('occurred_at', -1)), (('occurred_at', -1),),
+                         (('minigame_id', 1), ('occurred_at', -1)), (('run_id', 1),)):
+            self.assertIn(expected, keys)
+
     def test_metrics_pages_charts_export_and_filters(self):
         self.solve()
         result=self.client.get('/api/admin/summary').json()
