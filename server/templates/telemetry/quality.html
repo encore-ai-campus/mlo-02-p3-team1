@@ -1,5 +1,14 @@
-<section class="observation-strip" aria-label="데이터 해석 안내">
-  <div><span class="eyebrow">OBSERVATION STATUS</span><strong>{% if catalog.totals.runs and not catalog.totals.completed and not catalog.totals.abandoned %}완료·포기 판정이 아직 없습니다{% elif not catalog.totals.runs %}선택 조건에 문제 실행 기록이 없습니다{% else %}저장된 결과를 기준으로 분석합니다{% endif %}</strong><p>연산 성공은 행동 하나의 성공이며 문제 완료와 다릅니다. 문제 해결률은 완료 ÷ 시작한 문제 실행입니다.</p></div>
-  <div class="observation-counts"><span>완료 <b>{{ catalog.totals.completed }}</b></span><span>진행 중 <b>{{ catalog.totals.in_progress }}</b></span><span>포기 <b>{{ catalog.totals.abandoned }}</b></span></div>
-  <small>완료 기록 중 풀이 시간 누락 {{ catalog.missing_active }}건 · 힌트 미기록은 미사용을 증명하지 않습니다.</small>
+{% if catalog.totals.runs and not catalog.totals.completed and not catalog.totals.abandoned %}{% firstof 'waiting' as obs_state %}{% elif not catalog.totals.runs %}{% firstof 'empty' as obs_state %}{% else %}{% firstof 'ok' as obs_state %}{% endif %}
+<section class="observation-strip obs-{{ obs_state }}" aria-label="데이터 상태">
+  <span class="obs-dot" aria-hidden="true"></span>
+  <strong>{% if obs_state == 'waiting' %}완료·포기 판정이 아직 없습니다{% elif obs_state == 'empty' %}선택 조건에 문제 실행 기록이 없습니다{% else %}저장된 결과를 기준으로 분석합니다{% endif %}</strong>
+  {% if obs_state == 'waiting' %}<span class="obs-sub">시작한 문제 {{ catalog.totals.in_progress }}건 모두 해결 기록 없음</span>{% endif %}
+  <details class="obs-help"><summary>집계 기준</summary><ul>
+    <li>문제 해결률 = 해결 ÷ 시작한 문제 실행</li>
+    <li>미완료 = 시작했지만 해결 기록이 없는 문제 (풀고 있는 문제와 그만둔 문제가 섞여 있음)</li>
+    <li>포기는 아직 게임·파이프라인에서 기록하지 않아 집계하지 않습니다.</li>
+    <li>연산 성공은 행동 하나의 성공이며, 문제 해결과 다릅니다.</li>
+    <li>풀이 시간이 빠진 해결 기록 {{ catalog.missing_active }}건</li>
+    <li>힌트 기록이 없다고 힌트를 안 쓴 것은 아닙니다.</li>
+  </ul></details>
 </section>

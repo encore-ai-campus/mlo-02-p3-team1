@@ -79,6 +79,25 @@ def dashboard_page(request, scope=None):
     page_context['recent_events'] = events.select_related('session__player', 'run__task', 'attempt').order_by('-occurred_at', '-sequence')[:8]
     if page_context['show_analysis']:
         page_context['visuals'] = visual_report(page_context['filter'], players, events)
+    if scope == 'overview':
+        from . import overview
+        visuals = page_context['visuals']
+        page_context.update({
+            'compare': overview.comparison(page_context['stats'], page_context['learning'], request.GET, page_context['filter']),
+            'attention': overview.attention_tasks(page_context['learning'], request.GET),
+            'area_rows': overview.area_rows(catalog, request.GET, request.path),
+            'recent_rows': overview.recent_rows(events.select_related('session__player', 'run__task', 'attempt').order_by('-occurred_at', '-sequence')[:overview.RECENT_LIMIT]),
+            'kpi': overview.kpi_states(page_context['learning'], catalog),
+            'trend_totals': {'started': sum(r['started'] for r in visuals['trend']),
+                             'completed': sum(r['completed'] for r in visuals['trend'])},
+            'rendered_at': timezone.localtime(),
+        })
+        page_context['attention_small'] = any(row['small'] for row in page_context['attention'])
+        return render(request, 'telemetry/overview.html', page_context)
+    from . import overview
+    page_context.update({'kpi': overview.kpi_states(page_context['learning'], catalog),
+                         'area_tabs': overview.area_tabs(catalog, cleaned, request.GET),
+                         'failure_rows': overview.failure_rows(page_context['learning'])})
     return render(request, 'telemetry/dashboard.html', page_context)
 
 
@@ -115,7 +134,7 @@ def events_page(request):
     from datetime import datetime, time
     from .catalog import CATALOG
     from .models import GameAccount
-    from .pipeline_events import EVENT_LABELS, EventPage, describe, identity_map, member_keys
+    from .pipeline_events import EVENT_LABELS, FAILURE_TYPES, SUCCESS_TYPES, EventPage, describe, identity_map, member_keys
 
     today = timezone.localdate()
 
@@ -139,22 +158,55 @@ def events_page(request):
     kind = request.GET.get('kind', '')
     if kind in EVENT_LABELS:
         query['event_type'] = kind
+    from .exploration import log_query
+    query = log_query(request.GET)
     selected_sort = 'oldest' if request.GET.get('sort') == 'oldest' else 'recent'
-    error = None
+    error, counts = None, None
+    per_page = 30
     try:
-        page = Paginator(EventPage(query, newest_first=selected_sort == 'recent'), 30).get_page(request.GET.get('page'))
+        events = EventPage(query, newest_first=selected_sort == 'recent')
         identities = identity_map()
+        if request.GET.get('format') == 'csv':
+            return events_csv(events, identities, start, end)
+        page = Paginator(events, per_page).get_page(request.GET.get('page'))
         rows = [describe(doc, identities) for doc in page.object_list]
+        counts = {'total': page.paginator.count,
+                  'success': events.collection.count_documents({'$and': [query, {'event_type': {'$in': list(SUCCESS_TYPES)}}]})
+                  if kind in ('', *SUCCESS_TYPES) else 0,
+                  'failure': events.collection.count_documents({'$and': [query, {'event_type': {'$in': list(FAILURE_TYPES)}}]})
+                  if kind in ('', *FAILURE_TYPES) else 0}
     except Exception:  # MongoDB unreachable: keep the page up and say so
-        page, rows, error = Paginator([], 30).get_page(1), [], 'MongoDB에 연결할 수 없어 행동 로그를 불러오지 못했습니다.'
+        page, rows, error = Paginator([], per_page).get_page(1), [], 'MongoDB에 연결할 수 없어 행동 로그를 불러오지 못했습니다.'
     params = request.GET.copy()
     params.pop('page', None)
+    params.pop('format', None)
     return render(request, 'telemetry/events.html', {
-        'page': page, 'rows': rows, 'error': error, 'querystring': params.urlencode(),
+        'page': page, 'rows': rows, 'error': error, 'querystring': params.urlencode(), 'counts': counts,
         'start': start, 'end': end, 'members': members, 'selected_member': selected_member,
         'games': [(code, g['title']) for code, g in CATALOG.items()], 'game': game,
         'kinds': list(EVENT_LABELS.items()), 'kind': kind, 'selected_sort': selected_sort,
     })
+
+
+EVENTS_CSV_LIMIT = 10000
+
+
+def events_csv(events, identities, start, end):
+    """The filtered behavior log as CSV (newest first, at most EVENTS_CSV_LIMIT rows)."""
+    from .pipeline_events import describe
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="nodeverse-events-{start:%Y%m%d}-{end:%Y%m%d}.csv"'
+    response.write('﻿')
+    writer = csv.writer(response)
+    writer.writerow(['occurred_at', 'member', 'player_id', 'minigame_id', 'event_type', 'result', 'operation',
+                     'failure_reason', 'sequence', 'session_id', 'event_id', 'build_version', 'content_version'])
+    for doc in events[0:EVENTS_CSV_LIMIT]:
+        row = describe(doc, identities)
+        at = timezone.localtime(row['at']).strftime('%Y-%m-%d %H:%M:%S') if row['at'] else ''
+        writer.writerow([at, row['member']['name'] if row['member'] else '', row['raw_player'], row['code'], row['kind'],
+                         row['result'] or '', row['operation'], row['reason'], row['sequence'], row['session_full'],
+                         row['event_id'], row['build'], row['content']])
+    return response
 
 
 def player_data(player):
@@ -194,7 +246,11 @@ def visuals_api(request):
 @require_GET
 @admin_page
 def guide_page(request):
-    return render(request, 'telemetry/guide.html')
+    from .catalog import AREAS, CATALOG, CATEGORY_AREAS
+    codes = {area: code for code, area in CATEGORY_AREAS.items()}
+    areas = [{'key': key, 'label': label, 'code': codes.get(key, key.upper()),
+              'count': sum(g['area'] == key for g in CATALOG.values())} for key, label in AREAS]
+    return render(request, 'telemetry/guide.html', {'guide_areas': areas, 'guide_total': len(CATALOG)})
 
 
 @require_GET

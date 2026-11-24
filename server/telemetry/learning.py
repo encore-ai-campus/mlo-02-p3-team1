@@ -24,7 +24,7 @@ def learning_report(form, players):
         task = run.task
         row = groups.setdefault(task.pk, {'task_id': task.task_id, 'version': task.content_version, 'title': task.title,
             'topic': task.get_topic_display(), 'runs': 0, 'completed': 0, 'abandoned': 0, 'attempts': 0,
-            'retry_runs': 0, 'hint_runs': 0, 'active_times': []})
+            'retry_runs': 0, 'hint_runs': 0, 'active_times': [], 'failure_counts': defaultdict(int)})
         attempts = sorted(run.attempts.all(), key=lambda a: (a.started_at, a.number))
         row['runs'] += 1
         row['attempts'] += len(attempts)
@@ -40,6 +40,9 @@ def learning_report(form, players):
         if run.status == 'abandoned':
             abandoned += 1
             row['abandoned'] += 1
+        for event in run.events.all():
+            if event.event_type == 'operation_failed':
+                row['failure_counts'][(event.operation or 'unknown', event.failure_reason or 'unknown')] += 1
         hints = sorted((e for e in run.events.all() if e.event_type == 'hint'), key=lambda e: (e.occurred_at, e.sequence))
         if hints:
             row['hint_runs'] += 1
@@ -53,6 +56,10 @@ def learning_report(form, players):
         row['abandon_rate'] = round(100 * row['abandoned'] / row['runs'], 1)
         times = row.pop('active_times')
         row['avg_active_seconds'] = round(sum(times) / len(times) / 1000, 1) if times else None
+        counts = row.pop('failure_counts')
+        row['failure_total'] = sum(counts.values())
+        row['failure_top'] = [{'operation': k[0], 'reason': k[1], 'count': v}
+                              for k, v in sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:3]]
     # A run cohort is followed to completion; these failures may occur after the selected end date.
     failure_rows = [(event.operation, event.failure_reason) for run in runs for event in run.events.all() if event.event_type == 'operation_failed']
     failures = defaultdict(int)

@@ -1,1 +1,45 @@
-{% extends 'accounts/base.html' %}{% block content %}<section class="profile"><span class="eyebrow">ADMIN ACCOUNT</span><h1>관리자 계정</h1><p class="muted">분석 대상 플레이어의 프로필과는 별개입니다.</p><div class="card"><dl><dt>아이디</dt><dd>{{ user.username }}</dd><dt>표시 이름</dt><dd>{{ user.display_name }}</dd><dt>역할</dt><dd>관리자</dd><dt>계정 ID</dt><dd>{{ user.pk }}</dd><dt>가입일</dt><dd>{{ user.date_joined|date:'Y.m.d' }}</dd></dl></div></section>{% endblock %}
+{% extends 'accounts/base.html' %}{% block content %}
+<div class="ov">
+<div class="ov-head">
+  <div class="ov-head-stack"><h1>관리자 계정</h1><p>계정 정보와 접근 권한을 확인하세요. 분석 대상 플레이어의 프로필과는 별개입니다.</p></div>
+</div>
+
+<div class="split-grid account-grid">
+  <section class="card ov-card" aria-labelledby="profile-title">
+    <div class="ov-card-head"><h2 id="profile-title">{% include 'accounts/nav_icon.html' with icon='profile' %}프로필 정보</h2></div>
+    <div class="profile-hero"><span class="profile-avatar" aria-hidden="true">{{ user.display_name|default:user.username|slice:':1' }}</span><div><strong>{{ user.display_name|default:user.username }}</strong><span class="result-badge info">관리자</span></div></div>
+    <dl class="field-list">
+      <dt>표시 이름</dt><dd>{{ user.display_name|default:'—' }}</dd>
+      <dt>아이디</dt><dd>{{ user.username }}</dd>
+      <dt>이메일</dt><dd>{{ user.email|default:'등록 안 함' }}</dd>
+      <dt>가입일</dt><dd>{{ user.date_joined|date:'Y.m.d' }}</dd>
+      <dt>계정 ID</dt><dd><code>{{ user.pk }}</code></dd>
+    </dl>
+  </section>
+
+  <div class="stack-col">
+    <section class="card ov-card" aria-labelledby="perm-title">
+      <div class="ov-card-head"><h2 id="perm-title">{% include 'accounts/nav_icon.html' with icon='shield' %}계정 권한</h2></div>
+      <div class="role-row">{% include 'accounts/nav_icon.html' with icon='crown' %}<strong>관리자</strong><span class="result-badge success">역할</span></div>
+      <ul class="perm-list">
+        <li>{% include 'accounts/nav_icon.html' with icon='chart' %}학습 분석 조회<span class="result-badge info">허용</span></li>
+        <li>{% include 'accounts/nav_icon.html' with icon='list' %}행동 로그 조회<span class="result-badge info">허용</span></li>
+        <li>{% include 'accounts/nav_icon.html' with icon='box' %}릴리스 관리<span class="result-badge info">허용</span></li>
+      </ul>
+    </section>
+    <section class="card ov-card" aria-labelledby="security-title">
+      <div class="ov-card-head"><h2 id="security-title">{% include 'accounts/nav_icon.html' with icon='lock' %}보안</h2></div>
+      <dl class="field-list">
+        <dt>최근 로그인</dt><dd>{{ user.last_login|date:'Y.m.d H:i'|default:'기록 없음' }}</dd>
+        <dt>정보 수정</dt><dd>{{ user.updated_at|date:'Y.m.d H:i'|default:'—' }}</dd>
+      </dl>
+    </section>
+  </div>
+</div>
+
+<div class="account-foot">
+  <a class="text-link" href="{% url 'home' %}">{% include 'accounts/nav_icon.html' with icon='arrow' %}게임 홈페이지로 이동</a>
+  <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="btn-ghost logout-outline">{% include 'accounts/nav_icon.html' with icon='logout' %}로그아웃</button></form>
+</div>
+</div>
+{% endblock %}

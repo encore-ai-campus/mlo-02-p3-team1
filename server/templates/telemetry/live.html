@@ -1,45 +1,71 @@
 {% extends 'accounts/base.html' %}{% load static %}{% block content %}
-<div class="page-heading"><div><span class="eyebrow">REAL-TIME</span><h1>실시간 현황</h1><p class="subtitle">파이프라인이 MongoDB rt_* 컬렉션에 넣는 값을 3초마다 다시 읽습니다. 이 화면은 <b>도착 시각</b> 기준입니다(늦게 도착한 기록도 도착한 때에 포함, 따로 표시). 실제 <b>플레이 날짜</b> 기준 누적 분석은 전체 현황에서 봅니다.</p></div>
-<nav class="live-tabs" aria-label="실시간 탭"><a href="?tab=live" {% if tab == 'live' %}class="active" aria-current="page"{% endif %}>학습</a><a href="?tab=updates" {% if tab == 'updates' %}class="active" aria-current="page"{% endif %}>업데이트</a></nav></div>
-
-<p class="live-status" id="live-status" data-stale="{{ stale_seconds }}"><span class="status-dot"></span><span id="live-status-text">불러오는 중…</span></p>
+<div class="ov">
+<div class="ov-head">
+  <div class="live-title"><h1>실시간 현황</h1>
+    <p class="live-status live-pill" id="live-status" data-stale="{{ stale_seconds }}" role="status"><span class="status-dot"></span><span id="live-status-text">불러오는 중…</span></p>
+    <span class="live-refresh">{% include 'accounts/nav_icon.html' with icon='retry' %}3초마다 갱신</span></div>
+</div>
+<nav class="line-tabs" aria-label="실시간 보기"><a href="?tab=live" {% if tab == 'live' %}aria-current="true"{% endif %}>학습 현황</a><a href="?tab=updates" {% if tab == 'updates' %}aria-current="true"{% endif %}>업데이트 현황</a></nav>
 
 {% if tab == 'live' %}
-<div class="stats live-stats">
-  <article class="card stat featured"><span class="mini-label">최근 1분 이벤트</span><strong><span id="kpi-events">—</span><span class="trend" id="kpi-events-trend"></span></strong><span class="muted" id="kpi-events-note">게임에서 들어온 학습 행동 수</span></article>
-  <article class="card stat"><span class="mini-label">5분 활성 세션</span><strong><span id="kpi-sessions">—</span><span class="trend" id="kpi-sessions-trend"></span></strong><span class="muted" id="kpi-sessions-note">5분 안에 행동이 있었던 플레이</span></article>
-  <article class="card stat"><span class="mini-label">최근 30분 시도</span><strong><span id="kpi-attempts">—</span><span class="trend" id="kpi-attempts-trend"></span></strong><span class="muted" id="kpi-attempts-note">24개 미니게임 합계</span></article>
-  <article class="card stat"><span class="mini-label">실패 급증 경고 (60분)</span><strong><span id="kpi-alerts">—</span><span class="trend" id="kpi-alerts-trend"></span></strong><span class="muted">시도 20↑ · 실패율 0.4↑ · 평소 1.5배↑</span></article>
+<section class="kpis live-kpis" aria-label="실시간 핵심 지표">
+  <article class="kpi"><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='layers' %}</span><div class="kpi-body"><span class="kpi-label">최근 1분 이벤트</span><strong class="kpi-value"><span id="kpi-events">—</span><span class="trend" id="kpi-events-trend"></span></strong><span class="kpi-basis" id="kpi-events-note">게임에서 들어온 학습 행동 수</span></div></article>
+  <article class="kpi"><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='users' %}</span><div class="kpi-body"><span class="kpi-label">5분 활성 세션</span><strong class="kpi-value"><span id="kpi-sessions">—</span><span class="trend" id="kpi-sessions-trend"></span></strong><span class="kpi-basis" id="kpi-sessions-note">5분 안에 행동이 있었던 플레이</span></div></article>
+  <article class="kpi"><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='target' %}</span><div class="kpi-body"><span class="kpi-label">최근 30분 시도</span><strong class="kpi-value"><span id="kpi-attempts">—</span><span class="trend" id="kpi-attempts-trend"></span></strong><span class="kpi-basis" id="kpi-attempts-note">24개 미니게임 합계</span></div></article>
+  <article class="kpi"><span class="kpi-icon tone-warn">{% include 'accounts/nav_icon.html' with icon='trend-up' %}</span><div class="kpi-body"><span class="kpi-label">실패 급증 경고 (60분)<span class="kpi-info" role="button" tabindex="0" aria-label="실패 급증 기준 보기" data-tip="5분 창에서 시도 20회 이상, 실패율 0.4 이상, 평소 실패율의 1.5배 이상이면 경고로 셉니다.">i</span></span><strong class="kpi-value"><span id="kpi-alerts">—</span><span class="trend" id="kpi-alerts-trend"></span></strong><span class="kpi-basis">시도 20↑ · 실패율 0.4↑ · 평소 1.5배↑</span></div></article>
+</section>
+
+<div class="split-grid wide-left">
+  <section class="card ov-card" data-live-compact aria-labelledby="live-games-title">
+    <div class="ov-card-head"><h2 id="live-games-title">미니게임별 성공률 <small class="ov-count">최근 30분 · 1분 단위</small></h2></div>
+    <div class="table-scroll ov-log-scroll" tabindex="0" aria-label="미니게임별 성공률 표, 위아래로 스크롤"><table class="ov-table live-table"><thead><tr><th scope="col">게임</th><th scope="col">영역</th><th scope="col">추이 (30분)</th><th scope="col" class="numeric">시도</th><th scope="col" class="numeric">성공률</th></tr></thead><tbody id="game-rows"><tr><td colspan="5" class="empty">불러오는 중…</td></tr></tbody></table></div>
+    <p class="ov-note" id="mismatch-note" hidden></p>
+  </section>
+  <section class="card ov-card" data-live-compact aria-labelledby="live-areas-title">
+    <div class="ov-card-head"><h2 id="live-areas-title">분야별 시도 수 <small class="ov-count">최근 30분</small></h2></div>
+    <div id="area-bars" class="area-dashboard" role="group" aria-label="분야별 시도 수 및 비중"><p class="muted">분야별 기록을 불러오는 중…</p></div>
+  </section>
 </div>
-<section class="card viz-card full" id="sink-card"><div class="chart-head"><div><span class="eyebrow">REMOTE WRITER</span><h2>분석 화면 적재 상태</h2></div><span class="chart-number" id="sink-updated">—</span></div>
-  <p class="chart-note" id="sink-states">불러오는 중…</p>
-  <p class="chart-note" id="sink-reasons" hidden></p></section>
-<section class="card viz-card full" id="reject-card"><div class="chart-head"><div><span class="eyebrow">REJECTED · DLQ / QUARANTINE</span><h2>거절·격리 이벤트</h2></div><span class="chart-number" id="reject-updated">—</span></div>
-  <p class="chart-note" id="reject-counts">불러오는 중…</p>
-  <p class="chart-note" id="reject-reasons" hidden></p>
-  <div class="table-scroll" id="reject-recent-wrap" hidden><table><thead><tr><th>시각</th><th>사유</th><th>경로</th><th>필드</th><th>내용</th></tr></thead><tbody id="reject-recent"></tbody></table></div></section>
-<div class="viz-grid live-grid">
-  <section class="card viz-card wide"><div class="chart-head"><div><span class="eyebrow">SUCCESS RATE · 30 MIN</span><h2>미니게임별 성공률 추이</h2></div><span class="chart-number">1분 단위</span></div>
-    <div class="table-scroll"><table class="live-table"><thead><tr><th>게임</th><th>영역</th><th>추이 (30분)</th><th class="numeric">시도</th><th class="numeric">성공률</th></tr></thead><tbody id="game-rows"><tr><td colspan="5" class="empty">불러오는 중…</td></tr></tbody></table></div>
-    <p class="chart-note" id="mismatch-note" hidden></p></section>
-  <section class="card viz-card"><div class="chart-head"><div><span class="eyebrow">AREAS · 30 MIN</span><h2>영역별 시도 수</h2></div></div><div id="area-bars" class="bar-list"></div></section>
-  <section class="card viz-card full"><div class="chart-head"><div><span class="eyebrow">ALERTS · 60 MIN</span><h2>실패 급증 경고</h2></div><span class="chart-number">5분 창 · 최신순</span></div>
-    <div class="table-scroll"><table><thead><tr><th>창 시작</th><th>게임</th><th>영역</th><th class="numeric">시도</th><th class="numeric">실패</th><th class="numeric">실패율</th><th class="numeric">평소 실패율</th></tr></thead><tbody id="alert-rows"><tr><td colspan="7" class="empty">불러오는 중…</td></tr></tbody></table></div></section>
+
+<div class="split-grid">
+  <section class="card ov-card" id="sink-card" aria-labelledby="sink-title">
+    <div class="ov-card-head"><h2 id="sink-title">분석 화면 적재 상태</h2><span class="ov-sub" id="sink-updated">—</span></div>
+    <p class="state-line" id="sink-states">불러오는 중…</p>
+    <p class="ov-note" id="sink-reasons" hidden></p>
+  </section>
+  <section class="card ov-card" id="reject-card" aria-labelledby="reject-title">
+    <div class="ov-card-head"><h2 id="reject-title">거절·격리 이벤트</h2><span class="ov-sub" id="reject-updated">—</span></div>
+    <p class="state-line" id="reject-counts">불러오는 중…</p>
+    <p class="ov-note" id="reject-reasons" hidden></p>
+    <div class="table-scroll" id="reject-recent-wrap" hidden><table class="ov-table"><thead><tr><th scope="col">시각</th><th scope="col">사유</th><th scope="col">경로</th><th scope="col">필드</th><th scope="col">내용</th></tr></thead><tbody id="reject-recent"></tbody></table></div>
+  </section>
 </div>
+
+<section class="card ov-card" aria-labelledby="alerts-title">
+  <div class="ov-card-head"><h2 id="alerts-title">{% include 'accounts/nav_icon.html' with icon='trend-up' %}실패 급증 경고 <small class="ov-count">최근 60분 · 5분 창 · 최신순</small></h2></div>
+  <div class="table-scroll" tabindex="0" aria-label="실패 급증 경고 표"><table class="ov-table"><thead><tr><th scope="col">창 시작</th><th scope="col">게임</th><th scope="col">영역</th><th scope="col" class="numeric">시도</th><th scope="col" class="numeric">실패</th><th scope="col" class="numeric">실패율</th><th scope="col" class="numeric">평소 실패율</th></tr></thead><tbody id="alert-rows"><tr><td colspan="7" class="empty">불러오는 중…</td></tr></tbody></table></div>
+</section>
 {% else %}
 <p class="notice pack-warning" id="pack-warning" hidden></p>
-<div class="stats live-stats">
-  <article class="card stat featured"><span class="mini-label">현재 EXE 보급률</span><strong id="kpi-build">—</strong><span class="muted" id="kpi-build-label">활성 릴리스</span></article>
-  <article class="card stat"><span class="mini-label">현재 팩 보급률</span><strong id="kpi-content">—</strong><span class="muted" id="kpi-content-label">활성 팩</span></article>
-  <article class="card stat"><span class="mini-label">최소 빌드 미만 설치</span><strong id="kpi-below">—</strong><span class="muted">필수 업데이트 대상</span></article>
-  <article class="card stat"><span class="mini-label">안내 반응 (accepted / prompted)</span><strong id="kpi-response">—</strong><span class="muted" id="kpi-response-label">최근 60분</span></article>
+<section class="kpis live-kpis" aria-label="업데이트 핵심 지표">
+  <article class="kpi"><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='box' %}</span><div class="kpi-body"><span class="kpi-label">현재 EXE 보급률</span><strong class="kpi-value" id="kpi-build">—</strong><span class="kpi-basis" id="kpi-build-label">활성 릴리스</span></div></article>
+  <article class="kpi"><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='file' %}</span><div class="kpi-body"><span class="kpi-label">현재 팩 보급률</span><strong class="kpi-value" id="kpi-content">—</strong><span class="kpi-basis" id="kpi-content-label">활성 팩</span></div></article>
+  <article class="kpi"><span class="kpi-icon tone-warn">{% include 'accounts/nav_icon.html' with icon='alert' %}</span><div class="kpi-body"><span class="kpi-label">최소 빌드 미만 설치</span><strong class="kpi-value" id="kpi-below">—</strong><span class="kpi-basis">필수 업데이트 대상</span></div></article>
+  <article class="kpi"><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='check' %}</span><div class="kpi-body"><span class="kpi-label">안내 반응 (수락 / 안내)</span><strong class="kpi-value" id="kpi-response">—</strong><span class="kpi-basis" id="kpi-response-label">최근 60분</span></div></article>
+</section>
+<div class="split-grid wide-left">
+  <section class="card ov-card" aria-labelledby="pack-title">
+    <div class="ov-card-head"><h2 id="pack-title">팩 다운로드 추이 <small class="ov-count">최근 60분 · 5분 단위</small></h2></div>
+    <div class="table-scroll" tabindex="0" aria-label="팩 다운로드 추이 표"><table class="ov-table"><thead><tr><th scope="col">창 시작</th><th scope="col">대상 버전</th><th scope="col" class="numeric">시작</th><th scope="col" class="numeric">성공</th><th scope="col" class="numeric">실패</th><th scope="col" class="numeric">적재</th><th scope="col" class="numeric">실패율</th><th scope="col" class="numeric">중간값 소요</th></tr></thead><tbody id="update-rows"><tr><td colspan="8" class="empty">불러오는 중…</td></tr></tbody></table></div>
+  </section>
+  <section class="card ov-card" aria-labelledby="reason-title"><div class="ov-card-head"><h2 id="reason-title">실패 사유</h2></div><div id="reason-bars" class="bar-list"></div></section>
 </div>
-<div class="viz-grid live-grid">
-  <section class="card viz-card wide"><div class="chart-head"><div><span class="eyebrow">PACK DOWNLOADS · 60 MIN</span><h2>팩 다운로드 추이</h2></div><span class="chart-number">5분 단위</span></div>
-    <div class="table-scroll"><table><thead><tr><th>창 시작</th><th>대상 버전</th><th class="numeric">시작</th><th class="numeric">성공</th><th class="numeric">실패</th><th class="numeric">적재</th><th class="numeric">실패율</th><th class="numeric">중간값 소요</th></tr></thead><tbody id="update-rows"><tr><td colspan="8" class="empty">불러오는 중…</td></tr></tbody></table></div></section>
-  <section class="card viz-card"><div class="chart-head"><div><span class="eyebrow">FAILURE REASONS</span><h2>실패 사유</h2></div></div><div id="reason-bars" class="bar-list"></div></section>
-  <section class="card viz-card full"><div class="chart-head"><div><span class="eyebrow">VERSION ADOPTION · 24H</span><h2>버전별 설치 수</h2></div><span class="chart-number">최근 24시간 설치 ID 기준</span></div><div class="adoption-grid"><div><h3>EXE (build)</h3><div id="build-bars" class="bar-list"></div></div><div><h3>콘텐츠 (content)</h3><div id="content-bars" class="bar-list"></div></div></div></section>
-</div>
+<section class="card ov-card" aria-labelledby="adoption-title">
+  <div class="ov-card-head"><h2 id="adoption-title">버전별 설치 수 <small class="ov-count">최근 24시간 설치 ID 기준</small></h2></div>
+  <div class="split-grid"><div><h3 class="sub-title">EXE (build)</h3><div id="build-bars" class="bar-list"></div></div><div><h3 class="sub-title">콘텐츠 (content)</h3><div id="content-bars" class="bar-list"></div></div></div>
+</section>
 {% endif %}
+<p class="ov-foot"><span>{% include 'accounts/nav_icon.html' with icon='info' %}도착 시각 기준: 학습 이벤트가 서버에 도착한 시각으로 집계합니다. 늦게 도착한 기록도 도착한 때에 포함합니다.</span><span>플레이 날짜 기준 누적 분석은 <a class="text-link" href="{% url 'dashboard' %}">전체 현황</a>에서 확인하세요.</span></p>
+</div>
 <script id="live-config" type="application/json">{"tab": "{{ tab }}", "releasesUrl": "{% url 'releases' %}"}</script>
-{% endblock %}{% block scripts %}<script src="{% static 'js/live.js' %}?v=4"></script>{% endblock %}
+{% endblock %}{% block scripts %}<script src="{% static 'js/live.js' %}?v=3"></script>{% endblock %}

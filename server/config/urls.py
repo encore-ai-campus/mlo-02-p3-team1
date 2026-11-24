@@ -13,7 +13,13 @@ from telemetry.game_auth_api import (
 )
 from telemetry import releases, live, pipeline_alerts
 
+from telemetry import exploration
+
 urlpatterns = [
+    path('api/admin/explore/players', exploration.compare_players),
+    path('api/admin/explore/timeline', exploration.timeline),
+    path('api/admin/explore/periods', exploration.periods),
+    path('api/admin/explore/new-logs', exploration.new_logs),
     path('api/game/records', game_records, name='game-records'),
     path('api/game/player-login', player_login, name='game-player-login'),
     path('api/game/auth/register', game_auth_register, name='game-auth-register'),
