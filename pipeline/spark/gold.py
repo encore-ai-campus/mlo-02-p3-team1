@@ -143,6 +143,49 @@ def gold_minigame(agg: DataFrame, batch_id: int) -> None:
     log.info("gold_1m batch %s in %.1fs", batch_id, time.monotonic() - started)
 
 
+BASELINE_MINUTES = 30
+ALERT_WINDOW_MINUTES = 5
+
+
+def alert_history(spark, cur: DataFrame, lo, reader=None) -> DataFrame:
+    """On-time 5-minute windows that can serve as a baseline for the current windows (start >= lo).
+
+    Stored gold.failure_alerts rows, with the windows this batch updates replaced by their new counts, so a
+    window updated in the same batch is not read with its old value."""
+    def shape(df):
+        return df.select(F.col("minigame_id").alias("h_game"), F.col("window_start").alias("h_start"),
+                         F.col("successes").alias("h_s"), F.col("failures").alias("h_f"))
+    read = reader or (lambda s, p: s.read.format("delta").load(p))
+    stored = (read(spark, tb.path("gold.failure_alerts"))
+              .where(F.col("window_start") >= F.lit(lo - timedelta(minutes=BASELINE_MINUTES))))  # file skipping (D21)
+    stored = stored.join(cur.select("window_start", "minigame_id"), ["window_start", "minigame_id"], "left_anti")
+    return shape(stored).unionByName(shape(cur))
+
+
+def with_baseline(cur: DataFrame, hist: DataFrame) -> DataFrame:
+    """Add baseline_rate and alert to the current windows.
+
+    baseline_rate = sum(failures) / sum(successes + failures) over the windows starting at k-30, k-25, ..., k-5
+    minutes for a current window starting at k: they tile [k-30, k) exactly once, so no event is counted twice.
+    A missing earlier window means no on-time event in those 5 minutes (it adds 0)."""
+    step = ALERT_WINDOW_MINUTES * 60
+    keys = cur.select(F.col("window_start").alias("k_start"), F.col("minigame_id").alias("k_game")).distinct()
+    gap = keys.k_start.cast("long") - hist.h_start.cast("long")
+    joined = keys.join(hist, (keys.k_game == hist.h_game) & (gap >= step) & (gap <= BASELINE_MINUTES * 60)
+                       & ((gap % step) == 0), "left")
+    base = (joined.groupBy("k_start", "k_game")
+            .agg(F.sum("h_f").alias("bf"), F.sum(F.col("h_s") + F.col("h_f")).alias("bt"))
+            .select(F.col("k_start").alias("window_start"), F.col("k_game").alias("minigame_id"),
+                    F.when(F.col("bt") > 0, F.col("bf") / F.col("bt")).alias("baseline_rate")))
+    return (cur.join(base, ["window_start", "minigame_id"], "left")
+            .withColumn("alert", (F.col("attempts") >= ALERT_MIN_ATTEMPTS)
+                        & F.coalesce(F.col("failure_rate") >= ALERT_MIN_RATE, F.lit(False))
+                        & (F.col("baseline_rate").isNull()
+                           | (F.col("failure_rate") >= F.col("baseline_rate") * ALERT_BASELINE_FACTOR)))
+            .withColumn("updated_at", F.current_timestamp())
+            .select(*tb.SCHEMAS["gold.failure_alerts"][0].fieldNames()))
+
+
 def gold_alerts(agg: DataFrame, batch_id: int) -> None:
     spark = agg.sparkSession
     cur = (agg.select(F.col("window.start").alias("window_start"), F.col("window.end").alias("window_end"),
@@ -150,29 +193,17 @@ def gold_alerts(agg: DataFrame, batch_id: int) -> None:
            .withColumn("failure_rate", F.when((F.col("successes") + F.col("failures")) > 0,
                                               F.col("failures") / (F.col("successes") + F.col("failures"))))
            .localCheckpoint())
-    # baseline = failure rate over the 30 minutes before the window, from gold.minigame_1m
+    # baseline = failure rate over the 30 minutes before the window, under the SAME rules as the current window
+    # (follow-up review 2026-11-21 #1). It used to be read from gold.minigame_1m, which counts late events, so an
+    # offline backlog of failures raised the baseline and hid a real spike afterwards. It is now read from this
+    # query's own on-time 5-minute windows: the six non-overlapping windows starting 30, 25, ..., 5 minutes before
+    # the current one cover exactly the 30 minutes before it, with the same late filter and the same formula.
     lo = cur.agg(F.min("window_start")).first()[0]
     if lo is None:
         return
-    hist = (spark.read.format("delta").load(tb.path("gold.minigame_1m"))
-            .where(F.col("window_start") >= F.lit(lo - timedelta(minutes=30)))  # file skipping (D21)
-            .select(F.col("minigame_id").alias("h_game"), F.col("window_start").alias("h_start"),
-                    F.col("successes").alias("h_s"), F.col("failures").alias("h_f")))
-    keys = cur.select(F.col("window_start").alias("k_start"), F.col("minigame_id").alias("k_game")).distinct()
-    joined = keys.join(hist, (keys.k_game == hist.h_game)
-                       & (hist.h_start >= keys.k_start - F.expr("INTERVAL 30 MINUTES"))
-                       & (hist.h_start < keys.k_start), "left")
-    base = (joined.groupBy("k_start", "k_game")
-            .agg(F.sum("h_f").alias("bf"), F.sum(F.col("h_s") + F.col("h_f")).alias("bt"))
-            .select(F.col("k_start").alias("window_start"), F.col("k_game").alias("minigame_id"),
-                    F.when(F.col("bt") > 0, F.col("bf") / F.col("bt")).alias("baseline_rate")))
-    rows = (cur.join(base, ["window_start", "minigame_id"], "left")
-            .withColumn("alert", (F.col("attempts") >= ALERT_MIN_ATTEMPTS)
-                        & F.coalesce(F.col("failure_rate") >= ALERT_MIN_RATE, F.lit(False))
-                        & (F.col("baseline_rate").isNull()
-                           | (F.col("failure_rate") >= F.col("baseline_rate") * ALERT_BASELINE_FACTOR)))
-            .withColumn("updated_at", F.current_timestamp())
-            .select(*tb.SCHEMAS["gold.failure_alerts"][0].fieldNames())).persist()
+    # localCheckpoint: computed once from the table version before this batch's MERGE, so Delta and MongoDB get
+    # the same values (the MERGE below writes the very table the baseline is read from)
+    rows = with_baseline(cur, alert_history(spark, cur, lo)).localCheckpoint()
     try:
         merge(spark, "gold.failure_alerts", rows, ["window_start", "minigame_id"])
         publish("rt_alerts", [r.asDict() for r in rows.collect()])
