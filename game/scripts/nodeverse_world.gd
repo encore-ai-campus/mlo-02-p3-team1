@@ -52,6 +52,8 @@ var _basics_board: Node3D
 var _basics_guide: Control
 var _basics_completed := false
 const BOARD_INTERACT_DIST := 2.6
+var _challenge_shrine: Node3D
+const SHRINE_INTERACT_DIST := 4.4
 
 # NPCs (10 Characters)
 var spawned_npcs: Array[Node3D] = []
@@ -508,6 +510,7 @@ func _build_world_async() -> void:
 		_save_bake(hash)
 		timing.append("bake_save=%dms" % ((Time.get_ticks_usec() - tsv) / 1000))
 	_configure_basics_board()
+	_configure_challenge_shrine()
 	_align_queue_crates()
 	for npc in spawned_npcs:
 		npc.set("look_at_target", player)
@@ -531,6 +534,8 @@ func _build_world_async() -> void:
 			_animate_marker(mk)
 	if is_instance_valid(_basics_board):
 		_animate_marker(_basics_board.get_node("EnterMarker"))
+	if is_instance_valid(_challenge_shrine) and _challenge_shrine.has_node("EnterMarker"):
+		_animate_marker(_challenge_shrine.get_node("EnterMarker"))
 	_set_game_state(GameState.TITLE_LOGIN)
 	_loading_layer.queue_free()
 	is_built = true
@@ -706,7 +711,8 @@ func _try_load_bake(hash: String) -> bool:
 
 func _optimize() -> void:
 	_configure_basics_board()
-	var exclude: Array = [player, stack_tower, array_crane, orb, sort_node, _basics_board]
+	_configure_challenge_shrine()
+	var exclude: Array = [player, stack_tower, array_crane, orb, sort_node, _basics_board, _challenge_shrine]
 	exclude.append_array(array_tiles)
 	exclude.append_array(queue_crates)
 	exclude.append_array(spawned_npcs)
@@ -1279,29 +1285,32 @@ func _build_challenge_island() -> void:
 
 	# 2. 크리스탈 천체 전망대 제단 및 기둥 파빌리온 신전 (중앙)
 	# solid=false로 생성하여 사각 박스로 인한 허공 보행 버그를 방지하고 정밀 실린더 콜라이더 적용
-	_spawn("OBJ40_column_pavilion", Vector3(c.x, TOP, c.y - 1.5), 0.0, 1.15)
-	_spawn("OBJ39_crystal_observatory", Vector3(c.x, TOP + 0.1, c.y - 1.5), 0.0, 1.0)
+	const TEMPLE_SCALE := 0.9
+	var temple_base := Vector3(c.x, TOP, c.y - 1.5)
+	var temple_point := func(offset: Vector3) -> Vector3: return temple_base + offset * TEMPLE_SCALE
+	_spawn("OBJ40_column_pavilion", temple_base, 0.0, 1.15 * TEMPLE_SCALE)
+	_spawn("OBJ39_crystal_observatory", temple_base + Vector3.UP * 0.1, 0.0, TEMPLE_SCALE)
 
 	# 신전 전면 계단 경사로 콜라이더 (원형 신전으로 자연스럽게 걸어 진입)
-	_collider(Vector3(c.x, TOP + 0.65, c.y + 0.7), Vector3(3.0, 0.3, 2.2), Vector3(30.0, 0.0, 0.0))
-	_collider(Vector3(c.x, TOP + 1.15, c.y - 0.3), Vector3(2.8, 0.35, 0.6))
+	_collider(temple_point.call(Vector3(0.0, 0.65, 2.2)), Vector3(3.0, 0.3, 2.2) * TEMPLE_SCALE, Vector3(30.0, 0.0, 0.0))
+	_collider(temple_point.call(Vector3(0.0, 1.15, 1.2)), Vector3(2.8, 0.35, 0.6) * TEMPLE_SCALE)
 	# 계단 측면 낙하/공중보행 방지 난간
-	_collider(Vector3(c.x - 1.55, TOP + 1.0, c.y + 0.6), Vector3(0.2, 1.2, 2.2))
-	_collider(Vector3(c.x + 1.55, TOP + 1.0, c.y + 0.6), Vector3(0.2, 1.2, 2.2))
+	_collider(temple_point.call(Vector3(-1.55, 1.0, 2.1)), Vector3(0.2, 1.2, 2.2) * TEMPLE_SCALE)
+	_collider(temple_point.call(Vector3(1.55, 1.0, 2.1)), Vector3(0.2, 1.2, 2.2) * TEMPLE_SCALE)
 
 	# [핵심] 신전 상부 원형 바닥 정밀 실린더 콜라이더 (사각 박스로 인한 공중 보행 버그 완전 해결!)
 	# 원형 회랑 직경에 100% 일치하도록 원형 실린더 콜라이더 적용
-	_cylinder_collider(Vector3(c.x, TOP + 1.15, c.y - 1.5), 3.05, 0.35)
+	_cylinder_collider(temple_point.call(Vector3(0.0, 1.15, 0.0)), 3.05 * TEMPLE_SCALE, 0.35 * TEMPLE_SCALE)
 
 	# 중앙 크리스탈 제단 콜라이더
-	_collider(Vector3(c.x, TOP + 1.8, c.y - 1.5), Vector3(1.2, 1.6, 1.2))
+	_collider(temple_point.call(Vector3(0.0, 1.8, 0.0)), Vector3(1.2, 1.6, 1.2) * TEMPLE_SCALE)
 
 	# 신전 기둥 라인을 따르는 외곽 방호벽 (원형 회랑 내부에서 조망하되 허공으로 떨어지지 않게 보호)
-	_collider(Vector3(c.x, TOP + 2.0, c.y - 4.45), Vector3(5.6, 1.8, 0.3))     # 북측 후면 (바다 방향)
-	_collider(Vector3(c.x - 2.95, TOP + 2.0, c.y - 1.5), Vector3(0.3, 1.8, 5.4))    # 서측 기둥 라인
-	_collider(Vector3(c.x + 2.95, TOP + 2.0, c.y - 1.5), Vector3(0.3, 1.8, 5.4))     # 동측 기둥 라인
-	_collider(Vector3(c.x - 2.25, TOP + 2.0, c.y + 0.65), Vector3(1.4, 1.8, 0.3))   # 남서 전면 기둥 날개
-	_collider(Vector3(c.x + 2.25, TOP + 2.0, c.y + 0.65), Vector3(1.4, 1.8, 0.3))    # 남동 전면 기둥 날개
+	_collider(temple_point.call(Vector3(0.0, 2.0, -2.95)), Vector3(5.6, 1.8, 0.3) * TEMPLE_SCALE)     # 북측 후면 (바다 방향)
+	_collider(temple_point.call(Vector3(-2.95, 2.0, 0.0)), Vector3(0.3, 1.8, 5.4) * TEMPLE_SCALE)    # 서측 기둥 라인
+	_collider(temple_point.call(Vector3(2.95, 2.0, 0.0)), Vector3(0.3, 1.8, 5.4) * TEMPLE_SCALE)     # 동측 기둥 라인
+	_collider(temple_point.call(Vector3(-2.25, 2.0, 2.15)), Vector3(1.4, 1.8, 0.3) * TEMPLE_SCALE)   # 남서 전면 기둥 날개
+	_collider(temple_point.call(Vector3(2.25, 2.0, 2.15)), Vector3(1.4, 1.8, 0.3) * TEMPLE_SCALE)    # 남동 전면 기둥 날개
 
 	# 4. 트로피 깃발 & 황동 난간
 	_spawn("55_banner_trophy", Vector3(c.x - 1.8, TOP, c.y + 4.5), 20.0, 1.0, true)
@@ -1518,6 +1527,30 @@ func _switch_to_2d() -> void:
 	root.remove_child(self)
 	root.add_child(menu)
 	tree.current_scene = menu
+	root.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+	root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
+	root.content_scale_size = GAME_2D_SIZE
+
+func _open_final_challenge() -> void:
+	if _zoom_busy:
+		return
+	if player != null:
+		saved_player_pos = player.global_position
+		saved_cam_yaw = player.cam_yaw
+		player.velocity = Vector3.ZERO
+		player.set("can_move", false)
+	if msg_label != null:
+		msg_label.text = ""
+	var tree := get_tree()
+	var root := tree.root
+	var nm = root.get_node_or_null("NetworkManager")
+	if nm:
+		nm.call("send_custom_event", "terminal_entered", {"zone": "FINAL_CHALLENGE"})
+	var stage: Node = (load("res://scenes/stages/CHALLENGE01_CodeBot.tscn") as PackedScene).instantiate()
+	cached_world = self
+	root.remove_child(self)
+	root.add_child(stage)
+	tree.current_scene = stage
 	root.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
 	root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
 	root.content_scale_size = GAME_2D_SIZE
@@ -1817,6 +1850,26 @@ func _configure_basics_board() -> void:
 		var marker := _make_enter_marker()
 		marker.position = Vector3(0, 2.15, 0)
 		_basics_board.add_child(marker)
+
+func _configure_challenge_shrine() -> void:
+	if not is_instance_valid(_challenge_shrine):
+		for node in find_children("*", "Node3D", true, false):
+			if node.name == "OBJ39_crystal_observatory":
+				_challenge_shrine = node
+				break
+	if is_instance_valid(_challenge_shrine) and not _challenge_shrine.has_node("EnterMarker"):
+		var marker := _make_enter_marker()
+		var roof_height := _local_aabb(_challenge_shrine).end.y
+		var shrine_scale := _challenge_shrine.scale.y
+		marker.position = Vector3.UP * (roof_height + 0.55 / shrine_scale)
+		marker.scale = Vector3.ONE * (1.4 / shrine_scale)
+		_challenge_shrine.add_child(marker)
+
+func _near_challenge_shrine() -> bool:
+	if not is_instance_valid(_challenge_shrine) or player == null:
+		return false
+	var interact_pt := _challenge_shrine.global_position + Vector3(0.0, 0.0, 1.2)
+	return player.global_position.distance_to(interact_pt) < SHRINE_INTERACT_DIST
 
 func _basics_open() -> bool:
 	return is_instance_valid(_basics_guide) and _basics_guide.visible
@@ -3774,7 +3827,7 @@ func _process(delta: float) -> void:
 			prompt_label.text = "[E] 히스토그램/전망대 관측  |  [T] 데이터 분석 퀴즈  |  [F4] 카메라 디버그"
 		"CHALLENGE":
 			zone_label.text = "👑 종합 도전 섬 (Grand Challenge) — 정상 천체 판테온 & 영예의 회랑"
-			prompt_label.text = "[E] 마스터 판테온 트로피 도전  |  [T] 종합 퀴즈  |  [F4] 카메라 디버그"
+			prompt_label.text = "[E] 최종 도전: 로봇 코드 자동화  |  [T] 종합 퀴즈  |  [F4] 카메라 디버그"
 
 	# NPC & 컴퓨터 터미널 감지
 	var near_npc: Node3D = null
@@ -3795,6 +3848,9 @@ func _process(delta: float) -> void:
 
 	if _near_basics_board():
 		prompt_label.text = "📖 [E] 게시판 읽기  ➜  기본 조작·학습 안내" + (" · 확인 완료" if _basics_completed else "")
+		prompt_label.modulate = Color(1.0, 0.95, 0.35)
+	elif _near_challenge_shrine():
+		prompt_label.text = "👑 [E] 판테온 신전 도전  ➜  최종 도전 (로봇 코드 자동화)"
 		prompt_label.modulate = Color(1.0, 0.95, 0.35)
 	elif near_comp:
 		var terminal := _nearest_terminal()
@@ -3901,6 +3957,9 @@ func _on_interact() -> void:
 	if _near_basics_board():
 		_open_basics_board()
 		return
+	if _near_challenge_shrine():
+		_open_final_challenge()
+		return
 
 	# 1. 컴퓨터 터미널 (2D 미니게임)
 	for cp: Vector3 in computer_positions:
@@ -3922,7 +3981,7 @@ func _on_interact() -> void:
 		"DATA":
 			_show_msg("📊 [데이터 탐험대] 히스토그램과 나침반 네트워크를 분석했습니다! (+15 EXP)", 3.0)
 		"CHALLENGE":
-			_show_msg("🏆 [판테온 신전] 최고 난이도 아키텍처 마스터 트로피에 도달했습니다! (+30 EXP)", 3.0)
+			_open_final_challenge()
 		"DS":
 			if pp.x < -18.0:
 				_array_swap()
