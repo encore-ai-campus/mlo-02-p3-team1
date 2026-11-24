@@ -47,6 +47,23 @@ def number(value):
         return None
 
 
+def oldest_due_age(collection, now):
+    """Age of the oldest claimable row, using the worker's state/due index.
+
+    Query states separately so each lookup can use the state-prefixed index without
+    sorting the entire queue. waiting_context is claimable too when its retry is due.
+    A missing index or DB error propagates: unknown is not reported as zero.
+    """
+    due_dates = []
+    for state in ('pending', 'retrying', 'waiting_context'):
+        row = collection.find_one({'state': state, 'next_attempt_at': {'$lte': now}},
+            {'next_attempt_at': 1}, sort=[('next_attempt_at', 1)],
+            hint='state_1_next_attempt_at_1', max_time_ms=1000)
+        if row and date(row.get('next_attempt_at')):
+            due_dates.append(date(row['next_attempt_at']))
+    return age(min(due_dates), now) if due_dates else 0
+
+
 def summarize_progress(report, now):
     """Expose an allowlist, never Spark source descriptions, hostnames, or raw payloads."""
     queries = []
@@ -128,6 +145,8 @@ def findings(snapshot):
             add('parked', 'warning', '재시도 보관 이벤트가 있습니다', '원인이 해결됐는지 확인한 뒤 재처리하세요.')
         if (queue.get('oldest_due_age_s') or 0) > 60:
             add('queue-age', 'warning', '적재 대기 시간이 길어지고 있습니다', '처리 가능한 대기열의 최고 대기 시간이 60초를 넘었습니다.', 3)
+        if queue.get('stale_processing'):
+            add('processing-stale', 'error', '처리 중인 이벤트가 오래 갱신되지 않았습니다', '5분 넘게 갱신되지 않은 처리 중 기록이 있습니다. 작업자 상태를 확인하세요.')
         if (queue.get('oldest_context_age_s') or 0) > 600:
             add('context-age', 'warning', '학습 기록이 조건을 기다리고 있습니다', '회원 연결 또는 앞선 순서 대기로 10분 넘게 분석 화면에 반영되지 않은 기록이 있습니다.', 2)
     return result
@@ -239,9 +258,10 @@ class Sampler:
                 # Existing state-prefixed index; no full collection $group per dashboard refresh.
                 counts = {s: db.remote_event_outbox.count_documents({'state': s}, maxTimeMS=1000) for s in STATES}
                 out['queue'] = {'counts': counts, 'oldest_due_age_s': None, 'source': 'indexed_fallback'}
-            oldest = db.remote_event_outbox.find_one({'state': {'$in': ['pending', 'processing', 'retrying']}},
-                {'queued_at': 1}, sort=[('queued_at', 1)], max_time_ms=1000)
-            out['queue']['oldest_due_age_s'] = age(oldest.get('queued_at'), now) if oldest else 0
+            out['queue']['oldest_due_age_s'] = oldest_due_age(db.remote_event_outbox, now)
+            stale = db.remote_event_outbox.find_one({'state': 'processing', 'updated_at': {'$lte': now-timedelta(minutes=5)}},
+                {'_id': 1}, hint='state_1_next_attempt_at_1', max_time_ms=1000)
+            out['queue']['stale_processing'] = bool(stale)
             context = db.remote_event_outbox.find_one({'state': 'waiting_context'},
                 {'queued_at': 1}, sort=[('queued_at', 1)], max_time_ms=1000)
             out['queue']['oldest_context_age_s'] = age(context.get('queued_at'), now) if context else 0
@@ -264,7 +284,7 @@ class Sampler:
                 out['remote'] = {'state': 'error', 'error_type': type(e).__name__}
         unknown = set()
         if out['mongo']['state'] != 'ok':
-            unknown.update(('blocked', 'parked', 'queue-age', 'context-age'))
+            unknown.update(('blocked', 'parked', 'queue-age', 'context-age', 'processing-stale'))
         if out['progress']['state'] != 'ok':
             unknown.update(k for k in self.alerts.active if k.startswith(('stopped:', 'stalled:', 'slow:')))
         active, events = self.alerts.update(findings(out), now, unknown)

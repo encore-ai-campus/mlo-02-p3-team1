@@ -66,13 +66,15 @@ def claim_batch(local, limit):
     """Claim up to `limit` due rows: find candidates, mark them with a fresh claim token in one update, then
     read back only the rows that carry the token. A row changed in between (an operator `park`, another
     worker) is not returned, so its projection never runs (reliability review P1-1)."""
+    cutoff = now()
     ids = [r["_id"] for r in local.remote_event_outbox.find(
-        {"state": {"$in": DUE_STATES}, "next_attempt_at": {"$lte": now()}}, {"_id": 1},
+        {"state": {"$in": DUE_STATES}, "next_attempt_at": {"$lte": cutoff}}, {"_id": 1},
         sort=[("next_attempt_at", 1), ("queued_at", 1), ("sequence", 1), ("_id", 1)], limit=limit)]
     if not ids:
         return []
     token = uuid.uuid4().hex
-    local.remote_event_outbox.update_many({"_id": {"$in": ids}, "state": {"$in": DUE_STATES}},
+    local.remote_event_outbox.update_many({"_id": {"$in": ids}, "state": {"$in": DUE_STATES},
+                                          "next_attempt_at": {"$lte": cutoff}},
                                           {"$set": {"state": "processing", "updated_at": now(), "claim_id": token},
                                            "$inc": {"attempts": 1}})
     return list(local.remote_event_outbox.find({"_id": {"$in": ids}, "state": "processing", "claim_id": token}))
@@ -262,6 +264,11 @@ def process_group(jobs, local, *args):
     for i, job in enumerate(jobs):
         due = process_job(job, local, *args, cache=cache)
         if due is PARKED_SENTINEL:
+            parked = local.remote_event_outbox.find_one({'_id': job['_id'], 'state': PARKED}, {'reason': 1})
+            if parked and str(parked.get('reason', '')).startswith('sequence_gap:'):
+                # Each successor must verify its own archive and deadline. Processing it
+                # now avoids deferring an entire expired group another minute per row.
+                continue
             due = now() + timedelta(seconds=60)
         if due is not None and i + 1 < len(jobs):
             for later in jobs[i + 1:]:
@@ -345,7 +352,8 @@ class Worker:
                 marker = (mtime, members[0], str(members[1]))
                 if seen is not None and marker != seen:
                     from remote.requeue import requeue
-                    n = requeue(self.local, "member_mapping_required", None) + requeue(self.local, "member_is_not_live", None)
+                    n = (requeue(self.local, "member_mapping_required", None, automatic=True)
+                         + requeue(self.local, "member_is_not_live", None, automatic=True))
                     if n:
                         log(task="revive", requeued=n)
                 seen = marker

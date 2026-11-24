@@ -158,6 +158,20 @@ def test_claim_batch_marks_processing_and_counts_attempts(dbs):
  assert {j['_id'] for j in claim_batch(l,10)}=={'3','4'}
  assert claim_batch(l,10)==[]
 
+
+def test_claim_batch_does_not_claim_a_record_postponed_after_candidate_read(dbs, monkeypatch):
+ from remote.worker import claim_batch
+ l,_=dbs;n=datetime.now(timezone.utc);c=l.remote_event_outbox
+ c.insert_one({'_id':'postponed','state':'pending','next_attempt_at':n-timedelta(seconds=1),'queued_at':n,'attempts':0})
+ original=c.update_many
+ def postpone_before_claim(query, update):
+  c.update_one({'_id':'postponed'},{'$set':{'next_attempt_at':n+timedelta(hours=1)}})
+  return original(query,update)
+ monkeypatch.setattr(c,'update_many',postpone_before_claim)
+ assert claim_batch(l,10)==[]
+ row=c.find_one({'_id':'postponed'})
+ assert row['state']=='pending' and row['attempts']==0
+
 def test_group_by_session_keeps_sequence_order():
  from remote.worker import group_by_session
  n=datetime.now(timezone.utc)
@@ -184,6 +198,35 @@ def test_group_requeues_rest_of_session_when_one_waits(dbs, monkeypatch):
  assert calls==['e1','e2']
  e3=l.remote_event_outbox.find_one({'_id':'e3'})
  assert e3['state']=='pending' and e3['attempts']==0
+
+
+def test_group_checks_successor_after_sequence_gap_parks(dbs, monkeypatch):
+ import remote.worker as w
+ l,_=dbs;now=datetime.now(timezone.utc)
+ l.remote_event_outbox.insert_many([{'_id':str(i),'state':'processing','attempts':1} for i in (1,2)])
+ calls=[]
+ def fake(job,local,*a,**k):
+  calls.append(job['_id'])
+  local.remote_event_outbox.update_one({'_id':job['_id']},{'$set':{'state':'parked','reason':'sequence_gap:expected_1'}})
+  return w.PARKED_SENTINEL
+ monkeypatch.setattr(w,'process_job',fake)
+ w.process_group([{'_id':'1'},{'_id':'2'}],l)
+ assert calls==['1','2']
+ assert l.remote_event_outbox.count_documents({'state':'parked'})==2
+
+
+def test_group_defers_successor_after_non_gap_parking(dbs, monkeypatch):
+ import remote.worker as w
+ l,_=dbs
+ l.remote_event_outbox.insert_many([{'_id':str(i),'state':'processing','attempts':1} for i in (1,2)])
+ calls=[]
+ def fake(job,local,*a,**k):
+  calls.append(job['_id'])
+  local.remote_event_outbox.update_one({'_id':job['_id']},{'$set':{'state':'parked','reason':'retry_limit'}})
+  return w.PARKED_SENTINEL
+ monkeypatch.setattr(w,'process_job',fake)
+ w.process_group([{'_id':'1'},{'_id':'2'}],l)
+ assert calls==['1'] and l.remote_event_outbox.find_one({'_id':'2'})['state']=='pending'
 
 
 # ---------------------------------------------------------------- PL-9 parked rows
@@ -237,6 +280,26 @@ def test_parked_gap_successor_revives_when_predecessor_is_stored(dbs):
  Projector(l,t,None,{}).project(es[0])
  row=l.remote_event_outbox.find_one({'sequence':2})
  assert row['state']=='pending' and 'parked_at' not in row
+
+
+def test_manually_parked_gap_stays_parked_when_predecessor_arrives(dbs):
+ l,t=dbs;es=rows()
+ l.remote_event_outbox.insert_one({'_id':es[1]['event_id'],'source_session_id':es[1]['session_id'],'sequence':2,
+   'state':'parked','reason':'sequence_gap:expected_1','manual_parked':True})
+ Projector(l,t,None,{}).project(es[0])
+ assert l.remote_event_outbox.find_one({'sequence':2})['state']=='parked'
+
+
+def test_manual_park_is_not_automatically_revived(dbs):
+ from remote.requeue import park,requeue
+ l,_=dbs
+ l.remote_event_outbox.insert_many([{'_id':'manual','state':'waiting_context','reason':'member_mapping_required','event':{'player_id':'fixture'}},
+                                   {'_id':'automatic','state':'parked','reason':'member_mapping_required'}])
+ assert park(l,None,'fixture')==1
+ assert requeue(l,'member_mapping_required',None,automatic=True)==1
+ assert l.remote_event_outbox.find_one({'_id':'manual'})['state']=='parked'
+ assert requeue(l,'member_mapping_required','fixture')==1
+ assert 'manual_parked' not in l.remote_event_outbox.find_one({'_id':'manual'})
 
 def test_requeue_and_park_tool(dbs):
  from remote.requeue import park, requeue, status

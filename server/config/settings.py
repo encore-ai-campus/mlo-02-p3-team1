@@ -15,6 +15,9 @@ def required(name):
 SECRET_KEY = required('DJANGO_SECRET_KEY')
 ADMIN_REGISTRATION_CODE = os.getenv('ADMIN_REGISTRATION_CODE', '')
 GAME_SERVER_API_KEY = os.getenv('GAME_SERVER_API_KEY', '')
+# Pipeline observatory on .81 (read-only alert status). The key comes from the pipeline owner; keep it in .env only.
+OBSERVATORY_URL = os.getenv('OBSERVATORY_URL', 'http://192.168.0.81:8011')
+OBSERVATORY_KEY = os.getenv('OBSERVATORY_KEY', '')
 MONGODB_URI = os.getenv('MONGODB_URI', '')
 MONGODB_DATABASE = os.getenv('MONGODB_DATABASE', 'nodeverse_logs')
 DEBUG = os.getenv('DJANGO_DEBUG', 'False').lower() == 'true'
@@ -28,6 +31,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'config.errors.FriendlyNotFoundMiddleware',
 ]
 ROOT_URLCONF = 'config.urls'
 TEST_RUNNER = 'telemetry.test_runner.HybridTestRunner'

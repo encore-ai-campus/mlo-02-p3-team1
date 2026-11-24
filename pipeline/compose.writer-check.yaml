@@ -1,0 +1,54 @@
+name: nodeverse-writer-isolated-check
+services:
+  mongo:
+    image: mongo:7.0.16
+    networks: [isolated]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: isolated-test-only
+      MYSQL_DATABASE: writer_test
+      MYSQL_USER: fixture
+      MYSQL_PASSWORD: isolated-test-only
+    networks: [isolated]
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -pisolated-test-only --silent"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+  experiment:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      mongo: {condition: service_healthy}
+      mysql: {condition: service_healthy}
+    networks: [isolated]
+    environment:
+      PYTHONPATH: /app
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: writer_local_test
+      DIRECT_MONGO_URI: mongodb://mongo:27017
+      DIRECT_MONGO_DATABASE: writer_remote_test
+      DIRECT_MYSQL_HOST: mysql
+      DIRECT_MYSQL_PORT: "3306"
+      DIRECT_MYSQL_USER: fixture
+      DIRECT_MYSQL_PASSWORD: isolated-test-only
+      DIRECT_MYSQL_DATABASE: writer_test
+      REMOTE_WORKERS: "4"
+      REMOTE_BATCH: "100"
+      REMOTE_DONE_TTL_DAYS: "0"
+    volumes:
+      - .:/app:ro
+    entrypoint: ["python", "/app/tools/isolated_writer_check.py"]
+networks:
+  isolated:
+    internal: true
+    ipam:
+      config:
+        - subnet: '${WRITER_TEST_SUBNET:-10.203.201.0/24}'

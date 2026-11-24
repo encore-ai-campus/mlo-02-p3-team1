@@ -1,0 +1,15 @@
+<section class="error-page" aria-labelledby="error-title">
+  <span class="error-code">{{ status }}</span>
+  <h1 id="error-title">{{ title }}</h1>
+  <p class="muted">{{ message }}</p>
+  {% if status == 404 %}<p class="error-path"><span>요청한 주소</span> <code>{{ request.path }}</code></p>{% endif %}
+  <div class="error-actions">
+    {% if user.is_authenticated %}
+      <a class="btn" href="{% url 'dashboard' %}">대시보드로 이동</a>
+      <a class="btn secondary" href="{% url 'home' %}">게임 홈페이지</a>
+    {% else %}
+      <a class="btn" href="{% url 'home' %}">게임 홈페이지</a>
+      <a class="btn secondary" href="{% url 'admin-login' %}">관리자 로그인</a>
+    {% endif %}
+  </div>
+</section>

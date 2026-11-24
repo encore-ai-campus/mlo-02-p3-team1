@@ -31,6 +31,10 @@ services:
     entrypoint: /opt/spark/bin/spark-submit
     command: ["--master", "local[2]", "--driver-memory", "1g", "--conf", "spark.driver.host=127.0.0.1", "--jars", "/ivy/jars/io.delta_delta-spark_2.12-3.2.1.jar,/ivy/jars/io.delta_delta-storage-3.2.1.jar", "/app/tools/silver_recovery_experiment.py"]
 networks:
-  isolated: {internal: true}
+  isolated:
+    internal: true
+    ipam:
+      config:
+        - subnet: '${SILVER_RECOVERY_SUBNET:-10.203.202.0/24}'
 volumes:
   ivy: {external: true, name: "${DEDUP_EXPERIMENT_IVY:-nodeverse-v2-live_ivy}"}

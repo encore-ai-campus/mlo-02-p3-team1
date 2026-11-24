@@ -45,6 +45,11 @@ def initialize_indexes():
     db.rt_minigame_1m.create_index([('window_start', 1)])
     db.rt_alerts.create_index([('window_start', 1)])
     db.rt_updates.create_index([('window_start', 1)])
+    # Raw learning events (pipeline writes them, staff screens read them): member page, events tab, overview.
+    db.pipeline_learning_events.create_index([('player_id', 1), ('occurred_at', -1)])
+    db.pipeline_learning_events.create_index([('occurred_at', -1)])
+    db.pipeline_learning_events.create_index([('minigame_id', 1), ('occurred_at', -1)])
+    db.pipeline_learning_events.create_index([('run_id', 1)])
 
 
 def normalized(value):
