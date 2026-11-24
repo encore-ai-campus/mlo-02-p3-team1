@@ -140,7 +140,7 @@ class MongoAnalyticsTests(TestCase):
         self.assertEqual(catalog['totals']['in_progress'], 1)
         self.assertEqual(catalog['totals']['completion_rate'], 0)
         self.assertIsNone(catalog['totals']['avg_seconds'])
-        self.assertContains(response, '완료·포기 판정이 아직 없습니다')
+        self.assertNotContains(response, '완료·포기 판정이 아직 없습니다')
         self.assertContains(response, 'stack-01')
         result = self.client.get('/api/admin/visuals').json()
         self.assertEqual(next(t for t in result['topics'] if t['label'] == '미분류')['n'], 1)
@@ -164,6 +164,26 @@ class MongoAnalyticsTests(TestCase):
         self.assertRedirects(self.client.get('/staff/?scope=player'), '/staff/players/')
         self.assertRedirects(self.client.get('/staff/?scope=player&player_id=' + str(self.member.pk) + '&source=live'),
                              '/staff/players/' + str(self.member.pk) + '/?source=live')
+
+    def test_overview_attention_lists_failure_reasons_and_interactive_board(self):
+        self.event('task_started', 1, 0)
+        self.event('attempt_started', 2, 1)
+        self.event('operation_failed', 3, 5, operation='pop', failure_reason='empty_stack')
+        finish_record(SolveAttempt, self.attempt.pk, 'failure', self.now + timedelta(seconds=6))
+        create_record(SolveAttempt(run=self.run, number=2, started_at=self.now + timedelta(seconds=7), outcome='in_progress'))
+        response = self.client.get('/staff/')
+        task = response.context['learning']['tasks'][0]
+        self.assertEqual(task['failure_total'], 1)
+        self.assertEqual(task['failure_top'], [{'operation': 'pop', 'reason': 'empty_stack', 'count': 1}])
+        row = response.context['attention'][0]
+        self.assertEqual((row['retry_runs'], row['runs'], row['rate'], row['small']), (1, 1, 100, True))
+        self.assertEqual(row['failure_top'][0]['share'], 100)
+        self.assertIn('event_type=operation_failed', row['failures_url'])
+        self.assertIn('task_id=stack-01', row['events_url'])
+        # 문제 완료(해결)와 연산 성공·실패는 섞이지 않는다.
+        self.assertEqual(response.context['learning']['completed'], 0)
+        for marker in ('data-ov-trend', 'data-drawer', 'data-board', 'data-live-part="recent"', 'js/overview.js', 'empty_stack'):
+            self.assertContains(response, marker)
 
     def test_idempotency_conflict_and_reference_validation(self):
         record_id=uuid.uuid4()

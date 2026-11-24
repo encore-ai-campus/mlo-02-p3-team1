@@ -1,11 +1,12 @@
 <section class="catalog-section section" aria-label="학습 분야 현황">
-  <div class="section-head"><div><span class="eyebrow">LEARNING PORTFOLIO</span><h2>4개 분야, 24개의 학습 경험</h2></div><span class="catalog-coverage">기록이 관측된 게임 <b>{{ catalog.observed }} / {{ catalog.registered }}</b><small>선택한 기간·필터 기준</small></span></div>
+  <div class="section-head"><h2>학습 분야별 현황</h2><span class="catalog-coverage" title="선택한 기간·필터에서 기록이 있는 게임 수">기록 있는 게임 <b>{{ catalog.observed }} / {{ catalog.registered }}</b></span></div>
   <div class="area-grid">
   {% for area in catalog.areas %}<a href="{{ area.url }}" class="card area-card area-{{ area.key }}">
-    <div class="area-card-top"><span class="area-symbol">{% if area.key == 'structures' %}▤{% elif area.key == 'algorithms' %}⇄{% elif area.key == 'sql' %}⌘{% else %}▥{% endif %}</span><span>{{ area.registered }}종 <span aria-hidden="true">↗</span></span></div>
-    <h3>{{ area.label }}</h3><p>기록 관측 {{ area.observed }} / {{ area.registered }}종</p>
-    <div class="area-rate"><strong>{% if area.completion_rate != None %}{{ area.completion_rate }}<small>%</small>{% else %}—{% endif %}</strong><span>문제 해결률</span></div>
-    <div class="area-facts"><span>문제 실행 <b>{{ area.runs }}</b></span><span>완료 <b>{{ area.completed }}</b></span><span>진행 중 <b>{{ area.in_progress }}</b></span></div>
+    <div class="area-card-top"><span class="area-symbol">{% if area.key == 'structures' %}▤{% elif area.key == 'algorithms' %}⇄{% elif area.key == 'sql' %}⌘{% else %}▥{% endif %}</span><h3>{{ area.label }}</h3><span class="area-arrow" aria-hidden="true">↗</span></div>
+    <div class="area-rate"><strong>{% if area.completion_rate != None %}{{ area.completion_rate }}<small>%</small>{% else %}—{% endif %}</strong><span>해결률</span></div>
+    <div class="kpi-bar" role="img" aria-label="문제 실행 {{ area.runs }}건 중 해결 {{ area.completed }}건"><i class="kpi-fill kpi-done" style="width:{% if area.runs %}{% widthratio area.completed area.runs 100 %}{% else %}0{% endif %}%"></i></div>
+    <div class="area-facts"><span>실행 <b>{{ area.runs }}</b></span><span><i class="kpi-dot kpi-done"></i>해결 <b>{{ area.completed }}</b></span><span><i class="kpi-dot kpi-progress"></i>미완료 <b>{{ area.in_progress }}</b></span></div>
+    <div class="area-coverage"><span>기록 있는 게임</span><span class="area-pips" aria-label="{{ area.registered }}종 중 {{ area.observed }}종">{% for game in catalog.games %}{% if game.area == area.key %}<i{% if game.runs %} class="on"{% endif %} title="{{ game.code }}"></i>{% endif %}{% endfor %}</span><b>{{ area.observed }}/{{ area.registered }}</b></div>
   </a>{% endfor %}
   </div>
 </section>

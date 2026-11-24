@@ -1,6 +1,23 @@
-<section class="stats" aria-label="주요 학습 지표">
-<article class="card stat featured"><div class="stat-top"><span>활동 플레이어</span><span class="stat-icon">{% include 'accounts/nav_icon.html' with icon='users' %}</span></div><strong>{{ stats.active_players }}<small>명</small></strong><div class="stat-bottom"><span class="stat-chip">전체 {{ stats.players }}명</span><span>선택 기간 기준</span></div></article>
-<article class="card stat"><div class="stat-top"><span>문제 해결률</span><span class="stat-icon">{% include 'accounts/nav_icon.html' with icon='chart' %}</span></div><strong>{% if learning.completion_rate != None %}{{ learning.completion_rate }}<small>%</small>{% else %}—{% endif %}</strong><div class="stat-bottom"><span class="stat-chip">해결 {{ learning.completed|default:0 }}건</span><span>시작 {{ learning.runs }} · 진행 {{ learning.in_progress|default:0 }}건</span></div></article>
-<article class="card stat"><div class="stat-top"><span>평균 풀이 시간</span><span class="stat-icon">{% include 'accounts/nav_icon.html' with icon='activity' %}</span></div><strong>{% if learning.avg_active_seconds != None %}{{ learning.avg_active_seconds }}<small>초</small>{% else %}—{% endif %}</strong><div class="stat-bottom"><span>해결한 문제 기준</span><span>일시정지 제외</span></div></article>
-<article class="card stat"><div class="stat-top"><span>재시도한 문제</span><span class="stat-icon">{% include 'accounts/nav_icon.html' with icon='dashboard' %}</span></div><strong>{{ learning.retry_runs|default:0 }}<small>건</small></strong><div class="stat-bottom"><span class="stat-chip">시도 2회 이상</span><span>포기 {{ learning.abandoned|default:0 }}건</span></div></article>
+<section class="stats kpi-stats" aria-label="주요 학습 지표">
+<article class="card stat featured">
+  <div class="stat-top"><span class="kpi-label">플레이어<span class="kpi-info" role="button" tabindex="0" aria-label="설명 보기" data-tip="선택한 기간에 한 번이라도 플레이한 회원 수입니다. (전체 회원 {{ stats.players }}명)">i</span></span><span class="stat-icon">{% include 'accounts/nav_icon.html' with icon='users' %}</span></div>
+  <strong>{{ stats.active_players }}<small>명</small></strong>
+</article>
+<article class="card stat">
+  <div class="stat-top"><span class="kpi-label">문제 해결률<span class="kpi-info" role="button" tabindex="0" aria-label="설명 보기" data-tip="해결한 문제 ÷ 시작한 문제. 미완료는 시작했지만 해결 기록이 없는 문제로, 중간에 그만둔 문제도 포함됩니다.">i</span></span><span class="stat-icon">{% include 'accounts/nav_icon.html' with icon='chart' %}</span></div>
+  <strong>{% if learning.completion_rate != None %}{{ learning.completion_rate }}<small>%</small>{% else %}—{% endif %}</strong>
+  <div class="kpi-bar" role="img" aria-label="시작 {{ learning.runs|default:0 }}건 중 해결 {{ learning.completed|default:0 }}건"><i class="kpi-fill kpi-done" style="width:{% if learning.runs %}{% widthratio learning.completed learning.runs 100 %}{% else %}0{% endif %}%"></i></div>
+  <div class="kpi-legend"><span><i class="kpi-dot kpi-done"></i>해결 <b>{{ learning.completed|default:0 }}</b></span><span><i class="kpi-dot kpi-progress"></i>미완료 <b>{{ learning.in_progress|default:0 }}</b></span><span class="kpi-pending">포기 · 집계 전</span></div>
+</article>
+<article class="card stat">
+  <div class="stat-top"><span class="kpi-label">평균 풀이 시간<span class="kpi-info" role="button" tabindex="0" aria-label="설명 보기" data-tip="해결한 문제에서 실제로 풀이한 시간의 평균입니다. 일시정지한 시간은 빼고 계산합니다.">i</span></span><span class="stat-icon">{% include 'accounts/nav_icon.html' with icon='activity' %}</span></div>
+  {% if learning.avg_active_seconds != None %}<strong>{{ learning.avg_active_seconds }}<small>초</small></strong><div class="kpi-foot"><span>해결한 문제 {{ learning.completed|default:0 }}건 기준</span></div>
+  {% else %}<strong class="kpi-empty">—</strong><div class="kpi-foot"><span>해결한 문제가 생기면 표시됩니다</span></div>{% endif %}
+</article>
+<article class="card stat">
+  <div class="stat-top"><span class="kpi-label">재시도한 문제<span class="kpi-info" role="button" tabindex="0" aria-label="설명 보기" data-tip="같은 문제를 2번 이상 시도한 문제 실행 수입니다.">i</span></span><span class="stat-icon">{% include 'accounts/nav_icon.html' with icon='dashboard' %}</span></div>
+  <strong>{{ learning.retry_runs|default:0 }}<small>건</small></strong>
+  <div class="kpi-bar" role="img" aria-label="시작 {{ learning.runs|default:0 }}건 중 재시도 {{ learning.retry_runs|default:0 }}건"><i class="kpi-fill kpi-retry" style="width:{% if learning.runs %}{% widthratio learning.retry_runs learning.runs 100 %}{% else %}0{% endif %}%"></i></div>
+  <div class="kpi-foot"><span>시작한 문제 {{ learning.runs|default:0 }}건 중</span></div>
+</article>
 </section>

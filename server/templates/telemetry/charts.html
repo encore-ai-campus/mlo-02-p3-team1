@@ -1,6 +1,6 @@
 <section class="viz-grid primary-charts" id="charts">
 {% include 'telemetry/chart_card.html' with chart='trend' chart_class='wide' category='LEARNING ACTIVITY' title='학습 활동 추이' question='문제 시작부터 해결까지, 일별 학습 흐름을 확인하세요.' note='선택 기간에 시작한 문제 실행을 현재 결과까지 추적합니다.' %}
-{% include 'telemetry/chart_card.html' with chart='outcomes' chart_class='outcome-card' category='COMPLETION OVERVIEW' title='문제 실행 결과' question='해결, 포기, 진행 중인 문제의 비중입니다.' note='진행 중인 문제도 전체 실행 수에 포함합니다.' %}
+{% include 'telemetry/chart_card.html' with chart='outcomes' chart_class='outcome-card' category='COMPLETION OVERVIEW' title='문제 실행 결과' question='시작한 문제 중 해결과 미완료의 비중입니다.' note='미완료는 해결 기록이 없는 문제로, 그만둔 문제도 포함합니다. 포기는 아직 집계하지 않습니다.' %}
 </section>
 {% if not compact_charts %}<details class="chart-more card section advanced-analytics"><summary><span><strong>상세 차트 및 문제별 집계</strong><small>학습 분야 · 힌트 · 풀이 시간 · 실패 원인</small></span><span class="expand-label">분석 펼치기 +</span></summary><section class="viz-grid">
 {% include 'telemetry/chart_card.html' with chart='topics' category='BY GAME' title='학습 분야별 관찰' question='어떤 학습 분야에서 해결률 차이가 나타나나요?' note='해결률 0~100%. 문제 난이도와 표본 수의 차이를 함께 확인하세요.' %}

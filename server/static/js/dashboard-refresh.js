@@ -66,3 +66,31 @@ periodButtons.forEach((button, index) => {
   button.classList.toggle('active', active);
   button.setAttribute('aria-pressed', String(active));
 });
+
+// 헤더 알림 아이콘 배지: 사이드바 알림 배지(pipeline-alerts.js가 갱신)를 그대로 따라 표시
+const sideBadge = document.getElementById('pipeline-alert-badge');
+const headBadge = document.querySelector('[data-badge-mirror]');
+if (sideBadge && headBadge) {
+  const sync = () => { headBadge.hidden = sideBadge.hidden; headBadge.textContent = sideBadge.textContent; headBadge.className = sideBadge.className; headBadge.parentElement.title = sideBadge.closest('a').title || '알림 현황'; };
+  new MutationObserver(sync).observe(sideBadge, { attributes: true, childList: true, characterData: true, subtree: true });
+  sync();
+}
+// 계정 메뉴: 바깥을 누르거나 Esc를 누르면 닫기
+const accountMenu = document.querySelector('.account-menu');
+if (accountMenu) {
+  document.addEventListener('click', event => { if (accountMenu.open && !accountMenu.contains(event.target)) accountMenu.open = false; });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && accountMenu.open) { accountMenu.open = false; accountMenu.querySelector('summary').focus(); } });
+}
+// 필터 줄: 선택 상자를 바꾸면 바로 조회
+document.querySelectorAll('[data-autosubmit]').forEach(box => { const select = box.matches('select') ? box : box.querySelector('select'); if (select) select.addEventListener('change', () => select.form.requestSubmit()); });
+
+/* 행 펼치기: 버튼 aria-controls가 가리키는 상세 행을 열고 닫는다 */
+document.addEventListener('click', function (event) {
+  var button = event.target.closest('.row-toggle');
+  if (!button) return;
+  var target = document.getElementById(button.getAttribute('aria-controls'));
+  if (!target) return;
+  var open = button.getAttribute('aria-expanded') !== 'true';
+  button.setAttribute('aria-expanded', String(open));
+  target.hidden = !open;
+});

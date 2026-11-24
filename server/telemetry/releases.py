@@ -243,10 +243,13 @@ def releases_page(request):
                 return redirect('releases')
     releases = sorted(GameRelease.objects.all(), key=lambda r: (r.channel, build_key(r.build_version)), reverse=True)
     current = {r.channel: active_release(r.channel) for r in releases}
+    packs = ContentPack.objects.order_by('-uploaded_at', '-pk')
     return render(request, 'releases/manage.html', {
+        'summary': {'current': active_release(), 'active': sum(r.is_active for r in releases),
+                    'packs': packs.count(), 'active_packs': packs.filter(is_active=True).count()},
         'release_form': release_form, 'pack_form': pack_form, 'releases': releases,
         'serving_release_ids': {r.pk for r in current.values() if r},
-        'packs': ContentPack.objects.order_by('-uploaded_at', '-pk'), 'serving_pack': active_pack(),
+        'packs': packs, 'serving_pack': active_pack(),
         'manifest_url': '/api/game/manifest?channel=' + DEFAULT_CHANNEL,
     })
 

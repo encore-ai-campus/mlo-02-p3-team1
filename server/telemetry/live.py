@@ -238,9 +238,16 @@ def members_page(request):
         'failed_today': GameLoginRecord.objects.filter(success=False, occurred_at__gte=day_start).count(),
     }
     peak = max([daily.get(d, 0) for d in week] + [1])
+    points = []  # daily-login line chart, viewBox 0 0 600 190 (plot area x 40..580, y 20..160)
+    for index, d in enumerate(week):
+        points.append({'date': d, 'count': daily.get(d, 0), 'pct': round(100 * daily.get(d, 0) / peak),
+                       'x': round(40 + index * 540 / max(len(week) - 1, 1), 1),
+                       'y': round(160 - 140 * daily.get(d, 0) / peak, 1)})
+    line = ' '.join(f"{p['x']},{p['y']}" for p in points)
     return render(request, 'telemetry/members.html', {
         'page': page, 'rows': rows, 'query': query, 'stats': stats, 'total_games': len(CATALOG),
-        'week': [{'date': d, 'count': daily.get(d, 0), 'pct': round(100 * daily.get(d, 0) / peak)} for d in week],
+        'week': points, 'week_line': line, 'week_area': f"40,160 {line} 580,160", 'week_peak': peak,
+        'week_total': sum(p['count'] for p in points),
         'recent': GameLoginRecord.objects.select_related('player').order_by('-occurred_at')[:15],
     })
 
