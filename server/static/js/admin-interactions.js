@@ -142,7 +142,7 @@
       if (!value) { resizeCharts(); animate(card, [{ opacity: .6 }, { opacity: 1 }]); }
     }
     fold.addEventListener('click', () => { collapse(!state.collapsed); persist(); });
-    tools.append(fold);
+    // 접기(−/+) 버튼은 쓰지 않는다: 카드는 항상 펼친 상태로 둔다.
     if (card.querySelector('[data-chart], .line-chart, .bar-list, .live-table, [id$="-bars"]')) {
       const zoom = document.createElement('button'); zoom.type = 'button'; zoom.className = 'motion-tool'; zoom.textContent = '⤢';
       zoom.title = title.textContent.trim() + ' 크게 보기'; zoom.setAttribute('aria-label', zoom.title);
@@ -180,7 +180,7 @@
       }
     }
     head.append(tools);
-    if (saved.panels?.[key]?.collapsed) collapse(true);
+
   });
   parents.forEach((parent, i) => {
     const order = saved.orders?.[i]; if (!Array.isArray(order)) return;

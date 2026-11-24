@@ -1,37 +1,73 @@
 {% extends 'accounts/base.html' %}{% block content %}
-<div class="page-heading"><div><span class="eyebrow">MEMBER</span><h1>{{ account.username }}</h1><p class="subtitle">가입 {{ account.created_at|date:'Y-m-d H:i' }} · 마지막 로그인 {{ account.last_login|date:'Y-m-d H:i'|default:'—' }} · 복구 키 {% if account.recovery_key %}등록됨{% else %}없음{% endif %}</p>{% include 'telemetry/person_tabs.html' with current='account' pid=player.pk has_account=True %}</div><a class="btn secondary" href="{% url 'members' %}">← 플레이어 목록</a></div>
-
-<div class="stats">
-  <article class="card stat featured"><span class="mini-label">미니게임 클리어</span><strong>{{ progress.cleared }}</strong><span class="muted">별 {{ progress.stars }}개</span></article>
-  <article class="card stat"><span class="mini-label">점수</span><strong>{{ progress.score|default:'0' }}</strong><span class="muted">퀴즈 {{ progress.quizzes }}개 클리어</span></article>
-  <article class="card stat"><span class="mini-label">난이도 · 구역</span><strong>{{ progress.difficulty|default:'—' }}</strong><span class="muted">{{ progress.zone|default:'—' }}</span></article>
-  <article class="card stat"><span class="mini-label">클라우드 세이브</span><strong>{% if progress.has_saved_game %}이어하기 가능{% else %}저장 없음{% endif %}</strong><span class="muted">{{ progress.last_saved|slice:':19'|default:'—' }}</span></article>
+<div class="ov person-page member-detail-page">
+<div class="ov-head">
+  <div class="person-head"><span class="person-avatar">{{ account.username|slice:':1' }}</span><div class="ov-head-stack"><h1>{{ account.username }}</h1><p>가입 {{ account.created_at|date:'Y.m.d H:i' }} · 마지막 로그인 {{ account.last_login|date:'Y.m.d H:i'|default:'기록 없음' }} · 복구 키 {% if account.recovery_key %}등록됨{% else %}없음{% endif %}</p></div></div>
+  <div class="head-actions">{% include 'telemetry/person_tabs.html' with current='account' pid=player.pk has_account=True %}<a class="btn-ghost" href="{% url 'members' %}">← 플레이어 목록</a></div>
 </div>
 
-<section class="card section" id="play"><div class="section-head"><div><span class="eyebrow">PLAY · PIPELINE</span><h2>최근 플레이 <span class="count-badge">{{ play.total }}건</span></h2></div><span class="section-caption">{% if play.last %}마지막 이벤트 {{ play.last|date:'Y-m-d H:i:s' }} · {% endif %}새로고침하면 최신 기록이 보입니다</span></div>
-{% if not play.available %}<p class="muted">MongoDB에 연결할 수 없어 플레이 기록을 불러오지 못했습니다.</p>
-{% elif not play.events %}<p class="muted">아직 이 회원의 플레이 이벤트가 없습니다. 게임을 시작하면 파이프라인을 거쳐 수 초 안에 들어옵니다.</p>
-{% else %}
-<div class="table-scroll"><table><thead><tr><th>미니게임</th><th class="numeric">시도</th><th class="numeric">성공</th><th class="numeric">실패</th><th class="numeric">성공률</th><th class="numeric">잘못된 조작</th><th class="numeric">힌트</th><th class="numeric">완료</th><th>마지막 플레이</th></tr></thead><tbody>
-{% for g in play.games %}<tr><td><strong>{{ g.code }}</strong> <small class="muted">{{ g.title }}</small></td><td class="numeric">{{ g.attempts }}</td><td class="numeric">{{ g.succeeded }}</td><td class="numeric">{{ g.failed }}</td><td class="numeric">{% if g.rate != None %}{{ g.rate }}%{% else %}—{% endif %}</td><td class="numeric">{{ g.mistakes }}</td><td class="numeric">{{ g.hints }}</td><td class="numeric">{{ g.completed }}</td><td>{{ g.last|date:'m-d H:i:s' }}</td></tr>{% endfor %}
-</tbody></table></div>
-<h3 class="play-timeline-title">타임라인 <small class="muted">최신 {{ play.events|length }}건</small></h3>
-<div class="table-scroll play-timeline"><table><thead><tr><th>시각</th><th>미니게임</th><th>행동</th><th>상세</th><th>빌드</th></tr></thead><tbody>
-{% for e in play.events %}<tr><td class="mono">{{ e.at|date:'H:i:s' }}<small>{{ e.at|date:'m-d' }}</small></td><td>{{ e.code }}<small>{{ e.title }}</small></td><td><span class="event-kind {{ e.kind }}">{{ e.label }}</span></td><td>{{ e.operation|default:'' }}{% if e.reason %}<small>{{ e.reason }}</small>{% endif %}</td><td>{{ e.build|default:'—' }}</td></tr>{% endfor %}
-</tbody></table></div>
-{% endif %}</section>
+<section class="kpis" aria-label="진행 요약">
+  <article class="kpi"><span class="kpi-icon tone-good">{% include 'accounts/nav_icon.html' with icon='trophy' %}</span><div class="kpi-body"><span class="kpi-label">미니게임 클리어</span><strong class="kpi-value">{{ progress.cleared }}<small>/ {{ total_games }}개</small></strong><span class="kpi-basis">별 {{ progress.stars }}개 · 클라우드 세이브 기준</span></div></article>
+  <article class="kpi"><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='target' %}</span><div class="kpi-body"><span class="kpi-label">점수</span><strong class="kpi-value">{{ progress.score|default:'0' }}<small>점</small></strong><span class="kpi-basis">퀴즈 {{ progress.quizzes }}개 클리어</span></div></article>
+  <article class="kpi"><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='layers' %}</span><div class="kpi-body"><span class="kpi-label">난이도 · 구역</span>{% if progress.difficulty %}<strong class="kpi-value">{{ progress.difficulty }}</strong>{% else %}<strong class="kpi-value is-empty">기록 없음</strong>{% endif %}<span class="kpi-basis">구역 {{ progress.zone|default:'기록 없음' }}</span></div></article>
+  <article class="kpi"><span class="kpi-icon {% if not progress.has_saved_game %}tone-warn{% endif %}">{% include 'accounts/nav_icon.html' with icon='database' %}</span><div class="kpi-body"><span class="kpi-label">클라우드 세이브</span>{% if progress.has_saved_game %}<strong class="kpi-value">이어하기 가능</strong>{% else %}<strong class="kpi-value is-empty">저장 없음</strong>{% endif %}<span class="kpi-basis">마지막 저장 {{ progress.last_saved|slice:':16'|default:'기록 없음' }}</span></div></article>
+</section>
 
-{% for area in areas %}
-<section class="card section"><div class="section-head"><div><span class="eyebrow">{{ area.key|upper }}</span><h2>{{ area.label }} <span class="count-badge">{{ area.done }} / {{ area.games|length }}</span></h2></div></div>
-<div class="game-grid">{% for g in area.games %}<div class="game-tile {% if g.stars %}done{% endif %}"><small>{{ g.code }}</small><strong>{{ g.title }}</strong>
-<small>{% if g.stars %}클리어 · ★{{ g.stars }}{% else %}기록 없음{% endif %}</small></div>{% endfor %}</div></section>
-{% endfor %}
-{% if progress.other %}<section class="card section"><div class="section-head"><div><span class="eyebrow">OTHER</span><h2>다른 이름으로 저장된 클리어 기록</h2></div><span class="section-caption">게임의 minigame_cleared 키가 24개 실행 ID(ST01 등)와 다릅니다</span></div>
-<div class="game-grid">{% for name, stars in progress.other.items %}<div class="game-tile {% if stars %}done{% endif %}"><strong>{{ name }}</strong><small>★{{ stars }}</small></div>{% endfor %}</div></section>{% endif %}
+<section class="card ov-card" id="play" aria-labelledby="play-title">
+  <div class="ov-card-head"><h2 id="play-title">최근 플레이 <small class="ov-count">{{ play.total }}건</small></h2><span class="ov-sub">{% if play.last %}마지막 이벤트 {{ play.last|date:'Y.m.d H:i:s' }} · {% endif %}새로고침하면 최신 기록이 보입니다</span></div>
+  {% if not play.available %}<p class="ov-empty">플레이 기록을 불러오지 못했습니다<small>MongoDB에 연결할 수 없습니다. 기록이 없다는 뜻은 아닙니다.</small></p>
+  {% elif not play.events %}<p class="ov-empty">아직 이 회원의 플레이 이벤트가 없습니다<small>게임을 시작하면 파이프라인을 거쳐 수 초 안에 들어옵니다.</small></p>
+  {% else %}
+  <div class="table-scroll person-scroll" tabindex="0" aria-label="미니게임별 플레이 표"><table class="ov-table">
+    <thead><tr><th scope="col">미니게임</th><th scope="col" class="numeric">시도</th><th scope="col" class="numeric">성공</th><th scope="col" class="numeric">실패</th><th scope="col">시도 성공률</th><th scope="col" class="numeric">잘못된 조작</th><th scope="col" class="numeric">힌트</th><th scope="col" class="numeric">완료</th><th scope="col">마지막 플레이</th></tr></thead>
+    <tbody>{% for g in play.games %}<tr>
+      <td><span class="game-cell"><span class="code-chip">{{ g.code }}</span><span>{{ g.title }}</span></span></td>
+      <td class="numeric">{{ g.attempts }}</td><td class="numeric">{{ g.succeeded }}</td><td class="numeric">{{ g.failed }}</td>
+      <td>{% if g.rate != None %}<span class="cell-progress"><b>{{ g.rate }}%</b><span class="bar"><i style="width:{{ g.rate }}%"></i></span></span>{% else %}<span class="muted">결과 없음</span>{% endif %}</td>
+      <td class="numeric">{{ g.mistakes }}</td><td class="numeric">{{ g.hints }}</td><td class="numeric">{{ g.completed }}</td>
+      <td class="mono">{{ g.last|date:'m.d H:i:s' }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+  {% endif %}
+</section>
 
-<section class="card section"><div class="section-head"><div><span class="eyebrow">HISTORY</span><h2>가입·로그인·계정 찾기 기록</h2></div></div>
-<div class="table-scroll"><table><thead><tr><th>시각</th><th>종류</th><th>결과</th><th>설치 ID</th><th>빌드</th><th>IP</th></tr></thead><tbody>
-{% for r in history %}<tr><td>{{ r.occurred_at|date:'Y-m-d H:i:s' }}</td><td>{{ r.get_kind_display }}</td><td>{% if r.success %}<span class="badge">성공</span>{% else %}<span class="badge demo">{{ r.failure_reason }}</span>{% endif %}</td><td><code class="code-id">{{ r.install_id|default:'—' }}</code></td><td>{{ r.build_version|default:'—' }}</td><td>{{ r.ip_address|default:'—' }}</td></tr>
-{% empty %}<tr><td colspan="6" class="empty">기록이 없습니다.</td></tr>{% endfor %}
-</tbody></table></div></section>
+{% if play.available and play.events %}
+<section class="card ov-card" aria-labelledby="timeline-title">
+  <div class="ov-card-head"><h2 id="timeline-title">플레이 타임라인 <small class="ov-count">최신 {{ play.events|length }}건</small></h2><span class="ov-sub">최신 이벤트 순</span></div>
+  <div class="table-scroll person-scroll play-timeline" tabindex="0" aria-label="플레이 타임라인 표"><table class="ov-table">
+    <thead><tr><th scope="col">시각</th><th scope="col">미니게임</th><th scope="col">행동</th><th scope="col">상세</th><th scope="col">빌드</th></tr></thead>
+    <tbody>{% for e in play.events %}<tr>
+      <td class="mono">{{ e.at|date:'H:i:s' }}<small>{{ e.at|date:'m.d' }}</small></td>
+      <td><span class="code-chip">{{ e.code }}</span><small>{{ e.title }}</small></td>
+      <td><span class="event-kind {{ e.kind }}">{{ e.label }}</span></td>
+      <td>{{ e.operation|default:'' }}{% if e.reason %}<small>{{ e.reason }}</small>{% endif %}</td>
+      <td class="mono">{{ e.build|default:'—' }}</td>
+    </tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+{% endif %}
+
+<section class="card ov-card" aria-labelledby="progress-title">
+  <div class="ov-card-head"><h2 id="progress-title">미니게임 진행도 <small class="ov-count">{{ progress.cleared }} / {{ total_games }}</small></h2><span class="ov-sub">클라우드 세이브에 기록된 클리어와 별 수</span></div>
+  <div class="progress-areas">{% for area in areas %}
+    <div class="progress-area" data-learning-area="{{ area.key }}">
+      <div class="progress-area-head"><strong>{{ area.label }}</strong><span class="cell-progress"><b>{{ area.done }} / {{ area.games|length }}</b><span class="bar"><i style="width:{% widthratio area.done area.games|length 100 %}%"></i></span></span></div>
+      <div class="game-grid">{% for g in area.games %}<div class="game-tile{% if g.stars %} done{% endif %}"><span class="code-chip">{{ g.code }}</span><strong>{{ g.title }}</strong><small>{% if g.stars %}<span class="tile-state">✓ 클리어</span> <span class="tile-stars" aria-label="별 {{ g.stars }}개">★ {{ g.stars }}</span>{% else %}기록 없음{% endif %}</small></div>{% endfor %}</div>
+    </div>
+  {% endfor %}</div>
+  {% if progress.other %}<h3 class="ov-subhead">다른 이름으로 저장된 클리어 기록</h3><p class="ov-note">게임의 minigame_cleared 키가 24개 실행 ID(ST01 등)와 다릅니다.</p>
+  <div class="game-grid">{% for name, stars in progress.other.items %}<div class="game-tile{% if stars %} done{% endif %}"><strong>{{ name }}</strong><small>★ {{ stars }}</small></div>{% endfor %}</div>{% endif %}
+</section>
+
+<section class="card ov-card" aria-labelledby="history-title">
+  <div class="ov-card-head"><h2 id="history-title">가입·로그인·계정 찾기 기록</h2><span class="ov-sub">최근 50건</span></div>
+  <div class="table-scroll person-scroll is-short" tabindex="0" aria-label="계정 기록 표"><table class="ov-table">
+    <thead><tr><th scope="col">시각</th><th scope="col">종류</th><th scope="col">결과</th><th scope="col">설치 ID</th><th scope="col">빌드</th><th scope="col">IP</th></tr></thead>
+    <tbody>{% for r in history %}<tr>
+      <td class="mono">{{ r.occurred_at|date:'Y.m.d H:i:s' }}</td><td>{{ r.get_kind_display }}</td>
+      <td>{% if r.success %}<span class="result-badge success">성공</span>{% else %}<span class="result-badge failure">실패</span> <small class="muted">{{ r.failure_reason }}</small>{% endif %}</td>
+      <td><code class="code-id">{{ r.install_id|default:'—' }}</code></td><td class="mono">{{ r.build_version|default:'—' }}</td><td class="mono">{{ r.ip_address|default:'—' }}</td>
+    </tr>{% empty %}<tr><td colspan="6" class="ov-empty">기록이 없습니다</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+</div>
 {% endblock %}

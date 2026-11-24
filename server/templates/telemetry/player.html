@@ -1,1 +1,33 @@
-{% extends 'accounts/base.html' %}{% block content %}<a class="text-link player-back" href="{% url 'players' %}">← 플레이어 목록</a><div class="profile-head"><div><span class="eyebrow">PLAYER / INDIVIDUAL OBSERVATORY</span><h1>{{ player.display_name }}</h1><p class="code-id">{{ player.external_id }}<br>PLAYER ID / {{ player.pk }}</p>{% include 'telemetry/person_tabs.html' with current='learning' pid=player.pk has_account=player.game_account %}</div><span class="badge {% if player.source == 'demo' %}demo{% endif %}">{{ player.get_source_display }} 데이터</span></div>{% include 'telemetry/filters.html' %}{% include 'telemetry/stats.html' %}{% include 'telemetry/charts.html' %}<section class="card section"><div class="section-head"><h2>플레이 세션</h2><span class="count-label">최근 20개 · 선택 기간의 시작 시각 기준</span></div><div class="table-scroll"><table><thead><tr><th>세션 ID</th><th>저장 주제</th><th>시작 시각</th><th>상태</th><th>소요 시간(ms)</th></tr></thead><tbody>{% for session in sessions %}<tr><td>{{ session.pk|stringformat:'s'|slice:':8' }}</td><td>{{ session.get_topic_display }} · Lv.{{ session.level }}</td><td>{{ session.started_at|date:'Y.m.d H:i' }}</td><td>{{ session.get_status_display }}</td><td>{{ session.duration_ms|default_if_none:'—' }}</td></tr>{% empty %}<tr><td colspan="5" class="empty">선택한 조건의 세션이 없습니다.</td></tr>{% endfor %}</tbody></table></div></section><section class="card section"><h2>행동 타임라인</h2><p class="metric-note">최신 발생 시각 순으로 표시합니다. 세션 ID와 #순서로 한 플레이의 흐름을 구분합니다.</p>{% include 'telemetry/event_table.html' with event_list=page %}{% include 'telemetry/pagination.html' %}</section>{% endblock %}
+{% extends 'accounts/base.html' %}{% block content %}
+<div class="ov person-page player-detail-page">
+<div class="ov-head">
+  <div class="person-head"><span class="person-avatar">{{ player.display_name|slice:':1' }}</span><div class="ov-head-stack"><h1>{{ player.display_name }} <span class="result-badge {% if player.source == 'demo' %}warn{% else %}info{% endif %}">{{ player.get_source_display }} 데이터</span></h1><p class="person-ids"><span class="mono">{{ player.external_id }}</span> · 플레이어 ID <span class="mono">{{ player.pk }}</span></p></div></div>
+  <div class="head-actions">{% include 'telemetry/person_tabs.html' with current='learning' pid=player.pk has_account=player.game_account %}<a class="btn-ghost" href="{% url 'players' %}">← 플레이어 목록</a></div>
+</div>
+{% include 'telemetry/filters.html' %}
+<section class="kpis" aria-label="주요 학습 지표">
+  <article class="kpi"><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='gamepad' %}</span><div class="kpi-body"><span class="kpi-label">플레이 세션<span class="kpi-info" role="button" tabindex="0" aria-label="플레이 세션 기준 보기" data-tip="선택한 기간에 시작한 이 플레이어의 게임 세션 수입니다.">i</span></span><strong class="kpi-value">{{ stats.sessions }}<small>회</small></strong><span class="kpi-basis">완료 {{ stats.completed }}회 · 행동 로그 {{ stats.total }}건</span></div></article>
+  <article class="kpi"><span class="kpi-icon tone-good">{% include 'accounts/nav_icon.html' with icon='check' %}</span><div class="kpi-body"><span class="kpi-label">문제 해결률<span class="kpi-info" role="button" tabindex="0" aria-label="문제 해결률 기준 보기" data-tip="해결한 문제 ÷ 시작한 문제. 연산 하나하나의 성공률과는 다릅니다. 미완료는 시작했지만 해결 기록이 없는 문제입니다.">i</span></span>{% if learning.completion_rate != None %}<strong class="kpi-value">{{ learning.completion_rate }}<small>%</small></strong>{% else %}<strong class="kpi-value is-empty">기록 없음</strong>{% endif %}<span class="kpi-basis">해결 {{ learning.completed|default:0 }} / 시작 {{ learning.runs|default:0 }}건</span></div></article>
+  <article class="kpi"><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='clock' %}</span><div class="kpi-body"><span class="kpi-label">평균 풀이 시간<span class="kpi-info" role="button" tabindex="0" aria-label="평균 풀이 시간 기준 보기" data-tip="해결한 문제에서 실제로 풀이한 시간의 평균입니다. 일시정지한 시간은 빼고 계산합니다.">i</span></span>{% if learning.avg_active_seconds != None %}<strong class="kpi-value">{{ learning.avg_active_seconds }}<small>초</small></strong><span class="kpi-basis">해결한 문제 {{ learning.completed|default:0 }}건 기준</span>{% else %}<strong class="kpi-value is-empty">기록 없음</strong><span class="kpi-basis">해결한 문제가 생기면 표시됩니다</span>{% endif %}</div></article>
+  <article class="kpi"><span class="kpi-icon tone-warn">{% include 'accounts/nav_icon.html' with icon='retry' %}</span><div class="kpi-body"><span class="kpi-label">재시도한 문제<span class="kpi-info" role="button" tabindex="0" aria-label="재시도한 문제 기준 보기" data-tip="같은 문제를 2번 이상 시도한 문제 실행 수입니다.">i</span></span><strong class="kpi-value">{{ learning.retry_runs|default:0 }}<small>건</small></strong><span class="kpi-basis">시작한 문제 {{ learning.runs|default:0 }}건 중</span></div></article>
+</section>
+{% include 'telemetry/charts.html' %}
+<section class="card ov-card" aria-labelledby="sessions-title">
+  <div class="ov-card-head"><h2 id="sessions-title">플레이 세션 <small class="ov-count">최근 {{ sessions|length }}개</small></h2><span class="ov-sub">선택 기간의 시작 시각 기준 · 최대 20개</span></div>
+  <div class="table-scroll person-scroll" tabindex="0" aria-label="플레이 세션 표"><table class="ov-table">
+    <thead><tr><th scope="col">세션 ID</th><th scope="col">저장 주제</th><th scope="col">시작 시각</th><th scope="col">상태</th><th scope="col" class="numeric">소요 시간</th></tr></thead>
+    <tbody>{% for session in sessions %}<tr>
+      <td class="mono">{{ session.pk|stringformat:'s'|slice:':8' }}</td>
+      <td>{{ session.get_topic_display }} <span class="muted">· Lv.{{ session.level }}</span></td>
+      <td class="mono">{{ session.started_at|date:'Y.m.d H:i' }}</td>
+      <td><span class="result-badge {% if session.status == 'completed' %}success{% elif session.status == 'abandoned' %}failure{% else %}neutral{% endif %}">{{ session.get_status_display }}</span></td>
+      <td class="numeric">{% if session.duration_ms != None %}{% widthratio session.duration_ms 1000 1 %}초{% else %}<span class="muted">기록 없음</span>{% endif %}</td>
+    </tr>{% empty %}<tr><td colspan="5" class="ov-empty">선택한 조건의 세션이 없습니다</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
+<section class="card ov-card" aria-labelledby="timeline-title">
+  <div class="ov-card-head"><h2 id="timeline-title">행동 타임라인 <small class="ov-count">{{ page.paginator.count }}건</small></h2><span class="ov-sub">최신 발생 순 · 세션 ID와 #순서로 한 플레이의 흐름을 구분합니다</span></div>
+  {% include 'telemetry/event_table.html' with event_list=page %}{% include 'telemetry/pagination.html' %}
+</section>
+</div>
+{% endblock %}

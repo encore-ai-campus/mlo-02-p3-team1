@@ -15,7 +15,7 @@
   <article class="kpi"><span class="kpi-icon tone-warn">{% include 'accounts/nav_icon.html' with icon='trend-up' %}</span><div class="kpi-body"><span class="kpi-label">실패 급증 경고 (60분)<span class="kpi-info" role="button" tabindex="0" aria-label="실패 급증 기준 보기" data-tip="5분 창에서 시도 20회 이상, 실패율 0.4 이상, 평소 실패율의 1.5배 이상이면 경고로 셉니다.">i</span></span><strong class="kpi-value"><span id="kpi-alerts">—</span><span class="trend" id="kpi-alerts-trend"></span></strong><span class="kpi-basis">시도 20↑ · 실패율 0.4↑ · 평소 1.5배↑</span></div></article>
 </section>
 
-<div class="split-grid wide-left">
+<div class="split-grid">
   <section class="card ov-card" data-live-compact aria-labelledby="live-games-title">
     <div class="ov-card-head"><h2 id="live-games-title">미니게임별 성공률 <small class="ov-count">최근 30분 · 1분 단위</small></h2></div>
     <div class="table-scroll ov-log-scroll" tabindex="0" aria-label="미니게임별 성공률 표, 위아래로 스크롤"><table class="ov-table live-table"><thead><tr><th scope="col">게임</th><th scope="col">영역</th><th scope="col">추이 (30분)</th><th scope="col" class="numeric">시도</th><th scope="col" class="numeric">성공률</th></tr></thead><tbody id="game-rows"><tr><td colspan="5" class="empty">불러오는 중…</td></tr></tbody></table></div>
@@ -29,12 +29,12 @@
 
 <div class="split-grid">
   <section class="card ov-card" id="sink-card" aria-labelledby="sink-title">
-    <div class="ov-card-head"><h2 id="sink-title">분석 화면 적재 상태</h2><span class="ov-sub" id="sink-updated">—</span></div>
+    <div class="ov-card-head"><h2 id="sink-title">분석 화면 적재 상태</h2><span class="ov-sub" id="sink-updated"></span></div>
     <p class="state-line" id="sink-states">불러오는 중…</p>
     <p class="ov-note" id="sink-reasons" hidden></p>
   </section>
   <section class="card ov-card" id="reject-card" aria-labelledby="reject-title">
-    <div class="ov-card-head"><h2 id="reject-title">거절·격리 이벤트</h2><span class="ov-sub" id="reject-updated">—</span></div>
+    <div class="ov-card-head"><h2 id="reject-title">거절·격리 이벤트</h2><span class="ov-sub" id="reject-updated"></span></div>
     <p class="state-line" id="reject-counts">불러오는 중…</p>
     <p class="ov-note" id="reject-reasons" hidden></p>
     <div class="table-scroll" id="reject-recent-wrap" hidden><table class="ov-table"><thead><tr><th scope="col">시각</th><th scope="col">사유</th><th scope="col">경로</th><th scope="col">필드</th><th scope="col">내용</th></tr></thead><tbody id="reject-recent"></tbody></table></div>
@@ -68,4 +68,4 @@
 <p class="ov-foot"><span>{% include 'accounts/nav_icon.html' with icon='info' %}도착 시각 기준: 학습 이벤트가 서버에 도착한 시각으로 집계합니다. 늦게 도착한 기록도 도착한 때에 포함합니다.</span><span>플레이 날짜 기준 누적 분석은 <a class="text-link" href="{% url 'dashboard' %}">전체 현황</a>에서 확인하세요.</span></p>
 </div>
 <script id="live-config" type="application/json">{"tab": "{{ tab }}", "releasesUrl": "{% url 'releases' %}"}</script>
-{% endblock %}{% block scripts %}<script src="{% static 'js/live.js' %}?v=3"></script>{% endblock %}
+{% endblock %}{% block scripts %}<script src="{% static 'js/live.js' %}?v=4"></script>{% endblock %}

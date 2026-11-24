@@ -151,7 +151,7 @@
 {% endif %}
 
   <section class="card ov-card ov-recent board-card" data-card="recent" data-span="12" aria-labelledby="recent-title">
-    <div class="ov-card-head" data-card-handle><h2 id="recent-title">최근 행동 로그 <small class="ov-count" data-log-count data-live-part="recent-count">최근 {{ recent_rows|length }}건</small></h2><a class="text-link" data-qs-link="events" href="{% url 'events' %}?{{ querystring }}">전체 보기 {% include 'accounts/nav_icon.html' with icon='arrow' %}</a>{% include 'telemetry/overview_card_tools.html' %}</div>
+    <div class="ov-card-head" data-card-handle><h2 id="recent-title">최근 행동 로그 <small class="ov-count" data-log-count data-live-part="recent-count">최근 {{ recent_rows|length }}건</small></h2>{% include 'telemetry/overview_card_tools.html' %}</div>
     <div class="log-chips" role="group" aria-label="로그 결과 필터" data-log-chips hidden>
       <button type="button" class="chip" data-log-filter="all" aria-pressed="true">전체</button>
       <button type="button" class="chip" data-log-filter="success" aria-pressed="false">성공</button>
