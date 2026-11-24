@@ -8,4 +8,4 @@
 {% for field in filter %}{% if field.name == 'q' and sort_options %}<input type="hidden" name="q" value="{{ field.value|default:'' }}">{% elif field.name == 'player_id' and player %}{% elif field.name == 'player_id' or field.name == 'q' or field.name == 'topic' or field.name == 'task_id' or field.name == 'content_version' %}<div class="field">{{ field.label_tag }}{{ field }}</div>{% elif field.name == 'event_type' and show_event_filter %}<div class="field">{{ field.label_tag }}{{ field }}</div>{% endif %}{% endfor %}
 </div></details>
 <div class="filter-actions"><button type="submit">조회 적용</button><a class="text-button" href="{{ request.path }}">초기화</a></div>
-</form></details><div class="data-notice"><span>선택한 기간·필터의 저장 기록을 집계합니다.</span><span>Asia/Seoul · 기본 최근 28일</span></div>
+</form></details>

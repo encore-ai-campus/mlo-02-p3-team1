@@ -100,7 +100,7 @@
     var reasons = $('sink-reasons');
     reasons.hidden = !parts.length;
     reasons.textContent = parts.join(' · ');
-    $('sink-updated').textContent = sink.updated_at ? time(sink.updated_at) + ' 기준' : '—';
+    $('sink-updated').textContent = sink.updated_at ? time(sink.updated_at) + ' 기준' : '';
   }
 
   var REJECT_LABELS = { invalid_json: 'JSON 형식 오류', unknown_event_type: '알 수 없는 이벤트 종류',
@@ -128,7 +128,7 @@
       return '<tr><td>' + time(r.at) + '</td><td>' + esc(REJECT_LABELS[r.reason] || r.reason) + '</td><td>' + esc(r.endpoint) +
         '</td><td>' + esc(r.field) + '</td><td>' + esc(r.message) + '</td></tr>';
     }).join('');
-    $('reject-updated').textContent = rej.updated_at ? time(rej.updated_at) + ' 기준 · 1분마다' : '—';
+    $('reject-updated').textContent = rej.updated_at ? time(rej.updated_at) + ' 기준 · 1분마다' : '';
   }
 
   // Trend arrows (like a stock ticker): compare each KPI with its value about one minute ago.
