@@ -63,7 +63,7 @@ func _ready() -> void:
 	code_font = f
 	robot = Sprite2D.new()
 	robot.texture = load("res://textures/sprites/robot.png")
-	robot.scale = Vector2(0.42, 0.42)
+	robot.scale = Vector2(0.32, 0.32)
 	robot.offset = Vector2(0, -71)
 	robot.z_index = 5
 	add_child(robot)
@@ -156,8 +156,10 @@ func summary_rect(i: int) -> Rect2:
 	return Rect2(150 + i * (w + 8), 524, w, 112)
 
 func robot_pos() -> Vector2:
+	if phase == "help" or phase == "palette":
+		return Vector2(54.0, 108.0)
 	var rect: Rect2 = summary_rect(mini(c, res.groups.size() - 1)) if activity == "group" and r == 5 else cell_rect(r, c)
-	return rect.position + Vector2(rect.size.x * 0.82, rect.size.y * 0.98)
+	return rect.position + Vector2(18.0, 28.0)
 
 func _place_robot(now := false) -> void:
 	var p := robot_pos()
@@ -191,6 +193,9 @@ func move(dr: int, dc: int) -> void:
 
 # ---------- 입력 ----------
 func _unhandled_input(ev: InputEvent) -> void:
+	if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+		_handle_mouse_click(ev.position)
+		return
 	if not (ev is InputEventKey and ev.pressed):
 		return
 	if phase == "help":
@@ -231,6 +236,83 @@ func _unhandled_input(ev: InputEvent) -> void:
 			var digit: int = k - KEY_0
 			if digit >= 1 and digit <= 6 and phase == "play":
 				pick_tool(str(digit))
+
+func _handle_mouse_click(pos: Vector2) -> void:
+	if phase == "help":
+		phase = "play"
+		queue_redraw()
+		return
+	if phase == "palette":
+		var box := Rect2(280, 250, 500, 150)
+		var ops: Array = COMPARE_OPS if palette.mode == "compare" else Model.NUMERIC_OPS
+		if Rect2(box.position.x + 24, box.position.y + 44, 110, 56).has_point(pos):
+			palette.op = wrapi(palette.op + 1, 0, ops.size())
+		elif palette.has("val") and Rect2(box.position.x + 140, box.position.y + 44, 150, 56).has_point(pos):
+			palette.val = wrapi(palette.val + 1, 0, WHERE_VALUES.size())
+		elif Rect2(box.position.x + 305, box.position.y + 46, 86, 48).has_point(pos):
+			confirm_palette()
+		elif Rect2(box.position.x + 398, box.position.y + 46, 76, 48).has_point(pos) or not box.has_point(pos):
+			palette = null
+			phase = "play"
+		else:
+			confirm_palette()
+		queue_redraw()
+		return
+	if phase == "solved":
+		_after_solved()
+		return
+	# 상단 도움말/힌트 버튼 클릭
+	if Rect2(16, 14, 132, 36).has_point(pos):
+		phase = "help"
+		queue_redraw()
+		return
+	if Rect2(156, 14, 112, 36).has_point(pos):
+		use_hint()
+		return
+	# 우측 하단 도구함 및 제출 버튼 클릭
+	var wide := activity == "join"
+	var tray := Rect2(930, 538, 340, 124) if wide else Rect2(826, 556, 360, 122)
+	var tools: Dictionary = _level().tools
+	var slots: Array = tools.keys()
+	slots.sort()
+	var n: int = slots.size() + 1
+	var cell_w: float = (tray.size.x - 28) / n
+	for idx in slots.size():
+		var slot: String = slots[idx]
+		var rect := Rect2(tray.position.x + 14 + idx * cell_w, tray.position.y + 10, cell_w - 4, tray.size.y - 20)
+		if rect.has_point(pos):
+			pick_tool(slot)
+			return
+	var submit_rect := Rect2(tray.position.x + 14 + slots.size() * cell_w, tray.position.y + 10, cell_w - 4, tray.size.y - 20)
+	if submit_rect.has_point(pos):
+		submit()
+		return
+	# GROUP BY 아래쪽 요약 서랍 클릭
+	if activity == "group" and not res.groups.is_empty():
+		for gi in res.groups.size():
+			if summary_rect(gi).has_point(pos):
+				r = 5
+				c = gi
+				_place_robot()
+				press_e()
+				return
+	# 표의 열 머리글 또는 칸 클릭 -> 즉시 그 열/칸으로 이동 후 현재 붓 찍기
+	for col_i in grid_cols():
+		var top_cell := cell_rect(0, col_i)
+		var hr := Rect2(top_cell.position.x, top_cell.position.y - 46, top_cell.size.x, 44)
+		if hr.has_point(pos):
+			r = 0
+			c = col_i
+			_place_robot()
+			press_e()
+			return
+		for row_i in 5:
+			if cell_rect(row_i, col_i).has_point(pos):
+				r = row_i
+				c = col_i
+				_place_robot()
+				press_e()
+				return
 
 func pick_tool(slot: String) -> void:
 	var tools: Dictionary = _level().tools
@@ -685,6 +767,8 @@ func fit(t: String, width: float, size: int, f: Font = null) -> int:
 	return s
 
 func _draw() -> void:
+	if robot != null and not moving:
+		robot.position = robot_pos()
 	img("bg_" + game.bg, Rect2(0, 0, 1280, 720))
 	_draw_mission()
 	match activity:
@@ -697,6 +781,7 @@ func _draw() -> void:
 		_draw_strip()
 	_draw_panel()
 	_draw_tools()
+	_draw_step_guide()
 	_draw_tooltip()
 	_draw_footer()
 	if phase == "palette":
@@ -711,6 +796,112 @@ func _draw_mission() -> void:
 	var size := fit(t, rect.size.x - 60, 24)
 	text_at(rect.get_center() + Vector2(0, -8), t, size, NAVY)
 	text_at(rect.get_center() + Vector2(0, 22), "%s · %d / 3단계" % [game.id, level + 1], 15, Color("7a5a2a"))
+	# 좌측 상단 도움말(H) & 힌트(F) 버튼
+	var h_btn := Rect2(16, 14, 132, 36)
+	draw_rect(h_btn, Color(0.11, 0.22, 0.45, 0.92))
+	draw_rect(h_btn, GOLD, false, 2.0)
+	text_at(h_btn.get_center(), "❓ 플레이 방법 (H)", 14, Color.WHITE)
+	var f_btn := Rect2(156, 14, 112, 36)
+	draw_rect(f_btn, Color(0.18, 0.36, 0.24, 0.92))
+	draw_rect(f_btn, Color("7ddc8a"), false, 2.0)
+	text_at(f_btn.get_center(), "💡 힌트 보기 (F)", 14, Color.WHITE)
+
+func _tool_sql_role(id: String) -> String:
+	return {
+		"col": "열 붓 (SELECT 열 선택)",
+		"cond": "조건 붓 (WHERE 행 필터)",
+		"erase": "지우개 (칠 지우기)",
+		"order": "정렬 (ORDER BY 줄세우기)",
+		"limit": "개수 (LIMIT 상위 자르기)",
+		"group": "그룹 붓 (GROUP BY 묶기)",
+		"count": "전체 건수 (COUNT(*))",
+		"countcol": "값 있는 수 (COUNT(열))",
+		"avg": "평균 (AVG 계산)",
+		"having": "조건 붓 (HAVING 그룹 필터)",
+		"key": "키 붓 (JOIN ON 연결 열)",
+		"mode": "처리 방식 (INNER/LEFT 전환)",
+		"max": "최댓값 (MAX 계산)",
+		"compare": "비교 붓 (WHERE 서브쿼리 비교)"
+	}.get(id, id)
+
+## 정답(어느 열/어떤 값인지)은 절대 알려주지 않고, 현재 선택한 도구의 작동 방식과 게임 진행 규칙만 안내한다.
+func _tool_howto_guide() -> Dictionary:
+	if phase == "solved":
+		return {
+			"title": "✅ 미션 클리어!",
+			"msg": "정답입니다! [Enter 키] 또는 화면을 클릭하면 다음 단계로 넘어갑니다."
+		}
+	var howto: Dictionary = {
+		"col": {
+			"title": "🖌️ [열 붓 · SELECT] 작동법",
+			"msg": "원하는 세로줄(열)의 아무 칸에서나 [E] 또는 클릭하면 그 세로줄 전체가 선택됩니다. 오른쪽 결과 표를 보며 다 골랐다면 [Enter 제출]!"
+		},
+		"cond": {
+			"title": "🔍 [조건 붓 · WHERE] 작동법",
+			"msg": "조건으로 걸러낼 세로줄(열)에서 [E] 또는 클릭하세요. 숫자 열은 비교 기호 창이 열리고, 문자 열은 그 칸의 값과 일치하는 행만 남깁니다."
+		},
+		"erase": {
+			"title": "🧽 [지우개] 작동법",
+			"msg": "잘못 칠한 세로줄(열)에서 [E] 또는 클릭하면 해당 열에 적용된 선택이나 조건을 지웁니다."
+		},
+		"order": {
+			"title": "↕️ [정렬 · ORDER BY] 작동법",
+			"msg": "줄을 세울 기준 세로줄(열)에서 [E] 또는 클릭할 때마다 내림차순(큰 값부터·DESC) → 오름차순(작은 값부터·ASC) → 해제로 바뀝니다."
+		},
+		"limit": {
+			"title": "✂️ [개수 · LIMIT] 작동법",
+			"msg": "먼저 [정렬] 도구로 줄을 세운 뒤, [E] 또는 클릭할 때마다 위에서부터 남길 인원수(1명 → 2명 → 3명)가 바뀝니다."
+		},
+		"group": {
+			"title": "🗂️ [그룹 붓 · GROUP BY] 작동법",
+			"msg": "같은 값끼리 묶고 싶은 기준 세로줄(열)에서 [E] 또는 클릭하면 같은 값끼리 색깔별로 묶이고 아래에 요약 서랍이 생성됩니다."
+		},
+		"count": {
+			"title": "🔢 [전체 건수 · COUNT(*)] 작동법",
+			"msg": "그룹으로 묶은 뒤 표에서 [E] 또는 클릭하면 각 그룹에 속한 전체 행의 개수를 요약 서랍과 결과 표에 추가합니다."
+		},
+		"countcol": {
+			"title": "🔢 [값 있는 수 · COUNT(열)] 작동법",
+			"msg": "원하는 세로줄(열)에서 [E] 또는 클릭하면 빈칸(NULL)을 제외하고 실제로 값이 들어 있는 칸의 개수만 셉니다."
+		},
+		"avg": {
+			"title": "📊 [평균 · AVG] 작동법",
+			"msg": "평균을 계산할 숫자 세로줄(열)에서 [E] 또는 클릭하면 빈칸(NULL)을 제외한 평균값을 계산합니다."
+		},
+		"having": {
+			"title": "🔍 [그룹 조건 · HAVING] 작동법",
+			"msg": "그룹과 집계 계산을 만든 뒤, 표 아래쪽에 생긴 [요약 서랍 박스]로 내려가서(S키 또는 클릭) [E]를 누르면 그룹 조건 창이 열립니다."
+		},
+		"key": {
+			"title": "🔗 [키 붓 · JOIN ON] 작동법",
+			"msg": "왼쪽 표에서 연결 기준이 될 세로줄(열)을 한 번 찍고, 이어서 오른쪽 표에서 짝이 되는 세로줄(열)을 찍으면 같은 값끼리 연결됩니다."
+		},
+		"mode": {
+			"title": "🔄 [처리 방식 · JOIN 종류] 작동법",
+			"msg": "[E] 또는 클릭할 때마다 짝이 맞는 행만 남기는 INNER JOIN과 왼쪽 표의 모든 행을 남기는 LEFT JOIN으로 전환됩니다."
+		},
+		"max": {
+			"title": "🏆 [최댓값 · MAX] 작동법",
+			"msg": "가장 큰 값을 찾을 숫자 세로줄(열)에서 [E] 또는 클릭하면 화면 아래쪽에 계산 결과 토큰(안쪽 쿼리 값)이 만들어집니다."
+		},
+		"compare": {
+			"title": "⚖️ [비교 붓 · 서브쿼리 비교] 작동법",
+			"msg": "먼저 계산 도구로 아래쪽에 토큰을 만든 뒤, 비교할 숫자 세로줄(열)에서 [E] 또는 클릭해 토큰과의 비교 기호(>, = 등)를 고릅니다."
+		}
+	}
+	return howto.get(tool_id, {
+		"title": "🎮 플레이 방법",
+		"msg": "우측 하단에서 도구를 고르고 원하는 세로줄(열)에서 [E] 또는 클릭해 칠하세요. 오른쪽 결과가 미션과 맞으면 [Enter 제출]!"
+	})
+
+func _draw_step_guide() -> void:
+	var guide := _tool_howto_guide()
+	var is_solved: bool = phase == "solved"
+	var bar := Rect2(80, 644, 736, 42) if activity != "join" else Rect2(80, 644, 836, 42)
+	draw_rect(bar, Color(0.08, 0.22, 0.14, 0.94) if is_solved else Color(0.09, 0.16, 0.32, 0.94))
+	draw_rect(bar, Color("7ddc8a") if is_solved else GOLD, false, 2.0)
+	var full_msg: String = str(guide.get("title", "")) + " — " + str(guide.get("msg", ""))
+	text_at(bar.get_center(), full_msg, fit(full_msg, bar.size.x - 24, 15), Color("a8ffbe") if is_solved else Color("fff4c2"))
 
 func _is_col_selected(col: String) -> bool:
 	return m.select.has(col)
@@ -792,6 +983,12 @@ func _draw_cursor() -> void:
 		return
 	if activity == "group" and r == 5:
 		return
+	# 현재 로봇이 서 있는 세로 열 전체를 은은하게 감싸서 "세로 열 단위 조작"임을 직관적으로 보여줌
+	var top_r := cell_rect(0, c)
+	var bot_r := cell_rect(4, c)
+	var col_span := Rect2(top_r.position.x - 2, top_r.position.y - 46, top_r.size.x + 4, (bot_r.end.y - top_r.position.y) + 48)
+	draw_rect(col_span, Color(GOLD, 0.10))
+	draw_rect(col_span, Color(GOLD, 0.65), false, 2.5)
 	var rect := cell_rect(r, c)
 	draw_rect(rect.grow(2), GOLD, false, 4.0)
 	if splash > 0.0:
@@ -958,6 +1155,11 @@ func _draw_result(rect: Rect2) -> void:
 func _draw_tools() -> void:
 	var wide := activity == "join"
 	var tray := Rect2(930, 538, 340, 124) if wide else Rect2(826, 556, 360, 122)
+	# 현재 선택된 도구의 역할을 도구함 바로 위에 표시
+	var cur_role := "현재 도구: " + _tool_sql_role(tool_id) + " (도구 클릭 또는 숫자키)"
+	var role_bar := Rect2(tray.position.x, tray.position.y - 24, tray.size.x, 22)
+	draw_rect(role_bar, Color(0.08, 0.12, 0.24, 0.90))
+	text_at(role_bar.get_center(), cur_role, fit(cur_role, role_bar.size.x - 12, 13), GOLD)
 	img("tool_tray", tray)
 	var tools: Dictionary = _level().tools
 	var slots: Array = tools.keys()
@@ -986,42 +1188,94 @@ func _draw_tooltip() -> void:
 		return
 	var rect := cell_rect(r, c)
 	var b := board_of(c)
-	var v = b.table.rows[r][b.col]
-	var t := Model.fmt(v)
-	var w: float = font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x + 16
-	var tip := Rect2(rect.end.x - w, rect.position.y - 6, w, 24)
+	var col_name: String = str(b.table.cols[b.col])
+	var tool_name: String = str(Data.TOOL_INFO.get(tool_id, [tool_id])[0])
+	var t := "[E/클릭] '%s' 열에 [%s] 적용" % [col_name, tool_name]
+	var w: float = font.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x + 18
+	var tip_x := clampf(rect.get_center().x - w * 0.5, 12.0, 1268.0 - w)
+	var tip := Rect2(tip_x, rect.position.y - 26, w, 24)
 	draw_rect(tip, Color("fff6dc"))
 	draw_rect(tip, INK, false, 2.0)
-	text_at(tip.get_center(), t, 16)
+	text_at(tip.get_center(), t, 14, NAVY)
 
 func _draw_footer() -> void:
 	draw_rect(Rect2(0, 690, 1280, 30), Color(0.08, 0.08, 0.12, 0.8))
-	var controls := "WASD 이동 · E 칠하기 · 숫자키 도구 · Z 취소 · X 처음으로 · F 힌트 · H 설명 · Enter 제출 · Esc 메뉴"
-	text_at(Vector2(16, 705), controls, 15, Color.WHITE, false)
+	var controls := "🖱️ 마우스 클릭(열/도구/제출) 또는 ⌨️ WASD 이동 · E 칠하기 · 숫자 1~6 도구 · Z 취소 · X 초기화 · F 힌트 · H 방법 · Enter 제출"
+	text_at(Vector2(16, 705), controls, 14, Color.WHITE, false)
 	if message_t > 0.0 and message != "":
 		var w: float = font.get_string_size(message, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x + 36
-		var box := Rect2(640 - w / 2, 652, w, 34)
-		draw_rect(box, Color(0.08, 0.08, 0.12, 0.92))
+		var box := Rect2(640 - w / 2, 608, w, 34)
+		draw_rect(box, Color(0.08, 0.08, 0.12, 0.94))
+		draw_rect(box, Color("7ddc8a") if message_good else GOLD, false, 2.0)
 		text_at(box.get_center(), message, 20, Color("7ddc8a") if message_good else Color("ffd38a"))
 
 func _draw_palette() -> void:
 	var ops: Array = COMPARE_OPS if palette.mode == "compare" else Model.NUMERIC_OPS
 	var box := Rect2(280, 250, 500, 150)
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0, 0, 0, 0.3))
+	draw_rect(Rect2(0, 0, 1280, 720), Color(0, 0, 0, 0.45))
 	img("mission_plate", box)
-	var title: String = {"where": palette.get("col", "") + " 조건", "having": palette.get("agg", "") + " 조건", "compare": "토큰과 비교"}[palette.mode]
-	text_at(box.get_center() + Vector2(0, -44), title, 22, NAVY)
-	var preview: String = "%s %s" % [ops[palette.op], Model.fmt(WHERE_VALUES[palette.val]) if palette.has("val") else Model.fmt(res.token)]
-	text_at(box.get_center(), preview, 34, INK)
+	var title: String = {"where": palette.get("col", "") + " 조건 설정 (WHERE)", "having": palette.get("agg", "") + " 그룹 조건 설정 (HAVING)", "compare": "계산 토큰과 비교 설정"}[palette.mode]
+	text_at(box.get_center() + Vector2(0, -48), title, 21, NAVY)
+	# 클릭 가능한 기호/숫자/적용/취소 버튼 표시
+	var op_btn := Rect2(box.position.x + 24, box.position.y + 44, 110, 52)
+	draw_rect(op_btn, Color("fff9e8"))
+	draw_rect(op_btn, NAVY, false, 2.0)
+	text_at(op_btn.get_center(), "기호: %s" % ops[palette.op], 22, NAVY)
+	var val_btn := Rect2(box.position.x + 142, box.position.y + 44, 150, 52)
+	draw_rect(val_btn, Color("fff9e8"))
+	draw_rect(val_btn, NAVY, false, 2.0)
+	var val_str: String = Model.fmt(WHERE_VALUES[palette.val]) if palette.has("val") else Model.fmt(res.token)
+	text_at(val_btn.get_center(), "값: %s" % val_str, 22, INK)
+	var ok_btn := Rect2(box.position.x + 305, box.position.y + 46, 86, 48)
+	draw_rect(ok_btn, Color("1f6a3a"))
+	text_at(ok_btn.get_center(), "적용 (E)", 16, Color.WHITE)
+	var cancel_btn := Rect2(box.position.x + 398, box.position.y + 46, 76, 48)
+	draw_rect(cancel_btn, Color("7a3a3a"))
+	text_at(cancel_btn.get_center(), "취소", 16, Color.WHITE)
 	var meaning: String = {">=": "이상", ">": "초과", "=": "같음", "<=": "이하", "<": "미만"}[ops[palette.op]]
-	text_at(box.get_center() + Vector2(0, 44), "%s  ·  A/D 기호  W/S 숫자  E 적용  Esc 취소" % meaning, 15, Color("7a5a2a"))
+	text_at(box.get_center() + Vector2(0, 50), "뜻: '%s'  ·  키보드 A/D(기호) W/S(값) E(적용) 또는 버튼 마우스 클릭" % meaning, 14, Color("7a5a2a"))
 
 func _draw_help() -> void:
-	draw_rect(Rect2(0, 0, 1280, 720), Color(0, 0, 0, 0.55))
-	var box := Rect2(240, 190, 800, 300)
+	draw_rect(Rect2(0, 0, 1280, 720), Color(0, 0, 0, 0.65))
+	var box := Rect2(160, 110, 960, 500)
 	img("mission_plate", box)
-	text_at(box.get_center() + Vector2(0, -90), game.title, 30, NAVY)
-	var lines := ["로봇을 WASD로 옮기고 E로 붓을 찍어요. 값은 바뀌지 않아요.", "붓 한 번이 SQL 한 줄이 되어 오른쪽에 바로 보여요.", "숫자키로 도구를 바꾸고, 다 됐으면 Enter로 제출해요."]
-	for i in lines.size():
-		text_at(box.get_center() + Vector2(0, -28 + i * 38), lines[i], 21)
-	text_at(box.get_center() + Vector2(0, 100), "아무 키나 누르면 시작", 16, Color("7a5a2a"))
+	text_at(box.get_center() + Vector2(0, -195), "🎮 " + game.title + " — 어떻게 플레이하나요?", 28, NAVY)
+	var stage_steps: Array = {
+		"query": [
+			"• [열 붓 (SELECT)] 표에서 결과로 꺼내고 싶은 세로줄(열)에 찍으면 그 열 전체가 선택됩니다.",
+			"• [조건 붓 (WHERE)] 특정 조건을 만족하는 행만 남기고 싶을 때 기준 세로줄(열)에 찍어 조건을 설정합니다.",
+			"• [정렬 / 개수] 기준 세로줄에 [정렬]을 찍어 순서를 세우고, [개수]로 상위 몇 줄만 남길지 정합니다."
+		],
+		"group": [
+			"• [그룹 붓 (GROUP BY)] 같은 값끼리 묶을 기준 세로줄(열)에 찍으면 색깔별로 그룹이 묶이고 아래에 요약 서랍이 생깁니다.",
+			"• [건수 / 평균 도구] 그룹을 묶은 뒤 집계 도구로 각 그룹의 행 개수(COUNT)나 숫자 열의 평균(AVG)을 추가합니다.",
+			"• [조건 붓 (HAVING)] 묶인 그룹 자체를 조건으로 거를 때는 표 아래쪽 [요약 서랍 박스]로 내려가서 조건 붓을 찍습니다."
+		],
+		"join": [
+			"• [키 붓 (JOIN ON)] 두 표를 이어 줄 연결 도장입니다. 왼쪽 표의 연결 열에 한 번, 오른쪽 표의 연결 열에 한 번 찍습니다.",
+			"• [연결 확인] 양쪽 열의 값이 같은 행끼리 색깔 선으로 이어지며 오른쪽 결과 표에 합쳐진 명단이 나타납니다.",
+			"• [처리 방식] 짝이 있는 행만 남기는 INNER JOIN과 왼쪽 표의 모든 행을 남기는 LEFT JOIN을 전환할 수 있습니다."
+		],
+		"sub": [
+			"• [평균 / 최댓값 도구] 숫자 세로줄(열)에 찍으면 먼저 계산된 값(안쪽 SELECT 결과)이 화면 아래쪽 토큰으로 만들어집니다.",
+			"• [비교 붓] 아래쪽에 만들어진 계산 토큰과 숫자 열을 비교(>, = 등)하여 조건에 맞는 행만 걸러냅니다.",
+			"• [열 붓 (SELECT)] 마지막으로 결과 표에 출력할 세로줄(열)을 열 붓으로 골라 완성합니다."
+		]
+	}[activity]
+	var common_lines := [
+		"💡 [핵심 규칙] 25개 칸을 하나씩 칠하는 게 아닙니다! 원하는 세로줄(열)의 아무 칸에서나 한 번만 찍으면 그 세로줄 전체에 적용됩니다.",
+		"🖱️ [조작 방법] 마우스로 (우측 하단 도구 클릭 → 표의 세로줄 클릭 → Enter 제출 클릭) 하거나, 키보드 (숫자 1~6 → WASD+E → Enter) 사용!",
+		"👀 [결과 확인] 붓을 찍을 때마다 오른쪽 LIVE SQL과 아래 결과 표가 즉시 바뀝니다. 상단 미션에 맞는 결과가 나오면 제출하세요!"
+	]
+	var y_off := -135.0
+	for ln: String in common_lines:
+		text_at(box.get_center() + Vector2(0, y_off), ln, fit(ln, box.size.x - 90, 18), INK)
+		y_off += 36.0
+	y_off += 12.0
+	for ln2: String in stage_steps:
+		text_at(box.get_center() + Vector2(0, y_off), ln2, fit(ln2, box.size.x - 90, 18), NAVY)
+		y_off += 38.0
+	var start_btn := Rect2(box.get_center().x - 160, box.end.y - 78, 320, 46)
+	draw_rect(start_btn, Color("1d3a73"))
+	draw_rect(start_btn, GOLD, false, 2.0)
+	text_at(start_btn.get_center(), "▶ 마우스 클릭 또는 아무 키나 눌러 시작", 18, Color.WHITE)
