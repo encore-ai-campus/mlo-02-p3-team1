@@ -434,9 +434,16 @@ func toast(t: String, col := Color.WHITE, dur := 2.6) -> void:
 
 ## 다음 행동 안내(HintArrow)를 말풍선으로 바꾼다. 노란 글씨가 배경과 겹쳐 읽기 어려웠던 문제 대응.
 ## hint 아래의 화살표(Arrow)는 말풍선 꼬리로 쓰고, Label 은 흰 말풍선 안으로 옮긴다.
-static func make_speech_bubble(hint: Node2D, label: Label) -> void:
-	if hint == null or label == null or hint.has_node("SpeechBubble"):
-		return
+## 꼬리와 말풍선은 "Bob" 노드 아래에 두고 이 노드를 돌려준다. 위아래로 흔드는 Tween 은 Bob 에 걸어야 한다.
+## (hint 자체를 흔들면 Tween 이 hint.position.y 를 계속 덮어써서, 스테이지가 정한 안내 위치가 무시된다)
+static func make_speech_bubble(hint: Node2D, label: Label) -> Node2D:
+	if hint == null or label == null:
+		return hint
+	if hint.has_node("Bob"):
+		return hint.get_node("Bob")
+	var bob := Node2D.new()
+	bob.name = "Bob"
+	hint.add_child(bob)
 	var panel := PanelContainer.new()
 	panel.name = "SpeechBubble"
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -453,8 +460,7 @@ static func make_speech_bubble(hint: Node2D, label: Label) -> void:
 	sb.shadow_size = 4
 	sb.shadow_offset = Vector2(0, 3)
 	panel.add_theme_stylebox_override("panel", sb)
-	hint.add_child(panel)
-	hint.move_child(panel, 0)  # 꼬리(Arrow)가 말풍선 테두리 위에 그려지도록 맨 앞에 둔다
+	bob.add_child(panel)
 	label.reparent(panel, false)
 	var ls := LabelSettings.new()
 	ls.font_size = 21
@@ -465,6 +471,7 @@ static func make_speech_bubble(hint: Node2D, label: Label) -> void:
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	var arrow := hint.get_node_or_null("Arrow") as Polygon2D
 	if arrow != null:
+		arrow.reparent(bob, false)   # 말풍선 다음에 두어 꼬리가 테두리 위에 그려지게 한다
 		arrow.color = sb.bg_color
 		arrow.polygon = PackedVector2Array([Vector2(-13, -26), Vector2(13, -26), Vector2(0, -2)])
 		var edge := Line2D.new()
@@ -478,3 +485,4 @@ static func make_speech_bubble(hint: Node2D, label: Label) -> void:
 		panel.position = Vector2(-panel.size.x / 2.0, -24.0 - panel.size.y)
 	label.minimum_size_changed.connect(place)
 	place.call()
+	return bob

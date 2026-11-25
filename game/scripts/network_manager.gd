@@ -161,11 +161,20 @@ func _ready() -> void:
 # ==========================================
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_save_world_on_close()
 		_save_world_left_outside_tree()
+		_flush_cloud_save()
 		write_exit_marker()
 		_shutdown_io()
 	elif what == NOTIFICATION_PREDELETE:
 		_shutdown_io()
+
+## 월드가 씬 트리 안에 있을 때도 종료 직전에 먼저 저장시킨다. NetworkManager(오토로드)가 월드보다 먼저 종료 알림을 받으므로,
+## 여기서 저장해 두어야 아래 _flush_cloud_save() 가 마지막 진행 상황을 서버로 보낼 수 있다.
+func _save_world_on_close() -> void:
+	for n in get_tree().root.get_children():
+		if n != self and n.has_method("save_for_quit"):
+			n.call("save_for_quit")
 
 ## 미니게임(2D) 중에는 3D 월드가 씬 트리 밖에 보관되어 있어 종료 알림을 받지 못한다.
 ## 그대로 두면 진행 상황이 저장되지 않고, 종료 때 수천 개의 리소스 누수 오류가 로그에 기록되며 창이 멈춘다.
@@ -396,22 +405,89 @@ func game_auth_request(action: String, payload: Dictionary) -> Dictionary:
 		return {"online": false, "code": code, "data": {}}
 	return {"online": true, "code": code, "data": parsed}
 
-## Fire-and-forget Cloud Save sync: POST /api/game/auth/save (Django Server)
+## Cloud Save sync: POST /api/game/auth/save (Django Server)
+## 보통은 기다리지 않고 보내지만, 서버가 200 으로 받았다고 답하기 전까지는 _cloud_pending 에 남겨 둔다.
+## 게임을 끄면 진행 중인 HTTP 요청이 끊기므로, 종료 때 _flush_cloud_save() 가 남은 저장을 직접 보낸다.
+## (예전에는 종료 직전 저장이 서버에 닿지 않아, 다음 로그인 때 서버의 옛 기록이 별 기록을 덮어썼다)
+var _cloud_pending: Dictionary = {}   # {"body": 보낼 JSON} - 아직 서버 확인을 못 받은 마지막 저장
+var _cloud_busy := false               # 저장 요청은 한 번에 하나만 보낸다 (늦게 도착한 옛 저장이 새 저장을 덮지 않게)
+
 func sync_cloud_save(username: String, save_data: Dictionary) -> void:
 	var u := username.strip_edges()
 	if u.is_empty() or u == "Guest" or DisplayServer.get_name() == "headless":
 		return
+	_cloud_pending = {"body": JSON.stringify({"username": u, "save_data": save_data})}
+	if not _cloud_busy:
+		_send_cloud_pending()
+
+func _send_cloud_pending() -> void:
+	if _cloud_pending.is_empty():
+		return
+	var payload: String = _cloud_pending.body
 	var req := _new_http()
 	add_child(req)
 	var url := get_api_base_url() + "/api/game/auth/save"
 	var headers := PackedStringArray(["Content-Type: application/json; charset=utf-8"])
-	var payload := JSON.stringify({"username": u, "save_data": save_data})
-	req.request_completed.connect(func(_res: int, _code: int, _hdrs: PackedStringArray, _body: PackedByteArray):
+	_cloud_busy = true
+	req.request_completed.connect(func(res: int, code: int, _hdrs: PackedStringArray, _body: PackedByteArray):
 		req.queue_free()
+		_cloud_busy = false
+		var same := str(_cloud_pending.get("body", "")) == payload
+		if res == HTTPRequest.RESULT_SUCCESS and code == 200 and same:
+			_cloud_pending = {}
+		elif not same and not _shutting_down:
+			_send_cloud_pending()   # 보내는 사이 더 새로운 저장이 생겼으면 이어서 보낸다
 	)
 	var err := req.request(url, headers, HTTPClient.METHOD_POST, payload)
 	if err != OK:
+		_cloud_busy = false
 		req.queue_free()
+
+## 종료 직전: 서버가 아직 받지 못한 마지막 클라우드 저장을 직접 보낸다. 서버가 안 되면 최대 limit_sec 만 기다리고 포기한다.
+func _flush_cloud_save(limit_sec := 2.0) -> void:
+	if _cloud_pending.is_empty() or DisplayServer.get_name() == "headless":
+		return
+	var body: String = _cloud_pending.body
+	var base := get_api_base_url()
+	var tls := base.begins_with("https://")
+	var rest := base.trim_prefix("https://").trim_prefix("http://")
+	var path_prefix := ""
+	if "/" in rest:
+		path_prefix = "/" + rest.get_slice("/", 1).rstrip("/")
+		rest = rest.get_slice("/", 0)
+	var host := rest
+	var port := 443 if tls else 80
+	if ":" in rest:
+		host = rest.get_slice(":", 0)
+		port = int(rest.get_slice(":", 1))
+	var deadline := Time.get_ticks_msec() + int(limit_sec * 1000.0)
+	var c := HTTPClient.new()
+	if c.connect_to_host(host, port, TLSOptions.client() if tls else null) != OK:
+		return
+	while c.get_status() == HTTPClient.STATUS_RESOLVING or c.get_status() == HTTPClient.STATUS_CONNECTING:
+		if Time.get_ticks_msec() > deadline:
+			c.close()
+			log_message("종료 전 클라우드 저장: 서버 연결 시간 초과", "warning")
+			return
+		c.poll()
+		OS.delay_msec(5)
+	if c.get_status() != HTTPClient.STATUS_CONNECTED:
+		c.close()
+		return
+	var headers := PackedStringArray(["Content-Type: application/json; charset=utf-8"])
+	if c.request(HTTPClient.METHOD_POST, path_prefix + "/api/game/auth/save", headers, body) != OK:
+		c.close()
+		return
+	while c.get_status() == HTTPClient.STATUS_REQUESTING:
+		if Time.get_ticks_msec() > deadline:
+			c.close()
+			log_message("종료 전 클라우드 저장: 응답 시간 초과", "warning")
+			return
+		c.poll()
+		OS.delay_msec(5)
+	if c.has_response() and c.get_response_code() == 200:
+		_cloud_pending = {}
+	c.close()
 
 func set_content_version(ver: String) -> void:
 	content_version = ver.strip_edges() if not ver.strip_edges().is_empty() else "base"

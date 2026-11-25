@@ -4,6 +4,7 @@ extends Node2D
 ## NPC 설명 → WASD 로 로봇을 걸려서 E 로 상호작용 → 오른쪽 코드 패널에 실행한 코드가 쌓인다.
 ## 씬 구조는 tools/write_stage_scenes.py 가 만들고, 하위 클래스는 규칙만 구현한다.
 
+const LearningCatalog = preload("res://scripts/learning_catalog.gd")
 const CRATE_SCENE := preload("res://scenes/play/Crate.tscn")
 const TOKEN_SCENE := preload("res://scenes/play/Token.tscn")
 const MENU := "res://scenes/Main.tscn"
@@ -71,8 +72,8 @@ func _ready() -> void:
 		for g in c.get_children():
 			if g is Interactable:
 				_spots[_spot_key(g.kind, g.index)] = g
-	StageHUD.make_speech_bubble(hint, hint_label)
-	hud.set_title(stage_id, stage_title)
+	var bob := StageHUD.make_speech_bubble(hint, hint_label)
+	hud.set_title(LearningCatalog.display_tag(stage_id, scene_file_path), stage_title)   # 메뉴 카드와 같은 분류 태그 (DS-01 등)
 	hud.set_controls("WASD 이동 · E 상호작용 · Z 되돌리기 · R 초기화 · H 도움말 · Esc 메뉴")
 	hud.next_pressed.connect(_next_level)
 	hud.retry_pressed.connect(_retry_level)
@@ -81,8 +82,8 @@ func _ready() -> void:
 	player.interacted.connect(_on_interact)
 	player.focus_changed.connect(func(_t): refresh())
 	var tw := create_tween().set_loops()
-	tw.tween_property(hint, "position:y", -10.0, 0.4).as_relative().set_trans(Tween.TRANS_SINE)
-	tw.tween_property(hint, "position:y", 10.0, 0.4).as_relative().set_trans(Tween.TRANS_SINE)
+	tw.tween_property(bob, "position:y", -10.0, 0.4).set_trans(Tween.TRANS_SINE)   # hint 가 아니라 Bob 을 흔든다
+	tw.tween_property(bob, "position:y", 0.0, 0.4).set_trans(Tween.TRANS_SINE)
 	build_stage()
 	start_level(0)
 
@@ -312,7 +313,8 @@ func refresh() -> void:
 	hud.set_info("레벨 %d / %d" % [level + 1, level_count], info_rows())
 	var a := next_action()
 	var t: Interactable = a[0]
-	hint.visible = t != null and hint_allowed(t) and not done and not hud.dialogue_open()
+	# 로봇이 이미 그 지점 앞에 서 있으면 "E ..." 말풍선이 같은 안내를 하므로 겹치지 않게 숨긴다.
+	hint.visible = t != null and hint_allowed(t) and not done and not hud.dialogue_open() and player.focus != t
 	if t != null:
 		hint.position = t.position + t.bubble_offset
 		hint_label.text = a[1]
@@ -394,6 +396,32 @@ func panel_at(r: Rect2, bg: Color, border := StageHUD.INK, bw := 3, parent: Node
 func clear_children(n: Node) -> void:
 	for c in n.get_children():
 		c.queue_free()
+
+## 바닥 발판 층: World(로봇·상자)보다 먼저 그려져 발 밑에 깔린다.
+func make_floor_layer() -> Node2D:
+	var n := Node2D.new()
+	field.add_child(n)
+	field.move_child(n, world.get_index())
+	return n
+
+## "여기 서서 E" 를 알려 주는 빛나는 타원 발판 + 이름
+func floor_pad(layer: Node2D, p: Vector2, label: String, col: Color, rx := 40.0) -> void:
+	var pts := PackedVector2Array()
+	for i in 24:
+		var a := i / 24.0 * TAU
+		pts.append(p + Vector2(cos(a) * rx, sin(a) * rx * 0.38))
+	var fill := Polygon2D.new()
+	fill.polygon = pts
+	fill.color = Color(col, 0.6)
+	layer.add_child(fill)
+	var rim := Line2D.new()
+	rim.points = pts
+	rim.closed = true
+	rim.width = 3.0
+	rim.default_color = col
+	layer.add_child(rim)
+	if label != "":
+		text_at(label, p + Vector2(0, 28), 18, Color.WHITE, 6, layer)
 
 ## 빛나는 연결선 + 화살촉 (links 층)
 func link(a: Vector2, b: Vector2, col := C_LINK, bend := 0.0) -> void:

@@ -2557,8 +2557,12 @@ func _refresh_pause_menu_ui() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
-		if game_state == GameState.PLAYING or game_state == GameState.PAUSED_MENU:
-			_save_current_state()
+		save_for_quit()
+
+## 창을 닫을 때 저장. NetworkManager 가 종료 알림을 먼저 받으면 이 함수를 직접 불러, 저장을 서버로 마저 보낸다.
+func save_for_quit() -> void:
+	if game_state == GameState.PLAYING or game_state == GameState.PAUSED_MENU:
+		_save_current_state()
 
 func _save_current_state() -> void:
 	if current_user.is_empty():

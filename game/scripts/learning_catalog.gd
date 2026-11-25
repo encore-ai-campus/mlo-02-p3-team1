@@ -39,6 +39,20 @@ const GAMES := [
 	["DATA04", "차트 관측소", "시각화 해석", "DATA", "DATA04_Chart", "막대·선·산점도와 결론", "DATA04", "DA-04"],
 ]
 
+## 화면에 보여 줄 분류 태그(DS-01, AL-02, SQ-01, DA-01, CH-01, 보너스 ...).
+## 메뉴 카드와 게임 안 제목에 같은 태그가 나오도록 둘 다 이 함수를 쓴다. 저장·통계용 실행 ID(ST01 ...)는 그대로 둔다.
+## scene_path 를 주면 씬 이름으로 찾는다 (실행 ID 가 같은 ST10 계열 세 게임을 구분하기 위해).
+static func display_tag(run_id: String, scene_path := "") -> String:
+	var scene := scene_path.get_file().get_basename()
+	if not scene.is_empty():
+		for g in GAMES + CHALLENGE_GAMES:
+			if str(g[4]) == scene:
+				return str(g[7])
+	for g in GAMES:
+		if str(g[0]) == run_id:
+			return str(g[7])
+	return run_id
+
 static func games_for(category: String) -> Array:
 	if category == "CHALLENGE":
 		return CHALLENGE_GAMES

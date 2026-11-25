@@ -68,6 +68,10 @@ static func record_clear(id: String, star_count: int) -> void:
 			var sd: Dictionary = auth_cls.get_user_progress(last_u)
 			sd["minigame_cleared"] = cleared.duplicate(true)
 			auth_cls.save_user_progress(last_u, sd)
+			# 별을 딴 즉시 서버에도 저장한다. 미니게임 화면에서 바로 게임을 꺼도 다음 로그인 때 별이 남는다.
+			var nm = (Engine.get_main_loop() as SceneTree).root.get_node_or_null("NetworkManager")
+			if nm and nm.has_method("sync_cloud_save"):
+				nm.call("sync_cloud_save", last_u, sd)
 
 var stage_id := "ST00"
 var stage_title := ""
@@ -306,12 +310,13 @@ func _draw_tutorial() -> void:
 	text_c("아무 키나 누르거나 클릭하면 시작 · 게임 중 H 로 다시 보기", Vector2(640, r.end.y - 22), 17, C_PANEL_DARK)
 
 func _draw_hud() -> void:
-	# 제목
-	var tw := text_w(stage_title, 24) + text_w(stage_id, 20) + 70
+	# 제목 (태그는 메뉴 카드와 같은 분류 태그: DS-01, CH-02 ...)
+	var tag: String = preload("res://scripts/learning_catalog.gd").display_tag(stage_id, scene_file_path)
+	var tw := text_w(stage_title, 24) + text_w(tag, 20) + 70
 	pbox(Rect2(16, 12, tw, 52), C_PANEL_DARK, C_INK)
-	pbox(Rect2(24, 20, text_w(stage_id, 20) + 24, 36), C_BLUE, C_INK)
-	text(stage_id, Vector2(36, 46), 20, C_WHITE)
-	text(stage_title, Vector2(text_w(stage_id, 20) + 62, 48), 24, C_WHITE)
+	pbox(Rect2(24, 20, text_w(tag, 20) + 24, 36), C_BLUE, C_INK)
+	text(tag, Vector2(36, 46), 20, C_WHITE)
+	text(stage_title, Vector2(text_w(tag, 20) + 62, 48), 24, C_WHITE)
 	# 목표
 	var gx := tw + 32
 	var gw: float = min(text_w("목표: " + goal, 20) + 40, 1000 - gx)

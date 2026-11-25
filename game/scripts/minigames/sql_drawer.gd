@@ -795,7 +795,7 @@ func _draw_mission() -> void:
 	var t: String = _level().mission
 	var size := fit(t, rect.size.x - 60, 24)
 	text_at(rect.get_center() + Vector2(0, -8), t, size, NAVY)
-	text_at(rect.get_center() + Vector2(0, 22), "%s · %d / 3단계" % [game.id, level + 1], 15, Color("7a5a2a"))
+	text_at(rect.get_center() + Vector2(0, 22), "%s · %d / 3단계" % [preload("res://scripts/learning_catalog.gd").display_tag(game.id, scene_file_path), level + 1], 15, Color("7a5a2a"))
 	# 좌측 상단 도움말(H) & 힌트(F) 버튼
 	var h_btn := Rect2(16, 14, 132, 36)
 	draw_rect(h_btn, Color(0.11, 0.22, 0.45, 0.92))
