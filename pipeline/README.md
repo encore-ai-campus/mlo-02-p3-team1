@@ -22,9 +22,9 @@
 | `remote/` | 원격 작업자(remote-writer): outbox 선점, 세션 순서대로 투영, 회원·게스트 확인, rt_* 사본, 상태 집계, `requeue` 도구 |
 | `observatory/`, `Dockerfile.observatory` | 읽기 전용 관측소(FastAPI :8011)와 알림 센터 |
 | `simulator.py`, `spark/verify.py`, `spark/probe_latency.py` | 계약 점검·스모크·부하 송신, 행 수 대조·히스토리·타임 트래블, 수집→화면 지연 측정 |
-| `tools/` | DLQ 조회, 더미 데이터, 상태 객체 DLQ 복구(`recover_state_dlq.py`), 중복 제거·Silver·outbox 실험 도구 |
+| `tools/` | DLQ 조회, 더미 데이터, 상태 객체 DLQ 복구(`recover_state_dlq.py`), 실행 코드 일치 확인(`check_runtime_source.py`), 중복 제거·Silver·outbox 실험 도구 |
 | `launcher.py`, `build_launcher.cmd` | 실행 런처(실행·하트비트·종료 이벤트, `NODEVERSE_PLAYER_ID` 전달) → launcher.exe |
-| `compose.*.yaml` | 관측소만 붙이기, 격리된 실험·복구 시험용 Compose 파일 |
+| `compose.*.yaml` | 운영 스택 코드 갱신 override(`compose.runtime-source.yaml`), 관측소만 붙이기, 격리된 실험·복구 시험용 Compose 파일 |
 
 ## 처리 흐름
 
@@ -96,7 +96,7 @@ docker compose -p nodeverse-v2-live --env-file .env --env-file live.env -f compo
 
 운영 PC에서는 기존 게이트웨이(:8000)가 `/v2/events`를 내부 수집기(:8003)로 넘깁니다. 게이트웨이 설정은 이 저장소에 없습니다. 읽기 전용 사전 점검은 `python check.py`(키 값 출력·시험 이벤트 전송 없음)입니다.
 
-**운영 Spark 전환 주의:** 운영 PC의 Spark는 아직 이전 단일 파일 `delta_stream.py`와 그 체크포인트로 동작합니다. 저장소의 분리형 모듈은 쿼리 이름·스키마·상태 호환을 별도 볼륨·체크포인트에서 시험한 뒤 전환해야 하며, 코드만 복사해 재시작하거나 운영 체크포인트를 지우면 안 됩니다. 자세한 내용은 [docs/TEAM_INTEGRATION_2026-11-25.md](docs/TEAM_INTEGRATION_2026-11-25.md)에 있습니다.
+**운영 스택의 코드 갱신:** 운영 PC의 Spark·collector·remote-writer는 이 저장소의 분리형 모듈로 동작하며, 기존 `nodeverse-v2-live` 볼륨과 체크포인트 8개를 그대로 씁니다. 기존 프로젝트를 유지한 채 코드만 갱신할 때는 이 폴더에서 이미지를 빌드하고, 비공개 env에 `PIPELINE_SOURCE_ROOT`(pipeline 폴더 절대 경로)와 `PIPELINE_APP_IMAGE`(이미지 태그)를 지정한 뒤 기존 명령 끝에 `-f compose.runtime-source.yaml`을 **마지막 override**로 붙여 `up -d --no-deps --no-build spark collector remote-writer`로 적용합니다. 이 파일만 단독으로 실행하지 않고, 체크포인트를 지우지 않으며, 적용 전 백업·복제 시험을 합니다. 실행 중 코드가 저장소와 같은지는 `python tools/check_runtime_source.py --container <컨테이너> --role spark|collector|writer`로 확인합니다. 절차와 시험 결과는 [docs/RUNTIME_CURRENT_2026-11-25.md](docs/RUNTIME_CURRENT_2026-11-25.md)에 있습니다.
 
 ## 주요 설정
 
@@ -163,7 +163,6 @@ PySpark가 없는 환경에서는 Spark가 필요한 시험(경고 기준선 등
 
 ## 추후 예정
 
-- 운영 Spark를 분리형 모듈로 전환 (별도 볼륨·체크포인트에서 호환 시험 후)
 - 압축을 같은 배치 밖의 별도 작업으로 분리 (게시 지연·다음 배치 지연을 나눠 측정한 뒤 설계)
 - 대량 부하 시험, 중복 제거 상태 48시간 비교, Silver MERGE 범위 최적화 측정 후 적용
 - 게임이 최초 실행 시 guest UUID를 프로필에 보관하고 플레이마다 새 session UUID를 만들도록 맞추기
@@ -181,7 +180,8 @@ PySpark가 없는 환경에서는 Spark가 필요한 시험(경고 기준선 등
 | [docs/LIVE_REMOTE_SINK.md](docs/LIVE_REMOTE_SINK.md) | 실제 수집 경로와 원격 적재 운영 |
 | [docs/OBSERVATORY.md](docs/OBSERVATORY.md), [docs/OBSERVATORY_ALERTS.md](docs/OBSERVATORY_ALERTS.md) | 관측소 화면과 알림 센터 |
 | [docs/RECOVERY_2026-11-25.md](docs/RECOVERY_2026-11-25.md) | 게스트 처리·상태 객체 이벤트 복구 |
-| [docs/TEAM_INTEGRATION_2026-11-25.md](docs/TEAM_INTEGRATION_2026-11-25.md) | 팀원 변경 통합과 운영 반영 범위 |
+| [docs/RUNTIME_CURRENT_2026-11-25.md](docs/RUNTIME_CURRENT_2026-11-25.md) | 운영 실행 코드를 분리형 모듈로 현행화한 절차와 시험 결과 |
+| [docs/TEAM_INTEGRATION_2026-11-25.md](docs/TEAM_INTEGRATION_2026-11-25.md) | 팀원 변경 통합 점검 기록 |
 | [docs/TECHNICAL_REVIEW.md](docs/TECHNICAL_REVIEW.md) | Kafka·Streaming·복구·Delta·성능 점검 |
 | [docs/E2E_TEST_REPORT_2026-11-20.md](docs/E2E_TEST_REPORT_2026-11-20.md) | 실제 서비스 시험 보고서 |
 | [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | 강제 종료·타임 트래블 시연 대본 |

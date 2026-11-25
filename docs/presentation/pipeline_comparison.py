@@ -87,7 +87,7 @@ def flow(stage):
            "+ MERGE: 날짜 7일 + v7 ID 범위 + ID 생성일별 분리 · outbox 500건 bulk",
            "+ 자동 압축 끔 → 300배치마다 작은 파일만, Outbox 적재·Mongo 게시가 끝난 뒤 압축",
            "+ 늦게 도착 건수 표시, 경고는 정시 이벤트만 (기준선도 같은 규칙), DLQ 집계",
-           "※ 운영 PC Spark는 아직 이전 단일 delta_stream.py와 기존 체크포인트로 동작 (분리형 전환은 별도 시험 후)"])], "spark", 20)
+           "+ 운영 PC도 분리형 코드로 전환, 기존 체크포인트 그대로 이어서 처리"])], "spark", 20)
     r = box(60, 880, 1220, 170, "원격 작업자 → MySQL·대시보드 MongoDB", [
         *(["! 1건씩, 매 건 MySQL 새 연결 + GET_LOCK → 초당 17~24건 (유입의 1/8)",
            "! 대기·재시도 기한 없음, blocked 안 보임, outbox 무한 증가"] if first else

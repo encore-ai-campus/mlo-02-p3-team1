@@ -338,6 +338,7 @@ def build():
         "[5] tools/dummy_data.py --reverse-sessions N",
         "probe_latency.py: 수집→화면 지연 (15초 기준)",
         "[+] python -m observatory.setup_indexes --execute",
+        "[+] tools/check_runtime_source.py: 실행 코드 = 저장소 확인",
     ], kind="ops"))
     o.append(arrow([(420, 1310), (440, 1310)], "data"))
     o.append(arrow([(830, 1310), (850, 1310)], "data"))
@@ -414,10 +415,10 @@ def build():
         "[+] 압축은 outbox 적재·Mongo 게시 뒤, 경고 기준선은 현재 창과 같은 규칙",
         "[+] state 객체 호환·게스트 연결: 복구 45건 원격 원본·행동 로그 확인",
         "[+] 관측소 :8011 + 알림 센터",
+        "[+] 운영 Spark·수집기·작업자를 분리형 코드로 전환 (기존 체크포인트 8개 유지)",
         "남은 과제",
-        "· 운영 PC Spark는 아직 이전 단일 delta_stream.py + 기존 체크포인트",
-        "   → 분리형은 별도 볼륨·체크포인트에서 호환 시험 후 전환",
-        "· 압축 비동기화, 대량 부하·48h 중복 상태 비교, 최신 EXE 종단 시험",
+        "· 압축을 별도 작업으로 분리, 테이블별 충돌 제어",
+        "· 대량 부하·48h 중복 상태 비교, 최신 EXE 종단 시험",
     ]))
     o.append("</svg>")
     return "\n".join(o)
