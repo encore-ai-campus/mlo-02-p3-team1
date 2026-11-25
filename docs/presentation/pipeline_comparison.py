@@ -67,11 +67,11 @@ def flow(stage):
     g = box(60, 170, 340, 330, "게임 (Godot)", [
         "학습·업데이트·런처 이벤트", "디스크 큐 → HTTP 전송",
         *(["! 4xx 하나가 큐 전체를 막음", "! 401 영구 거부, 6일 초과 전송", "! UUIDv4 (시간순 아님)"] if first else
-          ["+ 응답별 재시도·만료", "+ UUIDv7 (시간순 ID)", "+ 원자적 큐 쓰기, 계정별 세션"])], "game")
+          ["+ 응답별 재시도·만료", "+ UUIDv7 (시간순 ID)", "+ 원자적 큐 쓰기, 계정별 세션", "+ config.ini로 수집기·서버 주소"])], "game")
     c = box(450, 170, 360, 330, "수집기 (FastAPI)", [
         "검증 → Kafka → 202 / 422+DLQ",
         *(["! Kafka 장애 시 요청당 12초 대기", "! 폴링 스레드 예외 무방비", "! 상태 조회 Mongo 장애 = 500"] if first else
-          ["+ 대기 5초, 폴링 스레드 보호", "+ /health/ready = 수집 준비", "+ /health/deps 브로커별 진단"])], "ingest")
+          ["+ 대기 5초, 폴링 스레드 보호", "+ /health/ready = 수집 준비", "+ /health/deps 브로커별 진단", "+ state 객체 → JSON 문자열 정규화"])], "ingest")
     k = box(860, 170, 420, 330, "Kafka 3대 (KRaft)", [
         "토픽 5개 · 복제 3 · 최소 ISR 2", "보관 7일",
         *(["! 헬스체크 = 10초마다 JVM CLI", "  (브로커당 CPU 최대 150%)", "! topic-init도 JVM CLI"] if first else
@@ -83,24 +83,27 @@ def flow(stage):
            "! 자동 압축이 매 커밋 파티션 전체 재작성 (실데이터 30MB → 디스크 4.9GB)",
            "! 늦게 도착한 기록이 실시간 경고·버전 보급률을 왜곡"] if first else
           ["Bronze append → Silver 중복 제거 + MERGE → Gold 1분·5분 창 → MongoDB rt_*",
-           "+ 모듈 분리, 실패한 쿼리만 재시작, sink 재시도, Gold 게시 실패 창 재게시",
+           "+ bronze·silver·gold·periodic 모듈 분리, 실패한 쿼리만 재시작, Gold 게시 실패 창 재게시",
            "+ MERGE: 날짜 7일 + v7 ID 범위 + ID 생성일별 분리 · outbox 500건 bulk",
-           "+ 자동 압축 끔 → 300배치마다 작은 파일만 + VACUUM (별도 스레드)",
-           "+ 늦게 도착 건수 표시, 경고는 정시 이벤트만, 거절·격리(DLQ) 집계"])], "spark", 20)
+           "+ 자동 압축 끔 → 300배치마다 작은 파일만, Outbox 적재·Mongo 게시가 끝난 뒤 압축",
+           "+ 늦게 도착 건수 표시, 경고는 정시 이벤트만 (기준선도 같은 규칙), DLQ 집계",
+           "※ 운영 PC Spark는 아직 이전 단일 delta_stream.py와 기존 체크포인트로 동작 (분리형 전환은 별도 시험 후)"])], "spark", 20)
     r = box(60, 880, 1220, 170, "원격 작업자 → MySQL·대시보드 MongoDB", [
         *(["! 1건씩, 매 건 MySQL 새 연결 + GET_LOCK → 초당 17~24건 (유입의 1/8)",
            "! 대기·재시도 기한 없음, blocked 안 보임, outbox 무한 증가"] if first else
           ["+ 묶음·세션 병렬·풀 + 왕복 26→10회·순번 역전 해결 → 초당 219건 (유입 따라감)",
-           "+ 기한 후 parked, 상태 카드, 완료 행 30일 TTL, 상태 집계는 인덱스만"])], "writer", 20)
+           "+ 기한 후 parked, 상태 카드, 완료 행 30일 TTL, 상태 집계는 인덱스만",
+           "+ 게스트 회원 연결 (REMOTE_ALLOW_GUESTS=1), 회원 캐시 상한 5만"])], "writer", 20)
     sv = box(1330, 170, 530, 670, "관리자 서버 (Django)", [
         "실시간 현황 (rt_*, 3초)", "전체 현황·게임 분석·플레이어",
         "", *(["! 적재 상태·거절 이벤트를", "  볼 화면 없음", "! /staff/ 참조 누락 시 500"] if first else
               ["+ 1분 전 대비 ▲▼ 추세", "+ 분석 화면 적재 상태 카드", "+ 거절·격리 이벤트 카드",
                "+ 늦게 도착 N건 표시", "+ 실시간 = 도착 시각,", "   분석 = 플레이 시각 (명시)",
-               "+ 참조 누락에도 500 없음"])], "server")
+               "+ 참조 누락에도 500 없음", "+ 파이프라인 알림 현황 탭",
+               "+ 회원/게스트 필터"])], "server")
     m = box(1330, 880, 530, 170, "운영 도구", [
         *(["! 수동 확인뿐"] if first else
-          ["+ requeue · dlq_peek · health", "+ dummy_data · probe_latency"])], "ops")
+          ["+ 관측소 :8011 (지표·알림 센터)", "+ requeue · dlq_peek · health · 복구 도구"])], "ops")
     a = (arrow([(400, 330), (450, 330)]) + arrow([(810, 330), (860, 330)]) +
          arrow([(1070, 500), (1070, 550)]) + arrow([(670, 840), (670, 880)]) +
          arrow([(1280, 640), (1330, 640)], label="rt_*", lx=1305, ly=626) +
@@ -114,8 +117,8 @@ def fig_first():
 
 
 def fig_current():
-    return svg(flow("current"), "② 현재 구조 (1~8차 보완 후)",
-               "2026-11-21 · 1~8차 · 초록 글씨 = 바뀐 부분 · 처리 경로(Kafka→Bronze→Silver→Gold→rt_*→원격 적재)는 그대로")
+    return svg(flow("current"), "② 현재 구조 (1~8차 보완과 후속 반영)",
+               "2026-11-25 · 초록 글씨 = 바뀐 부분 · 처리 경로(Kafka→Bronze→Silver→Gold→rt_*→원격 적재)는 그대로")
 
 
 ROUNDS = [

@@ -47,7 +47,7 @@
 
 ### 상세 동작 아키텍처
 
-![현재 동작 아키텍처 (상세)](../architecture/pipeline-architecture-2026-11-21.png)
+![현재 동작 아키텍처 (상세)](../architecture/pipeline-architecture-2026-11-25.png)
 
 ### 처음과 같은 것
 
@@ -174,6 +174,6 @@
 | `docs/presentation/fig-4-metrics.png` | ④ 성능 전후 비교 막대 |
 | `docs/presentation/fig-5-scenarios.png` | ⑤ 장애·예외 상황 대응 비교 |
 | `docs/presentation/fig-6-sequence.png` | ⑥ 원격 적재가 느렸던 원인: 순번 역전 선점 |
-| `docs/architecture/pipeline-architecture-2026-11-21.png` | 현재 동작 아키텍처 (상세) |
+| `docs/architecture/pipeline-architecture-2026-11-25.png` | 현재 동작 아키텍처 (상세) |
 
 모두 1920×1080(16:9)이라 슬라이드에 그대로 넣을 수 있습니다. 같은 이름의 `.svg`는 크기를 바꿔도 깨지지 않는 원본입니다.

@@ -1,20 +1,20 @@
 # 🌐 NODEVERSE — 연결된 배움의 세계 (Nodeverse Game)
 
-미니게임은 **자료구조·알고리즘·SQL·데이터 탐색**의 4개 분야, 23개 실습과 자료구조 종합 보너스 1개로 구성되어 있습니다. 현재 목록과 신규 실습 조작법은 [미니게임 가이드](MINIGAME_GUIDE.md)를 참고하세요.
+미니게임은 **자료구조·알고리즘·SQL·데이터 탐색**의 4개 분야, 23개 실습과 자료구조 종합 보너스 1개, 종합 도전 섬의 판테온 코드 자동화·종합 코딩테스트 2개로 구성되어 있습니다. 현재 목록과 신규 실습 조작법은 [미니게임 가이드](MINIGAME_GUIDE.md)를 참고하세요.
 
 [![Godot Engine](https://img.shields.io/badge/Godot-v4.7.2-478cbf?style=for-the-badge&logo=godotengine&logoColor=white)](https://godotengine.org)
 [![Python](https://img.shields.io/badge/Python-3.13-3776ab?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Telemetry-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![Status](https://img.shields.io/badge/Telemetry-Active-brightgreen?style=for-the-badge)](#실시간-학습-데이터-파이프라인-아키텍처)
+[![Status](https://img.shields.io/badge/Telemetry-Active-brightgreen?style=for-the-badge)](#-학습-이벤트-전송)
 
 > **"배움이 모험이 되는 작은 세계"**  
-> 7개의 연결된 3D 메타버스 섬과 10가지 2D 자료구조 도트 미니게임을 탐험하며,  
+> 7개의 연결된 3D 메타버스 섬과 2D 도트 미니게임을 탐험하며,  
 > 비동기 실시간 텔레메트리 파이프라인으로 학습 데이터를 수집·분석하는 교육용 게임 플랫폼입니다.
 
 ---
 
 
-`reference/NODEVERSE_연결섬_전체지도.png`를 기준으로 4개 섬을 다리로 연결한 플레이 가능한 3D 월드와,
+`reference/NODEVERSE_연결섬_전체지도.png`를 기준으로 섬들을 다리로 연결한 플레이 가능한 3D 월드와,
 그 월드를 구성하는 모듈형 3D 에셋 70종(GLB + TSCN)을 담은 프로젝트입니다.
 
 - 월드 실행: `play_game.bat` (메인 씬 `scenes/NodeverseWorld.tscn`)
@@ -22,6 +22,8 @@
 - 에디터: `open_editor.bat`
 
 ## 월드 구성 (`scripts/nodeverse_world.gd`)
+
+섬은 7개입니다: 메인, 자료구조(DS), 알고리즘(ALGO), SQL, 입문(INTRO, 메인 남서쪽), 데이터(DATA, 알고리즘 북동쪽), 종합 도전(CHALLENGE, 알고리즘 북쪽). 아래 그림은 처음 만든 네 섬의 배치입니다.
 
 ```
                 [알고리즘 섬]  정렬 계단 · 그래프 광장(노드 5 + 연결선) · 미로 정원 · 분기 경로
@@ -62,48 +64,30 @@ Godot_v4.7.2-stable_win64_console.exe --path . --resolution 1280x720 res://scene
 
 
 
-## 📡 실시간 학습 데이터 파이프라인 아키텍처
+## 📡 학습 이벤트 전송
 
-NODEVERSE는 게임 내 모든 플레이어의 조작(시작, 블록 이동, 실수, 되돌리기, 클리어 등)을 비동기 표준 스키마 이벤트로 수집하여 분석 서버로 전송합니다.
+게임의 학습 행동(문제 시작, 조작 성공·실패, 힌트, 시도 결과)과 업데이트 행동을 v2 이벤트로 만들어 파이프라인 수집 API로 보냅니다. 수집 이후의 처리는 [pipeline/README.md](../pipeline/README.md)에 있습니다.
 
 ```mermaid
 flowchart LR
-    subgraph Client ["Godot 4.7 Game Client"]
-        A["3D World & 10 Mini-Games"] --> B["NetworkManager (Autoload)"]
-        B --> C["Async HTTPRequest (3s Timeout)"]
-        B -.-> D["Offline Safe Mode (Zero-Crash)"]
-        B --> E["F6 In-Game Debug HUD"]
-    end
-
-    subgraph Backend ["FastAPI Ingestion Server"]
-        F["POST /v1/events (Port 8000)"]
-        G["Pydantic v2 Schema Validation"]
-        F --> G
-    end
-
-    subgraph Analytics ["Real-Time Dashboard"]
-        H["Web Monitoring UI (Port 8010)"]
-        I["Mistake Heatmap & Time Analysis"]
-        H --> I
-    end
-
-    C -->|"HTTP/1.1 POST (X-API-Key)"| F
-    G -->|"Real-time Aggregation"| H
+    A["미니게임 · 3D 월드"] --> B["NetworkManager (Autoload)"]
+    B --> Q["디스크 큐 user://telemetry/pending/"]
+    Q -->|"POST /v2/events (X-API-Key, 3초 타임아웃)"| C["수집 API (파이프라인 PC :8000)"]
+    C --> K["Kafka → Spark → Delta → MongoDB"]
+    K --> D["Django 관리자 대시보드 /staff/"]
 ```
 
-### 🛡️ 주요 기술적 특징
-1. **완전 비동기 논블로킹 (Async Non-Blocking)**:
-   - Godot의 `HTTPRequest` 노드를 통해 백그라운드 소켓 통신을 수행하여 60 FPS 화면 렌더링과 플레이어 조작(WASD/E)을 0.001초도 방해하지 않습니다.
-2. **오프라인 무중단 안전 모드 (Zero-Crash Fallback)**:
-   - 서버 접속 불가, 인터넷 끊김, HTTP 에러(401/422/500) 상황에서도 게임이 튕기거나 멈추지 않고 내부 오프라인 큐로 전환되어 100% 정상 플레이가 보장됩니다.
-3. **3초 타임아웃 방어 (Timeout Protection)**:
-   - 응답이 지연되는 네트워크 환경에서도 3초 내에 자동으로 연결 시도를 정리하여 리소스 누수를 차단합니다.
-4. **인게임 F6 실시간 디버그 패널**:
-   - 게임 플레이 중 `F6` 단축키를 눌러 전송 패킷, RTT 지연시간(Latency ms), 서버 연결 상태를 실시간 모니터링할 수 있습니다.
+- **디스크 큐:** 이벤트는 먼저 `user://telemetry/pending/<event_id>.json`에 임시 파일 → 확인 → 교체 방식으로 저장하고, 하나씩 보냅니다. 202면 삭제, 401(키 오류)은 큐에 둔 채 60초마다 재시도, 422 등 4xx는 `rejected/`(6일 뒤 만료), 깨진 파일은 `corrupt/`로 옮기고, 그 밖의 실패는 같은 event_id로 1~60초 간격 재시도합니다(최대 5,000건). 네트워크가 없어도 게임은 멈추지 않습니다.
+- **이벤트 ID와 순서:** event_id는 UUIDv7, 세션 안 `sequence`는 1부터 빠짐없이 증가합니다. 플레이어가 바뀌면 새 세션·run·attempt를 씁니다.
+- **주소 설정:** `config.ini.example`을 `config.ini`로 복사해 Windows 빌드는 `NODEVERSE.exe` 옆, 에디터 실행은 `project.godot` 옆에 둡니다. `[pipeline]`의 `host`·`port`·`endpoint`, `[server]`의 `host`·`port`를 고친 뒤 재시작합니다. 없으면 기존 `network.ini`, JSON 설정, 코드 기본값 순서로 씁니다. 자세한 규칙은 [개발환경 구성 가이드](../docs/SETUP_GUIDE.md)에 있습니다.
+- **디버그:** `[debug] debug_enabled=true`이면 FPS(F3), 카메라 디버그(F4), 테스트 봇(F5), 전송 디버그 패널(F6)이 켜집니다. 지정하지 않으면 에디터에서만 켜집니다.
+- 이벤트 형식은 [contracts/README.md](../contracts/README.md)와 `pipeline/contract.py`가 기준입니다.
 
 ---
 
-## 🎮 10종 자료구조 도트 미니게임 라인업
+## 🎮 자료구조 도트 미니게임 (초기 10종)
+
+현재 전체 목록(알고리즘·SQL·데이터·종합 도전 포함)은 [미니게임 가이드](MINIGAME_GUIDE.md)와 `scripts/learning_catalog.gd`에 있습니다.
 
 | ID | 스테이지명 | 자료구조 | 핵심 개념 및 조작 |
 |:---:|:---|:---:|:---|
