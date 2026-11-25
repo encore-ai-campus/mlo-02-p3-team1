@@ -61,7 +61,12 @@ func _init() -> void:
 	]
 
 func build_stage() -> void:
-	head_label = text_at("A", mark("AnchorHead") + Vector2(-12, 2), 34, StageHUD.INK, 0)
+	# HEAD 팻말에는 노드 이름(A 등)이 아니라 "HEAD" 를 쓴다. 노드 A 와 헷갈리지 않게, HEAD 가 무엇을 가리키는지는 노란 연결선으로만 보여 준다.
+	head_label = text_at("HEAD", mark("AnchorHead") + Vector2(-10, 2), 23, StageHUD.INK, 0)
+	text_at("첫 노드를 가리키는 팻말", mark("AnchorHead") + Vector2(0, -58), 17, C_HEAD, 5)
+	# 끝 단말기: next 가 비었음(null)을 뜻한다. 흰 연결선과 같은 색으로 표시해 HEAD(노란색)와 구분한다.
+	text_at("null", mark("AnchorEnd") + Vector2(0, -66), 30, Color.WHITE, 7)
+	text_at("리스트의 끝", mark("AnchorEnd") + Vector2(0, -38), 17, Color("d9e2ec"), 5)
 	cable_line = Line2D.new()
 	cable_line.width = 7.0
 	cable_line.default_color = StageHUD.GOLD
@@ -114,7 +119,6 @@ func _anchor(k: String) -> Vector2:
 func rebuild() -> void:
 	clear_children(links)
 	clear_children(stickers)
-	head_label.text = head
 	link(_anchor("Head") + Vector2(40, 10), _anchor(head) + Vector2(-20, -26), C_HEAD, 24.0)
 	for k in KEYS:
 		if k in lost or k in removed:

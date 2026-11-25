@@ -42,7 +42,7 @@ STAGES = {
         "spots": [("Head", "head", -1, (150, 300), 66, -120), ("NodeA", "node", 0, (292, 378), 62, -210), ("NodeB", "node", 1, (585, 716), 62, -210),
                   ("NodeC", "node", 2, (1113, 378), 62, -210), ("End", "null", -1, (1312, 348), 58, -120)],
         "marks": {"AnchorA": (292, 238), "AnchorB": (585, 588), "AnchorC": (1113, 238), "AnchorHead": (170, 196), "AnchorEnd": (1305, 262)},
-        "signs": [("HEAD", (150, 142)), ("끝 (null)", (1310, 212))],
+        "signs": [],   # HEAD / null 표시는 st02_linked_list_stage.gd 가 색을 달리해 직접 그린다
     },
     "ST03": {
         "scene": "ST03_Stack", "script": "st03_stack_stage", "npc": ("NPC03", "복구실 장인"), "npc_pos": (668, 480), "spawn": (820, 560),

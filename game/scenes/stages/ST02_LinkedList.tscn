@@ -193,26 +193,6 @@ text = "운송로 정비사"
 label_settings = SubResource("sign_text")
 horizontal_alignment = 1
 
-[node name="Sign0" type="Label" parent="Field/World"]
-z_index = 4
-offset_left = 24.9
-offset_top = 95.8
-offset_right = 204.9
-offset_bottom = 121.8
-text = "HEAD"
-label_settings = SubResource("sign_text")
-horizontal_alignment = 1
-
-[node name="Sign1" type="Label" parent="Field/World"]
-z_index = 4
-offset_left = 913.7
-offset_top = 149.4
-offset_right = 1093.7
-offset_bottom = 175.4
-text = "끝 (null)"
-label_settings = SubResource("sign_text")
-horizontal_alignment = 1
-
 [node name="HintArrow" type="Node2D" parent="Field/World"]
 z_index = 5
 position = Vector2(400, 250)
