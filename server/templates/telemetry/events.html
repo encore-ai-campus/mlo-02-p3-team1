@@ -1,26 +1,55 @@
 {% extends 'accounts/base.html' %}{% block content %}
-<div class="page-heading"><div><span class="eyebrow">ACTIVITY EXPLORER</span><h1>행동 로그 탐색</h1><p class="subtitle">게임에서 일어난 시도·조작·힌트를 파이프라인(MongoDB pipeline_learning_events)에서 바로 읽습니다. 새로고침하면 최신 기록이 보입니다.</p></div><a class="btn secondary" href="{% url 'guide' %}">이벤트 지표 가이드 ↗</a></div>
+<div class="ov events-page">
+<div class="ov-head">
+  <div class="ov-head-stack"><h1>행동 로그 탐색</h1><p>플레이어의 게임 내 행동 이벤트를 조회하고 세부 정보를 확인할 수 있습니다.</p></div>
+</div>
 
-<form class="card events-filter" method="get">
+<form class="card filter-card" method="get" aria-label="행동 로그 조건">
   <div class="field"><label for="ev-start">시작일</label><input id="ev-start" type="date" name="start" value="{{ start|date:'Y-m-d' }}"></div>
   <div class="field"><label for="ev-end">종료일</label><input id="ev-end" type="date" name="end" value="{{ end|date:'Y-m-d' }}"></div>
-  <div class="field"><label for="ev-member">플레이어</label><select id="ev-member" name="member"><option value="">전체</option>{% for a in members %}<option value="{{ a.player_id }}" {% if selected_member and selected_member.pk == a.pk %}selected{% endif %}>{{ a.username }}</option>{% endfor %}</select></div>
-  <div class="field"><label for="ev-game">미니게임</label><select id="ev-game" name="game"><option value="">전체</option>{% for code, title in games %}<option value="{{ code }}" {% if game == code %}selected{% endif %}>{{ code }} · {{ title }}</option>{% endfor %}</select></div>
-  <div class="field"><label for="ev-kind">행동</label><select id="ev-kind" name="kind"><option value="">전체</option>{% for value, label in kinds %}<option value="{{ value }}" {% if kind == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
-  <div class="field"><label for="ev-sort">정렬</label><select id="ev-sort" name="sort"><option value="recent" {% if selected_sort == 'recent' %}selected{% endif %}>최신순</option><option value="oldest" {% if selected_sort == 'oldest' %}selected{% endif %}>오래된순</option></select></div>
-  <div class="events-filter-actions"><button type="submit">조회</button><a class="text-button" href="{{ request.path }}">초기화</a></div>
+  <div class="field" data-autosubmit><label for="ev-member">플레이어</label><select id="ev-member" name="member"><option value="">전체 플레이어</option>{% for a in members %}<option value="{{ a.player_id }}" {% if selected_member and selected_member.pk == a.pk %}selected{% endif %}>{{ a.username }}</option>{% endfor %}</select></div>
+  <div class="field" data-autosubmit><label for="ev-game">미니게임</label><select id="ev-game" name="game"><option value="">전체 게임</option>{% for code, title in games %}<option value="{{ code }}" {% if game == code %}selected{% endif %}>{{ code }} · {{ title }}</option>{% endfor %}</select></div>
+  <div class="field" data-autosubmit><label for="ev-kind">행동</label><select id="ev-kind" name="kind"><option value="">전체 행동</option>{% for value, label in kinds %}<option value="{{ value }}" {% if kind == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="field field-narrow" data-autosubmit><label for="ev-sort">정렬</label><select id="ev-sort" name="sort"><option value="recent" {% if selected_sort == 'recent' %}selected{% endif %}>최신순</option><option value="oldest" {% if selected_sort == 'oldest' %}selected{% endif %}>오래된순</option></select></div>
+  <div class="filter-card-actions"><button type="submit" class="ov-apply">조회</button><a class="ov-reset" href="{{ request.path }}">{% include 'accounts/nav_icon.html' with icon='reset' %}초기화</a></div>
 </form>
 
-<section class="card section data-table-card"><div class="section-head"><div><span class="eyebrow">EVENT TIMELINE</span><h2>행동 이벤트 <span class="count-badge">{{ page.paginator.count }}건</span></h2></div><span class="section-caption">{{ start|date:'Y-m-d' }} ~ {{ end|date:'Y-m-d' }} · 기본 최근 7일</span></div>
-{% if error %}<p class="notice">{{ error }}</p>{% endif %}
-<div class="table-scroll"><table><thead><tr><th>발생 시각</th><th>플레이어</th><th>미니게임</th><th>행동</th><th>상세</th><th>순서 / 세션</th><th>빌드</th></tr></thead><tbody>
-{% for e in rows %}<tr>
-<td class="mono">{{ e.at|date:'m.d H:i:s' }}</td>
-<td>{% if e.member %}<a class="person-cell" href="{% url 'member-detail' e.member.pk %}#play"><span class="person-avatar">{{ e.member.name|slice:':1' }}</span><span>{{ e.member.name }}<small>회원</small></span></a>{% else %}<span class="person-cell"><span class="person-avatar">?</span><span>미가입 기기<small class="mono">{{ e.raw_player|slice:':12' }}</small></span></span>{% endif %}</td>
-<td>{{ e.code }}<small>{{ e.title }}</small></td>
-<td><span class="event-kind {{ e.kind }}">{{ e.label }}</span></td>
-<td>{{ e.operation|default:'—' }}{% if e.reason %}<small>{{ e.reason }}</small>{% endif %}</td>
-<td class="mono">{% if e.sequence != None %}#{{ e.sequence }}{% else %}—{% endif %}<small>{{ e.session|default:'—' }}</small></td>
-<td>{{ e.build|default:'—' }}<small>{{ e.content }}</small></td>
-</tr>{% empty %}<tr><td colspan="7" class="empty"><span class="empty-symbol">{% include 'accounts/nav_icon.html' with icon='activity' %}</span><strong>표시할 행동 기록이 없습니다</strong><p>기간이나 조건을 바꿔 보세요. 게임을 플레이하면 파이프라인을 거쳐 수 초 안에 들어옵니다.</p></td></tr>{% endfor %}
-</tbody></table></div>{% include 'telemetry/pagination.html' %}</section>{% endblock %}
+{% if counts %}
+<section class="kpis kpis-3" aria-label="행동 이벤트 요약">
+  <article class="kpi"><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='layers' %}</span><div class="kpi-body"><span class="kpi-label">전체 이벤트</span><strong class="kpi-value">{{ counts.total }}<small>건</small></strong><span class="kpi-basis">{{ start|date:'Y.m.d' }} ~ {{ end|date:'Y.m.d' }} · 조건 적용</span></div></article>
+  <article class="kpi"><span class="kpi-icon tone-good">{% include 'accounts/nav_icon.html' with icon='check' %}</span><div class="kpi-body"><span class="kpi-label">성공<span class="kpi-info" role="button" tabindex="0" aria-label="성공 기준 보기" data-tip="시도 성공·연산 성공·문제 완료 이벤트 수입니다. 연산 성공은 행동 하나의 성공이며 문제 완료와 다릅니다.">i</span></span><strong class="kpi-value text-good">{{ counts.success }}<small>건</small></strong><span class="kpi-basis">시도·연산 성공, 문제 완료</span></div></article>
+  <article class="kpi"><span class="kpi-icon tone-bad">{% include 'accounts/nav_icon.html' with icon='x' %}</span><div class="kpi-body"><span class="kpi-label">실패<span class="kpi-info" role="button" tabindex="0" aria-label="실패 기준 보기" data-tip="시도 실패·연산 실패 이벤트 수입니다. 시작·힌트 이벤트는 성공과 실패 어느 쪽에도 넣지 않습니다.">i</span></span><strong class="kpi-value">{{ counts.failure }}<small>건</small></strong><span class="kpi-basis">시도·연산 실패</span></div></article>
+</section>
+{% endif %}
+
+<section class="card ov-card" aria-labelledby="events-title">
+  <div class="ov-card-head"><div><h2 id="events-title">행동 이벤트</h2><p class="ov-sub">조건에 맞는 행동 로그입니다. 행을 펼쳐 이벤트의 세부 정보를 확인할 수 있습니다.</p></div>
+    {% if counts.total %}<a class="btn-outline" href="?{{ querystring }}&format=csv">{% include 'accounts/nav_icon.html' with icon='download' %}CSV 내보내기</a>{% endif %}</div>
+  {% if error %}<p class="notice" role="alert">{{ error }}</p>{% endif %}
+  <div class="table-scroll" tabindex="0" aria-label="행동 이벤트 표"><table class="ov-table event-list">
+    <thead><tr><th scope="col"><span class="sr-only">펼치기</span></th><th scope="col">발생 시각</th><th scope="col">플레이어</th><th scope="col">게임</th><th scope="col">행동</th><th scope="col">연산</th><th scope="col">결과</th><th scope="col">상세</th></tr></thead>
+    {% for e in rows %}<tbody class="event-group">
+    <tr>
+      <td><button type="button" class="row-toggle" aria-expanded="false" aria-controls="ev-detail-{{ forloop.counter }}" aria-label="{{ e.at|date:'H:i:s' }} 이벤트 상세 펼치기">{% include 'accounts/nav_icon.html' with icon='chevron' %}</button></td>
+      <td class="mono">{{ e.at|date:'Y-m-d H:i:s' }}</td>
+      <td>{% if e.member %}<a class="id-chip" href="{% url 'member-detail' e.member.pk %}#play">{{ e.member.name }}</a>{% else %}<span class="id-chip muted" title="{{ e.raw_player }}">미가입 기기 · {{ e.raw_player|slice:':8' }}</span>{% endif %}</td>
+      <td>{% if e.title %}<span class="code-chip">{{ e.code }}</span> {{ e.title }}{% else %}<span class="code-chip">{{ e.code }}</span>{% endif %}</td>
+      <td><span class="kind-chip">{{ e.label }}</span></td>
+      <td>{% if e.operation %}<code class="op-chip">{{ e.operation }}</code>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td>{% if e.result == 'success' %}<span class="result-badge success">성공</span>{% elif e.result == 'failure' %}<span class="result-badge failure">실패</span>{% else %}<span class="result-badge neutral">—</span>{% endif %}</td>
+      <td class="event-reason">{{ e.reason|default:'' }}</td>
+    </tr>
+    <tr class="event-detail" id="ev-detail-{{ forloop.counter }}" hidden><td></td><td colspan="7">
+      <div class="event-detail-box">
+        <div class="event-detail-heading"><strong>이벤트 상세</strong>
+        {% if e.run_id %}<button type="button" class="btn-ghost timeline-open" data-run-timeline="{{ e.run_id }}">타임라인 ▶</button>{% endif %}</div>
+        <dl><dt>이벤트 ID</dt><dd><code>{{ e.event_id|default:'—' }}</code></dd><dt>세션 ID</dt><dd><code>{{ e.session_full|default:'—' }}</code></dd><dt>시퀀스</dt><dd>{% if e.sequence != None %}{{ e.sequence }} (세션 내 순서){% else %}—{% endif %}</dd><dt>문제 실행 / 시도</dt><dd><code>{{ e.run_id|slice:':8'|default:'—' }}</code> / <code>{{ e.attempt_id|slice:':8'|default:'—' }}</code></dd></dl>
+        <dl><dt>게임 / 버전</dt><dd>{{ e.code }}{% if e.title %} ({{ e.title }}){% endif %} · 빌드 {{ e.build|default:'—' }} · 콘텐츠 {{ e.content|default:'—' }}</dd><dt>도착 시각</dt><dd>{{ e.received|date:'Y-m-d H:i:s'|default:'—' }}</dd><dt>세부 값</dt><dd>{% for key, value in e.details %}<span class="detail-pair">{{ key }}: {{ value }}</span>{% empty %}<span class="muted">없음</span>{% endfor %}</dd></dl>
+      </div></td></tr>
+    </tbody>{% empty %}<tbody><tr><td colspan="8" class="ov-empty">표시할 행동 기록이 없습니다<small>기간이나 조건을 바꿔 보세요. 게임을 플레이하면 파이프라인을 거쳐 수 초 안에 들어옵니다.</small></td></tr></tbody>{% endfor %}
+  </table></div>
+  {% include 'telemetry/pagination.html' %}
+</section>
+<p class="ov-foot"><span>{% include 'accounts/nav_icon.html' with icon='database' %}MongoDB pipeline_learning_events · 발생 시각 기준 · Asia/Seoul</span>{% if counts.total %}<span>CSV는 최신순 최대 10,000건</span>{% endif %}</p>
+</div>
+{% endblock %}

@@ -1,1 +1,127 @@
-{% extends 'accounts/base.html' %}{% block content %}<div class="page-heading"><div><span class="eyebrow">DATA DICTIONARY / READ BEFORE INTERPRETING</span><h1>데이터로 무엇을 볼 수 있을까요?</h1><p class="subtitle">관찰할 수 있는 정보와 아직 알 수 없는 것을 구분합니다.</p></div><a class="btn secondary" href="{% url 'dashboard' %}">대시보드로 →</a></div><div class="notice">회원 정보는 MySQL, 학습 기록은 MongoDB에서 조회합니다. 24종 게임 등록과 실제 기록 관측, 종단 연동 완료는 서로 다른 상태입니다. 데모는 합성 데이터이며 실제 학습 효과나 능력 진단이 아닙니다.</div><section class="guide-grid section"><article class="card"><span class="eyebrow">01 / TIME SERIES</span><h2 class="section">활동량과 해결 흐름</h2><p>문제 실행이 시작된 날의 시작·해결·포기 수를 봅니다. 특정 날짜의 변화는 콘텐츠·운영 변경을 확인할 단서입니다.</p><p>해결은 현재까지의 결과이므로 같은 날짜에 실제로 발생한 해결 이벤트 수와 다릅니다.</p></article><article class="card"><span class="eyebrow">02 / OUTCOME & TOPIC</span><h2 class="section">결과 구성과 학습 분야별 차이</h2><p>해결률 = 해결된 실행 / 시작한 실행. 진행 중과 포기도 분모에 포함합니다. 레이더의 축은 동일한 해결률입니다.</p><p>학습 분야마다 난이도와 표본 수가 다릅니다. 낮은 값이 곧 개인의 낮은 능력은 아닙니다.</p></article><article class="card"><span class="eyebrow">03 / HINTS</span><h2 class="section">힌트 뒤의 새로운 시도</h2><p>각 실행의 첫 힌트보다 늦게 시작한 바로 다음 시도를 확인합니다. 성공·실패만 평가 분모에 넣습니다.</p><p>힌트를 사용 중이던 시도의 성공을 소급해서 연결하지 않습니다. 힌트 자체의 효과를 증명하지 않습니다.</p></article><article class="card"><span class="eyebrow">04 / DURATION & RETRIES</span><h2 class="section">오래 걸리는 풀이와 반복 시도</h2><p>히스토그램은 해결 실행의 active_ms 분포입니다. 산점도는 active_ms가 있는 실행의 시간과 시도 수를 비교합니다.</p><p>일시정지는 제외합니다. 산점도는 최대 200개를 표시하고 좌표가 같은 기록은 겹칠 수 있습니다.</p></article><article class="card"><span class="eyebrow">05 / FAILURES & ACTIVITY</span><h2 class="section">반복 실패와 행동 시간대</h2><p>operation_failed의 연산·원인 조합을 봅니다. attempt_failed와 이중으로 더하지 않습니다. 히트맵은 이벤트 발생 수입니다.</p><p>히트맵이 진할수록 이용자 수가 많다는 뜻은 아닙니다. 한 명이 반복 행동을 많이 했을 수 있습니다.</p></article><article class="card"><span class="eyebrow">06 / VERSIONS</span><h2 class="section">버전별 비교와 표본</h2><p>같은 task_id의 content_version을 구분합니다. 막대·툴팁·원자료 표에서 실행 수를 함께 확인하세요.</p><p>서로 다른 사용자·기간·난이도 구성의 차이가 있습니다. 무작위 비교 실험 없이 개선의 인과 효과를 단정하지 않습니다.</p></article><article class="card"><span class="eyebrow">07 / SCOPE</span><h2 class="section">필터와 기간</h2><p>문제 지표는 선택 기간에 시작한 실행을 현재까지 추적합니다. 행동 로그·히트맵은 선택 기간의 이벤트 발생 시각을 봅니다.</p><p>분야, 게임 실행 ID, source, 플레이어 검색, 문제, 버전을 적용합니다. 행동 유형 필터는 로그 탐색에만 적용합니다. 기본 기간은 최근 28일입니다.</p></article><article class="card"><span class="eyebrow">08 / DATA QUALITY</span><h2 class="section">비어 있는 데이터도 정보입니다</h2><p>결과가 없으면 비율은 미정으로 표시합니다. 이전 형식 이벤트는 원본 조회가 가능하지만 문제·시도 지표에서는 제외합니다.</p><p>이벤트가 없다는 사실만으로 힌트 미사용이나 실패 없음으로 단정하지 않습니다. 완료 결과가 아직 오지 않았다면 해결률 0%는 학습 실패를 의미하지 않습니다. UI를 채우기 위해 실제 출처의 가짜 로그를 만들지 않습니다.</p></article><article class="card"><span class="eyebrow">09 / GAME CATALOG</span><h2>4개 분야 · 24종 게임</h2><p>자료구조 10종, 알고리즘 6종, SQL 4종, 데이터 탐색 4종입니다. task_id가 보고서 실행 ID와 일치할 때 분류하며 영문 대소문자만 정규화합니다. 제목이나 기존 주제로 추측하지 않습니다.</p><p>DS09는 트리 구조, ST06은 트리 순회입니다. DS10은 그래프 구조, ST09는 그래프 탐색입니다. 미분류 기록은 전체 지표에는 포함하고 별도 목록으로 표시합니다.</p></article><article class="card"><span class="eyebrow">10 / OPERATION VS COMPLETION</span><h2>연산 성공과 문제 완료</h2><p>연산 성공은 행동 하나의 성공입니다. 문제 해결률은 completed 실행 / 전체 시작 실행이며 진행 중과 포기도 분모에 포함합니다. 연산 성공만으로 문제 완료를 추정하지 않습니다.</p><p>평균 풀이 시간은 완료된 실행 중 active_ms가 있는 기록만 집계합니다. 누락된 시간을 0초로 채우지 않습니다. 게임별 오답·되돌리기·별점은 필드 계약이 확정되기 전 추정하지 않습니다.</p></article></section>{% endblock %}
+{% extends 'accounts/base.html' %}{% block content %}
+<div class="ov guide-page">
+<div class="ov-head">
+  <div class="ov-head-stack"><h1 class="guide-h1">{% include 'accounts/nav_icon.html' with icon='book' %}지표 가이드</h1><p>학습 데이터를 읽는 기준을 확인하세요. 관찰할 수 있는 정보와 아직 알 수 없는 것을 구분합니다.</p></div>
+</div>
+
+<div class="guide-layout">
+  <div class="guide-main">
+    <div class="guide-tools">
+      <label class="search-input guide-search">{% include 'accounts/nav_icon.html' with icon='search' %}<span class="sr-only">지표 검색</span><input type="search" id="guide-q" placeholder="지표 이름이나 궁금한 내용을 검색하세요." autocomplete="off"></label>
+      <div class="guide-chips" role="group" aria-label="지표 분류"><button type="button" class="chip" data-guide-tag="" aria-pressed="true">전체</button><button type="button" class="chip" data-guide-tag="activity" aria-pressed="false">활동과 해결</button><button type="button" class="chip" data-guide-tag="time" aria-pressed="false">시간과 재시도</button><button type="button" class="chip" data-guide-tag="reading" aria-pressed="false">데이터 해석</button></div>
+    </div>
+
+    <div class="guide-cards" id="guide-cards">
+      <article class="card guide-card" data-tag="activity">
+        <header><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='users' %}</span><h2>활성 플레이어</h2><span class="tag-chip">활동과 해결</span></header>
+        <p class="guide-def"><b>정의</b>선택한 기간에 행동 기록이 1건 이상 있는 고유 플레이어 수</p>
+        <div class="formula"><b>산식</b><span>별도 계산식 없음 · 기간 내 행동이 있는 플레이어를 한 번씩 셉니다</span></div>
+        <a class="text-link" href="{% url 'dashboard' %}">{% include 'accounts/nav_icon.html' with icon='dashboard' %}관련 화면 · 전체 현황 ›</a>
+      </article>
+      <article class="card guide-card" data-tag="activity">
+        <header><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='target' %}</span><h2>문제 해결률</h2><span class="tag-chip">활동과 해결</span></header>
+        <p class="guide-def"><b>정의</b>선택 기간에 시작한 문제 중 문제 완료(problem_completed) 기록이 있는 비율</p>
+        <div class="formula"><b>산식</b><span class="fraction"><span>완료한 문제 실행</span><span>시작한 문제 실행</span></span><span>× 100</span></div>
+        <a class="text-link" href="{% url 'games' %}">{% include 'accounts/nav_icon.html' with icon='gamepad' %}관련 화면 · 게임 분석 ›</a>
+      </article>
+      <article class="card guide-card" data-tag="time">
+        <header><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='clock' %}</span><h2>평균 풀이 시간</h2><span class="tag-chip">시간과 재시도</span></header>
+        <p class="guide-def"><b>정의</b>완료한 문제의 실제 풀이 시간(active_ms) 평균. 일시정지 시간은 빠집니다</p>
+        <div class="formula"><b>산식</b><span class="fraction"><span>풀이 시간이 있는 완료 실행의 시간 합</span><span>풀이 시간이 있는 완료 실행 수</span></span></div>
+        <a class="text-link" href="{% url 'games' %}">{% include 'accounts/nav_icon.html' with icon='gamepad' %}관련 화면 · 게임 분석 ›</a>
+      </article>
+      <article class="card guide-card" data-tag="time">
+        <header><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='retry' %}</span><h2>재시도한 문제</h2><span class="tag-chip">시간과 재시도</span></header>
+        <p class="guide-def"><b>정의</b>시도 횟수가 2회 이상인 문제 실행 수</p>
+        <div class="formula"><b>산식</b><span>시도 횟수 ≥ 2 인 문제 실행 수</span></div>
+        <a class="text-link" href="{% url 'events' %}">{% include 'accounts/nav_icon.html' with icon='list' %}관련 화면 · 행동 로그 ›</a>
+      </article>
+      <article class="card guide-card" data-tag="activity">
+        <header><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='check' %}</span><h2>연산 성공률</h2><span class="tag-chip">활동과 해결</span></header>
+        <p class="guide-def"><b>정의</b>push·pop 같은 조작 하나하나가 성공한 비율. 문제 해결률과 다릅니다</p>
+        <div class="formula"><b>산식</b><span class="fraction"><span>연산 성공</span><span>연산 성공 + 연산 실패</span></span><span>× 100</span></div>
+        <a class="text-link" href="{% url 'players' %}">{% include 'accounts/nav_icon.html' with icon='users' %}관련 화면 · 플레이어 ›</a>
+      </article>
+      <article class="card guide-card" data-tag="reading">
+        <header><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='chart' %}</span><h2>학습 활동 추이</h2><span class="tag-chip">데이터 해석</span></header>
+        <p class="guide-def"><b>정의</b>날짜별로 그날 시작한 문제 수와, 그중 지금까지 해결된 수를 봅니다</p>
+        <div class="formula"><b>읽는 법</b><span>해결 수는 ‘그날 해결된 수’가 아니라 ‘그날 시작한 문제의 현재 결과’입니다</span></div>
+        <a class="text-link" href="{% url 'dashboard' %}">{% include 'accounts/nav_icon.html' with icon='dashboard' %}관련 화면 · 전체 현황 ›</a>
+      </article>
+      <article class="card guide-card" data-tag="reading">
+        <header><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='info' %}</span><h2>힌트 다음 시도</h2><span class="tag-chip">데이터 해석</span></header>
+        <p class="guide-def"><b>정의</b>각 실행의 첫 힌트보다 늦게 시작한 바로 다음 시도의 결과</p>
+        <div class="formula"><b>읽는 법</b><span>성공·실패만 분모에 넣습니다. 힌트 자체의 효과를 증명하지는 않습니다</span></div>
+        <a class="text-link" href="{% url 'games' %}">{% include 'accounts/nav_icon.html' with icon='gamepad' %}관련 화면 · 게임 분석 ›</a>
+      </article>
+      <article class="card guide-card" data-tag="reading">
+        <header><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='alert' %}</span><h2>자주 실패하는 시도</h2><span class="tag-chip">데이터 해석</span></header>
+        <p class="guide-def"><b>정의</b>연산 실패(operation_failed)의 연산·원인 코드 조합별 건수</p>
+        <div class="formula"><b>산식</b><span class="fraction"><span>해당 조합의 연산 실패</span><span>전체 연산 실패</span></span><span>× 100</span></div>
+        <a class="text-link" href="{% url 'games' %}">{% include 'accounts/nav_icon.html' with icon='gamepad' %}관련 화면 · 게임 분석 ›</a>
+      </article>
+      <article class="card guide-card" data-tag="reading">
+        <header><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='layers' %}</span><h2>버전별 비교</h2><span class="tag-chip">데이터 해석</span></header>
+        <p class="guide-def"><b>정의</b>같은 문제의 콘텐츠 버전(content_version)을 나눠서 봅니다</p>
+        <div class="formula"><b>읽는 법</b><span>사용자·기간·난이도 구성이 달라 무작위 비교 실험 없이 개선 효과를 단정하지 않습니다</span></div>
+        <a class="text-link" href="{% url 'games' %}">{% include 'accounts/nav_icon.html' with icon='gamepad' %}관련 화면 · 게임 분석 ›</a>
+      </article>
+      <article class="card guide-card" data-tag="reading">
+        <header><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='calendar' %}</span><h2>필터와 기간</h2><span class="tag-chip">데이터 해석</span></header>
+        <p class="guide-def"><b>정의</b>문제 지표는 선택 기간에 시작한 실행을 지금까지 추적하고, 행동 로그는 이벤트 발생 시각으로 봅니다</p>
+        <div class="formula"><b>읽는 법</b><span>분야·게임·데이터 구분·플레이어·문제·버전 필터가 모든 지표에 적용됩니다. 기본 기간은 최근 28일입니다</span></div>
+        <a class="text-link" href="{% url 'dashboard' %}">{% include 'accounts/nav_icon.html' with icon='dashboard' %}관련 화면 · 전체 현황 ›</a>
+      </article>
+    </div>
+    <p class="ov-empty" id="guide-empty" hidden>검색어에 맞는 지표가 없습니다.</p>
+  </div>
+
+  <aside class="guide-side">
+    <section class="card ov-card notice-panel" aria-labelledby="notice-title">
+      <h2 id="notice-title"><span class="notice-mark" aria-hidden="true">!</span>알아두세요</h2>
+      <div class="notice-item"><span class="kpi-icon tone-warn">{% include 'accounts/nav_icon.html' with icon='check' %}</span><div><strong>연산 성공 ≠ 문제 완료</strong><p>연산이 맞아도 문제의 모든 조건(정답 확인·제출 등)이 충족되어야 ‘문제 완료’로 집계됩니다.</p></div></div>
+      <div class="notice-item"><span class="kpi-icon tone-warn"><b class="zero">0</b></span><div><strong>기록 없음 ≠ 0</strong><p>데이터가 없는 것은 값이 0이라는 뜻이 아니라, 기록이 수집되지 않았다는 뜻일 수 있습니다. 화면에는 ‘기록 없음’, ‘미수집’, 실제 0을 나눠 표시합니다.</p></div></div>
+      <div class="notice-item"><span class="kpi-icon tone-warn">{% include 'accounts/nav_icon.html' with icon='clock' %}</span><div><strong>실시간은 도착 시각, 분석은 플레이 시각</strong><p>실시간 현황은 기록이 서버에 도착한 시각, 전체 현황·게임 분석은 플레이가 일어난 시각 기준으로 집계합니다.</p></div></div>
+    </section>
+
+    <section class="card ov-card" aria-labelledby="faq-title">
+      <h2 id="faq-title" class="faq-title">{% include 'accounts/nav_icon.html' with icon='message' %}자주 묻는 질문</h2>
+      <details class="faq"><summary>힌트 기록이 없으면 미사용인가요?</summary><p>아닙니다. 이벤트가 없다는 사실만으로 힌트 미사용이나 실패 없음으로 단정하지 않습니다. 해당 게임이 힌트 이벤트를 보내는지 먼저 확인하세요.</p></details>
+      <details class="faq"><summary>평균 풀이 시간이 비어 있는 이유는?</summary><p>해결한 문제가 없으면 ‘기록 없음’, 해결 기록은 있지만 풀이 시간(active_ms)이 저장되지 않았으면 ‘미수집’으로 표시합니다. 누락된 시간을 0초로 채우지 않습니다.</p></details>
+      <details class="faq"><summary>포기는 왜 ‘집계 전’인가요?</summary><p>지금 게임과 파이프라인은 포기 이벤트를 보내지 않습니다. 그래서 시작했지만 해결 기록이 없는 문제는 모두 ‘미완료’로 셉니다.</p></details>
+      <details class="faq"><summary>분류되지 않은 기록은 어디에 들어가나요?</summary><p>문제 ID가 24종 실행 ID와 맞지 않으면 전체 지표에는 포함하고, 특정 게임이나 분야에는 임의로 넣지 않습니다. 게임 분석 화면 아래에 따로 표시합니다.</p></details>
+    </section>
+  </aside>
+</div>
+
+<section class="card ov-card category-strip" aria-label="게임 카테고리 구성">
+  <strong>{% include 'accounts/nav_icon.html' with icon='layers' %}게임 카테고리 구성 <small class="ov-count">전체 {{ guide_total }}종</small></strong>
+  {% for area in guide_areas %}<span class="category-item"><span class="code-chip">{{ area.code }}</span>{{ area.label }}<b>{{ area.count }}개</b></span>{% endfor %}
+</section>
+<p class="ov-note">DS09는 트리 구조, ST06은 트리 순회, DS10은 그래프 구조, ST09는 그래프 탐색입니다. task_id가 실행 ID와 일치할 때만 분류하며 제목이나 기존 주제로 추측하지 않습니다.</p>
+</div>
+{% endblock %}{% block scripts %}<script>
+(function () {
+  var input = document.getElementById('guide-q');
+  var chips = document.querySelectorAll('[data-guide-tag]');
+  var cards = document.querySelectorAll('.guide-card');
+  var empty = document.getElementById('guide-empty');
+  var tag = '';
+  function apply() {
+    var q = input.value.trim().toLowerCase(), shown = 0;
+    cards.forEach(function (card) {
+      var ok = (!tag || card.dataset.tag === tag) && (!q || card.textContent.toLowerCase().indexOf(q) !== -1);
+      card.hidden = !ok; shown += ok ? 1 : 0;
+    });
+    empty.hidden = shown > 0;
+  }
+  chips.forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      tag = chip.dataset.guideTag;
+      chips.forEach(function (c) { c.setAttribute('aria-pressed', String(c === chip)); });
+      apply();
+    });
+  });
+  input.addEventListener('input', apply);
+})();
+</script>{% endblock %}

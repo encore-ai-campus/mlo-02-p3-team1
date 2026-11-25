@@ -160,7 +160,7 @@ class AdminAuthTests(TestCase):
         self.assertEqual(response.status_code, 200)
         dashboard = client.get('/staff/')
         self.assertEqual(dashboard.status_code, 200)
-        self.assertTemplateUsed(dashboard, 'telemetry/dashboard.html')
+        self.assertTemplateUsed(dashboard, 'telemetry/overview.html')
         self.assertEqual(dashboard.wsgi_request.user.username, 'webadmin')
         self.assertEqual(client.post('/api/auth/logout', '{}', content_type='application/json').status_code, 403)
         self.assertEqual(client.post('/api/auth/logout', '{}', content_type='application/json', HTTP_X_CSRFTOKEN=response.json()['csrf_token']).status_code, 200)

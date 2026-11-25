@@ -144,7 +144,9 @@
     const host = $('pa-active'); host.replaceChildren();
     if (!ok) { host.append(el('p', '관측소에 연결되면 표시합니다.', 'empty')); return; }
     if (!snapshot.alerts.length) { host.append(el('p', '현재 활성 경고가 없습니다.', 'empty')); return; }
-    for (const a of snapshot.alerts) {
+    const seenAt = a => { const t = Date.parse(a.first_seen || ''); return Number.isNaN(t) ? -Infinity : t; };
+    const newestFirst = [...snapshot.alerts].sort((x, y) => seenAt(y) - seenAt(x));  // 처음 발생 시각 최신순, 시각 없는 경고는 맨 뒤
+    for (const a of newestFirst) {
       const row = el('article', null, 'pa-alert ' + a.level);
       const head = el('div', null, 'pa-alert-head');
       head.append(el('span', a.level === 'error' ? '오류' : '주의', 'pa-level ' + a.level), el('strong', a.title));

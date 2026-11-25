@@ -38,13 +38,13 @@ def visual_report(form, players, events):
             hint_results['success' if after and after.outcome=='success' else 'failure' if after and after.outcome=='failure' else 'unknown']+=1
         if run.active_ms is not None:
             scatter.append({'x':round(run.active_ms/1000,1),'y':len(attempts),'status':run.status,
-                            'label':run.session.player.display_name,'task':run.task.task_id,'version':run.task.content_version})
+                            'run_id':str(run.pk),'label':run.session.player.display_name,'task':run.task.task_id,'version':run.task.content_version})
     heat=Counter()
     for stamp in events.values_list('occurred_at',flat=True).iterator():
         stamp=timezone.localtime(stamp);heat[(stamp.weekday(),stamp.hour)]+=1
-    topic_rows=[{'label':label,'n':topic[key]['n'],'rate':round(100*topic[key]['solved']/topic[key]['n'],1) if topic[key]['n'] else None} for key,label in AREAS + [('unmapped', '미분류')]]
+    topic_rows=[{'area':key,'label':label,'n':topic[key]['n'],'rate':round(100*topic[key]['solved']/topic[key]['n'],1) if topic[key]['n'] else None} for key,label in AREAS + [('unmapped', '미분류')]]
     version_rows=[{'task':k[0],'version':k[1],'n':v['n'],'rate':round(100*v['solved']/v['n'],1)} for k,v in sorted(versions.items())]
-    failure_rows=[{'label':f'{op} · {reason}','value':n} for (op,reason),n in failures.most_common(7)]
+    failure_rows=[{'operation':op,'reason':reason,'label':f'{op} · {reason}','value':n} for (op,reason),n in failures.most_common(7)]
     insights=[]
     eligible=[v for v in version_rows if v['n']>=5]
     if eligible:
@@ -55,10 +55,10 @@ def visual_report(form, players, events):
     n_hint=hint_results['success']+hint_results['failure']
     insights.append({'title':'힌트 다음 시도','value':f"{hint_results['success']} / {n_hint} 성공",'detail':f"평가 불가 {hint_results['unknown']}건은 분모에서 제외합니다. 힌트의 인과 효과는 아닙니다."})
     total_events=events.count();structured=events.filter(run__isnull=False).count()
-    return {'empty':not runs,'runs':len(runs),'stride':stride,'trend':[{'label':(start+timedelta(days=i)).strftime('%m.%d'),
+    return {'empty':not runs,'runs':len(runs),'stride':stride,'trend':[{'label':(start+timedelta(days=i)).strftime('%m.%d'),'date':(start+timedelta(days=i)).isoformat(),
              'started':daily[start+timedelta(days=i)]['started'],'completed':daily[start+timedelta(days=i)]['completed'],
              'abandoned':daily[start+timedelta(days=i)]['abandoned']} for i in range(0,days,stride)],
-            'outcomes':[{'label':label,'value':outcomes[k]} for k,label in [('completed','해결'),('abandoned','포기'),('in_progress','진행 중')]],
+            'outcomes':[{'label':label,'value':outcomes[k]} for k,label in [('completed','해결'),('abandoned','포기(집계 전)'),('in_progress','미완료')]],
             'topics':topic_rows,'versions':version_rows,'histogram':[{'label':label,'value':histogram[i]} for i,label in enumerate(['30초 미만','30~60초','1~2분','2~4분','4분 이상'])],
             'attempts':[{'label':str(n) if n<4 else '4회 이상','value':attempt_bins[n]} for n in range(0,5)],
             'failures':failure_rows,'heatmap':[{'day':day,'hour':hour,'value':heat[(day,hour)]} for day in range(7) for hour in range(24)],

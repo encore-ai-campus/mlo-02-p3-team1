@@ -3,6 +3,23 @@
   'use strict';
   var config = JSON.parse(document.getElementById('live-config').textContent);
   var POLL_MS = 3000;
+  var userPaused = false;
+  var pauseButton = document.createElement('button');
+  pauseButton.type = 'button';
+  pauseButton.className = 'btn-ghost live-pause-toggle';
+  pauseButton.textContent = '일시정지';
+  pauseButton.setAttribute('aria-label', '실시간 데이터 자동 갱신 일시정지');
+  pauseButton.setAttribute('aria-pressed', 'false');
+  pauseButton.addEventListener('click', function () {
+    userPaused = !userPaused;
+    pauseButton.setAttribute('aria-pressed', String(userPaused));
+    pauseButton.textContent = userPaused ? '갱신 다시 시작' : '일시정지';
+    pauseButton.setAttribute('aria-label', userPaused ? '실시간 데이터 자동 갱신 다시 시작' : '실시간 데이터 자동 갱신 일시정지');
+    if (userPaused) document.getElementById('live-status-text').textContent = '자동 갱신 일시정지 · 현재 표시된 데이터를 유지합니다';
+  });
+  var liveHeading = document.querySelector('.ov-head');
+  if (liveHeading) liveHeading.append(pauseButton);
+
   var status = document.getElementById('live-status');
   var statusText = document.getElementById('live-status-text');
   var AREA_LABELS = { structures: '자료구조', algorithms: '알고리즘', sql: 'SQL', data: '데이터 탐색', unmapped: '미분류' };
@@ -83,7 +100,7 @@
     var reasons = $('sink-reasons');
     reasons.hidden = !parts.length;
     reasons.textContent = parts.join(' · ');
-    $('sink-updated').textContent = sink.updated_at ? time(sink.updated_at) + ' 기준' : '—';
+    $('sink-updated').textContent = sink.updated_at ? time(sink.updated_at) + ' 기준' : '';
   }
 
   var REJECT_LABELS = { invalid_json: 'JSON 형식 오류', unknown_event_type: '알 수 없는 이벤트 종류',
@@ -111,7 +128,7 @@
       return '<tr><td>' + time(r.at) + '</td><td>' + esc(REJECT_LABELS[r.reason] || r.reason) + '</td><td>' + esc(r.endpoint) +
         '</td><td>' + esc(r.field) + '</td><td>' + esc(r.message) + '</td></tr>';
     }).join('');
-    $('reject-updated').textContent = rej.updated_at ? time(rej.updated_at) + ' 기준 · 1분마다' : '—';
+    $('reject-updated').textContent = rej.updated_at ? time(rej.updated_at) + ' 기준 · 1분마다' : '';
   }
 
   // Trend arrows (like a stock ticker): compare each KPI with its value about one minute ago.
@@ -145,6 +162,69 @@
     }
   }
 
+  var selectedArea = '';
+  var areaNodes = null;
+  var areaSpecs = [
+    {key:'structures', label:'자료구조', code:'DS', color:'#6773d4'},
+    {key:'algorithms', label:'알고리즘', code:'ALGO', color:'#b7835e'},
+    {key:'sql', label:'SQL', code:'SQL', color:'#4b93b0'},
+    {key:'data', label:'데이터 탐색', code:'DATA', color:'#bd789b'}
+  ];
+  function filterGameAreas() {
+    document.querySelectorAll('#game-rows tr[data-area]').forEach(function(row) {
+      row.hidden = !!selectedArea && row.dataset.area !== selectedArea;
+    });
+    if (!areaNodes) return;
+    areaSpecs.forEach(function(spec) {
+      areaNodes.tiles[spec.key].button.setAttribute('aria-pressed', String(selectedArea === spec.key));
+    });
+    var chosen = areaSpecs.find(function(spec) { return spec.key === selectedArea; });
+    areaNodes.hint.textContent = chosen ? chosen.label + ' 게임만 표시 중 · 다시 눌러 해제' : '분야를 누르면 왼쪽 게임 목록을 좁혀 볼 수 있어요';
+  }
+  function renderAreaDashboard(areas, hasRecords) {
+    var holder = $('area-bars');
+    if (!areaNodes) {
+      holder.replaceChildren();
+      var summary = document.createElement('div'); summary.className = 'area-dash-summary';
+      var label = document.createElement('span'); label.textContent = '분야별 전체 시도';
+      var total = document.createElement('strong'); summary.append(label,total);
+      var segments = document.createElement('div'); segments.className = 'area-dash-segments'; segments.setAttribute('aria-hidden','true');
+      var grid = document.createElement('div'); grid.className = 'area-dash-grid';
+      var tiles = {};
+      areaSpecs.forEach(function(spec) {
+        var segment = document.createElement('i'); segment.style.background = spec.color; segments.append(segment);
+        var tile = document.createElement('button'); tile.type = 'button'; tile.className = 'area-dash-tile'; tile.style.setProperty('--tile-color',spec.color); tile.setAttribute('aria-pressed','false');
+        var top = document.createElement('span'); top.className = 'area-dash-label';
+        var dot = document.createElement('i'); dot.setAttribute('aria-hidden','true');
+        var name = document.createElement('span'); name.textContent = spec.label;
+        var code = document.createElement('small'); code.textContent = spec.code;
+        top.append(dot,name,code);
+        var figures = document.createElement('span'); figures.className = 'area-dash-figures';
+        var count = document.createElement('strong'); var share = document.createElement('small'); figures.append(count,share);
+        tile.append(top,figures);
+        tile.addEventListener('click',function() { selectedArea = selectedArea === spec.key ? '' : spec.key; filterGameAreas(); });
+        grid.append(tile); tiles[spec.key] = {button:tile,count:count,share:share,segment:segment};
+      });
+      var hint = document.createElement('p'); hint.className = 'area-dash-hint';
+      hint.setAttribute('role','status');
+      holder.append(summary,segments,grid,hint);
+      areaNodes = {total:total,tiles:tiles,hint:hint,segments:segments};
+    }
+    var byArea = {}; areas.forEach(function(a) { byArea[a.area] = a; });
+    var total = areaSpecs.reduce(function(sum,spec) { return sum + Number((byArea[spec.key] || {}).attempts || 0); },0);
+    areaNodes.total.textContent = hasRecords ? total.toLocaleString('ko-KR') + '회' : '기록 없음';
+    areaNodes.segments.classList.toggle('is-empty',!total);
+    areaSpecs.forEach(function(spec) {
+      var count = Number((byArea[spec.key] || {}).attempts || 0), share = total ? count / total * 100 : null;
+      var node = areaNodes.tiles[spec.key];
+      node.count.textContent = hasRecords ? count.toLocaleString('ko-KR') + '회' : '—';
+      node.share.textContent = share === null ? '비중 없음' : share.toFixed(1) + '%';
+      node.segment.style.width = (share || 0) + '%';
+      node.button.setAttribute('aria-label',spec.label + ': ' + (hasRecords ? count + '회' : '기록 없음') + ', ' + (share === null ? '비중 없음' : share.toFixed(1) + '%') + ', 선택하면 게임 목록 필터');
+    });
+    filterGameAreas();
+  }
+
   function renderLive(summary, games, alerts) {
     renderSink(summary.sink);
     renderRejects(summary.rejects);
@@ -171,7 +251,7 @@
     setKpi('attempts', total, '24개 미니게임 합계');
     $('game-rows').innerHTML = rows.map(function (r) {
       var rate = r.g.attempts ? r.g.successes / r.g.attempts : null;
-      return '<tr><td><strong>' + esc(r.game.minigame_id) + '</strong><small>' + esc(r.game.title) + '</small></td><td>' +
+      return '<tr data-area="' + esc(r.game.area) + '"><td><strong>' + esc(r.game.minigame_id) + '</strong><small>' + esc(r.game.title) + '</small></td><td>' +
         esc(AREA_LABELS[r.game.area]) + '</td><td class="spark-cell">' +
         sparkline(minutes.map(function (k) { return r.g.slots[k] != null ? r.g.slots[k] : null; })) +
         '</td><td class="numeric">' + r.g.attempts + '</td><td class="numeric' + (rate != null && rate < 0.5 ? ' low' : '') + '">' + pct(rate) + '</td></tr>';
@@ -179,7 +259,7 @@
     var note = $('mismatch-note');
     note.hidden = !games.category_mismatches.length;
     note.textContent = '게임이 보낸 category가 서버 카탈로그 영역과 다릅니다 (게임 파트에 알려 주세요): ' + games.category_mismatches.join(', ');
-    bars($('area-bars'), games.areas.map(function (a) { return { label: a.label, value: a.attempts }; }));
+    renderAreaDashboard(games.areas, games.rows.length > 0);
     $('alert-rows').innerHTML = alerts.alerts.length ? alerts.alerts.map(function (a) {
       return '<tr><td>' + time(a.window_start) + '</td><td><strong>' + esc(a.minigame_id) + '</strong><small>' + esc(a.title || '카탈로그에 없음') +
         '</small></td><td>' + esc(a.area_label) + '</td><td class="numeric">' + esc(a.attempts) + '</td><td class="numeric">' + esc(a.failures) +
@@ -217,13 +297,15 @@
   }
 
   function tick() {
+    if (userPaused || document.hidden) { setTimeout(tick, POLL_MS); return; }
     var requests = config.tab === 'updates'
       ? [get('/api/admin/live/summary'), get('/api/admin/live/updates?minutes=60')]
       : [get('/api/admin/live/summary'), get('/api/admin/live/minigames?minutes=30'), get('/api/admin/live/alerts?minutes=60')];
     Promise.all(requests).then(function (r) {
+      if (userPaused) return;
       setStatus(r[0]);
       if (config.tab === 'updates') renderUpdates(r[1]); else renderLive(r[0], r[1], r[2]);
-    }).catch(function (e) { if (e.message !== 'auth') setStatus(null, e); })
+    }).catch(function (e) { if (!userPaused && e.message !== 'auth') setStatus(null, e); })
       .then(function () { setTimeout(tick, document.hidden ? POLL_MS * 5 : POLL_MS); });
   }
   tick();

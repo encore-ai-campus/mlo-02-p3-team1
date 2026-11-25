@@ -32,6 +32,8 @@ mono_crash.*.json
 # Godot 실행 파일을 저장소 루트에 두어도 커밋되지 않게
 Godot_v*.exe
 Godot_v*.zip
+/NODEVERSE_Pantheon_Concepts.zip
+/NODEVERSE_Pantheon_Concepts_*.zip
 
 # ===== Node / 웹 =====
 node_modules/

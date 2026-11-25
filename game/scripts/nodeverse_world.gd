@@ -28,10 +28,10 @@ static var saved_cam_yaw: float = 45.0
 # 7 ISLANDS CONFIGURATION (WorldTerrain - Organic Beveled Lego Style)
 # ============================================================================
 const ISLANDS := {
-	"MAIN": {"center": Vector2(0.0, 5.3), "rx": 7.4, "rz": 6.3, "rects": [Rect2(-2.5, -2.6, 5.0, 4.0)], "seed": 3},
-	"DS": {"center": Vector2(-15.5, -1.0), "rx": 7.0, "rz": 6.5, "rects": [], "seed": 7},
+	"MAIN": {"center": Vector2(0.0, 5.3), "rx": 7.4, "rz": 6.3, "rects": [Rect2(-2.5, -2.6, 5.0, 4.0), Rect2(-5.0, -1.0, 10.0, 2.0)], "seed": 3},
+	"DS": {"center": Vector2(-15.5, -1.0), "rx": 7.0, "rz": 6.5, "rects": [Rect2(-9.0, -1.0, 1.0, 2.0)], "seed": 7},
 	"ALGO": {"center": Vector2(0.0, -14.0), "rx": 9.5, "rz": 5.6, "rects": [], "seed": 11},
-	"SQL": {"center": Vector2(15.5, -1.0), "rx": 7.0, "rz": 6.5, "rects": [], "seed": 13},
+	"SQL": {"center": Vector2(15.5, -1.0), "rx": 7.0, "rz": 6.5, "rects": [Rect2(8.0, -1.0, 1.0, 2.0)], "seed": 13},
 	"INTRO": {"center": Vector2(-17.5, 17.5), "rx": 6.8, "rz": 5.8, "rects": [], "seed": 17},
 	"DATA": {"center": Vector2(23.0, -17.5), "rx": 7.2, "rz": 6.0, "rects": [], "seed": 19},
 	"CHALLENGE": {"center": Vector2(0.0, -32.5), "rx": 8.5, "rz": 6.5, "rects": [], "seed": 23}
@@ -52,6 +52,8 @@ var _basics_board: Node3D
 var _basics_guide: Control
 var _basics_completed := false
 const BOARD_INTERACT_DIST := 2.6
+var _challenge_shrine: Node3D
+const SHRINE_INTERACT_DIST := 4.4
 
 # NPCs (10 Characters)
 var spawned_npcs: Array[Node3D] = []
@@ -508,6 +510,7 @@ func _build_world_async() -> void:
 		_save_bake(hash)
 		timing.append("bake_save=%dms" % ((Time.get_ticks_usec() - tsv) / 1000))
 	_configure_basics_board()
+	_configure_challenge_shrine()
 	_align_queue_crates()
 	for npc in spawned_npcs:
 		npc.set("look_at_target", player)
@@ -531,6 +534,8 @@ func _build_world_async() -> void:
 			_animate_marker(mk)
 	if is_instance_valid(_basics_board):
 		_animate_marker(_basics_board.get_node("EnterMarker"))
+	if is_instance_valid(_challenge_shrine) and _challenge_shrine.has_node("EnterMarker"):
+		_animate_marker(_challenge_shrine.get_node("EnterMarker"))
 	_set_game_state(GameState.TITLE_LOGIN)
 	_loading_layer.queue_free()
 	is_built = true
@@ -706,7 +711,8 @@ func _try_load_bake(hash: String) -> bool:
 
 func _optimize() -> void:
 	_configure_basics_board()
-	var exclude: Array = [player, stack_tower, array_crane, orb, sort_node, _basics_board]
+	_configure_challenge_shrine()
+	var exclude: Array = [player, stack_tower, array_crane, orb, sort_node, _basics_board, _challenge_shrine]
 	exclude.append_array(array_tiles)
 	exclude.append_array(queue_crates)
 	exclude.append_array(spawned_npcs)
@@ -831,6 +837,38 @@ func _edge_point(from: Vector2, dir: Vector2) -> Vector2:
 			return p
 		p = nx
 	return p
+
+func _bridge_end(from: Vector2, dir: Vector2, width: float = 1.8, embed: float = 0.4) -> Vector2:
+	var d := dir.normalized()
+	var perp := Vector2(-d.y, d.x)
+	var center_edge := from
+	var full_edge := from
+	var has_full := false
+	for i in range(400):
+		var nx := from + d * (float(i) * 0.05)
+		if not _on_island(nx):
+			break
+		center_edge = nx
+		var all_on := true
+		for s: float in [-0.5, -0.25, 0.0, 0.25, 0.5]:
+			if not _on_island(nx + perp * (width * s)):
+				all_on = false
+				break
+		if all_on:
+			full_edge = nx
+			has_full = true
+	var edge := full_edge if has_full else center_edge
+	return edge - d * embed
+
+func _add_bridge_connected(bname: String, from_a: Vector2, dir_a: Vector2, from_b: Vector2, dir_b: Vector2, width: float) -> void:
+	var a := _bridge_end(from_a, dir_a, width, 0.4)
+	var b := _bridge_end(from_b, dir_b, width, 0.4)
+	WorldTerrain.arch_bridge(self, bname, a, b, width, TOP)
+	var seg_dir := (b - a).normalized()
+	_reserve(a, width * 0.85)
+	_reserve(a - seg_dir * 1.1, width * 0.85)
+	_reserve(b, width * 0.85)
+	_reserve(b + seg_dir * 1.1, width * 0.85)
 
 func _label3d(text: String, pos: Vector3, size: int = 40, color: Color = Color(1, 1, 1)) -> Label3D:
 	var l := Label3D.new()
@@ -957,39 +995,25 @@ func _build_islands() -> void:
 
 func _build_bridges() -> void:
 	# Main <-> DS (West)
-	var main_w := _edge_point(Vector2(0.0, 0.0), Vector2(-1.0, 0.0))
-	var ds_e := _edge_point(Vector2(-15.5, 0.0), Vector2(1.0, 0.0))
-	WorldTerrain.arch_bridge(self, "Bridge_DS", main_w + Vector2(0.4, 0.0), ds_e - Vector2(0.4, 0.0), 1.8, TOP)
+	_add_bridge_connected("Bridge_DS", Vector2(0.0, 0.0), Vector2(-1.0, 0.0), Vector2(-15.5, 0.0), Vector2(1.0, 0.0), 1.8)
 
 	# Main <-> SQL (East)
-	var main_e := _edge_point(Vector2(0.0, 0.0), Vector2(1.0, 0.0))
-	var sql_w := _edge_point(Vector2(15.5, 0.0), Vector2(-1.0, 0.0))
-	WorldTerrain.arch_bridge(self, "Bridge_SQL", main_e - Vector2(0.4, 0.0), sql_w + Vector2(0.4, 0.0), 1.8, TOP)
+	_add_bridge_connected("Bridge_SQL", Vector2(0.0, 0.0), Vector2(1.0, 0.0), Vector2(15.5, 0.0), Vector2(-1.0, 0.0), 1.8)
 
 	# Main <-> ALGO (North)
-	var main_n := _edge_point(Vector2(0.0, 0.0), Vector2(0.0, -1.0))
-	var algo_s := _edge_point(Vector2(0.0, -14.0), Vector2(0.0, 1.0))
-	WorldTerrain.arch_bridge(self, "Bridge_ALGO", main_n + Vector2(0.0, 0.4), algo_s - Vector2(0.0, 0.4), 1.8, TOP)
+	_add_bridge_connected("Bridge_ALGO", Vector2(0.0, 0.0), Vector2(0.0, -1.0), Vector2(0.0, -14.0), Vector2(0.0, 1.0), 1.8)
 
 	# Main <-> INTRO (South-West)
-	var main_sw := _edge_point(Vector2(0.0, 5.3), Vector2(-1.0, 1.0))
-	var intro_ne := _edge_point(Vector2(-17.5, 17.5), Vector2(1.0, -1.0))
-	WorldTerrain.arch_bridge(self, "Bridge_INTRO", main_sw, intro_ne, 1.8, TOP)
+	_add_bridge_connected("Bridge_INTRO", Vector2(0.0, 5.3), Vector2(-1.0, 1.0), Vector2(-17.5, 17.5), Vector2(1.0, -1.0), 1.8)
 
 	# ALGO <-> CHALLENGE (Far North)
-	var algo_n := _edge_point(Vector2(0.0, -14.0), Vector2(0.0, -1.0))
-	var chal_s := _edge_point(Vector2(0.0, -32.5), Vector2(0.0, 1.0))
-	WorldTerrain.arch_bridge(self, "Bridge_CHALLENGE", algo_n + Vector2(0.0, -0.4), chal_s + Vector2(0.0, 0.4), 2.2, TOP)
+	_add_bridge_connected("Bridge_CHALLENGE", Vector2(0.0, -14.0), Vector2(0.0, -1.0), Vector2(0.0, -32.5), Vector2(0.0, 1.0), 2.2)
 
 	# ALGO <-> DATA (North-East)
-	var algo_e := _edge_point(Vector2(0.0, -14.0), Vector2(1.0, -0.3))
-	var data_w := _edge_point(Vector2(23.0, -17.5), Vector2(-1.0, 0.3))
-	WorldTerrain.arch_bridge(self, "Bridge_DATA_ALGO", algo_e, data_w, 1.8, TOP)
+	_add_bridge_connected("Bridge_DATA_ALGO", Vector2(0.0, -14.0), Vector2(1.0, -0.3), Vector2(23.0, -17.5), Vector2(-1.0, 0.3), 1.8)
 
 	# SQL <-> DATA
-	var sql_n := _edge_point(Vector2(15.5, -1.0), Vector2(0.6, -1.0))
-	var data_s := _edge_point(Vector2(23.0, -17.5), Vector2(-0.6, 1.0))
-	WorldTerrain.arch_bridge(self, "Bridge_DATA_SQL", sql_n, data_s, 1.8, TOP)
+	_add_bridge_connected("Bridge_DATA_SQL", Vector2(15.5, -1.0), Vector2(0.6, -1.0), Vector2(23.0, -17.5), Vector2(-0.6, 1.0), 1.8)
 
 
 # ============================================================================
@@ -1261,29 +1285,32 @@ func _build_challenge_island() -> void:
 
 	# 2. 크리스탈 천체 전망대 제단 및 기둥 파빌리온 신전 (중앙)
 	# solid=false로 생성하여 사각 박스로 인한 허공 보행 버그를 방지하고 정밀 실린더 콜라이더 적용
-	_spawn("OBJ40_column_pavilion", Vector3(c.x, TOP, c.y - 1.5), 0.0, 1.15)
-	_spawn("OBJ39_crystal_observatory", Vector3(c.x, TOP + 0.1, c.y - 1.5), 0.0, 1.0)
+	const TEMPLE_SCALE := 0.9
+	var temple_base := Vector3(c.x, TOP, c.y - 1.5)
+	var temple_point := func(offset: Vector3) -> Vector3: return temple_base + offset * TEMPLE_SCALE
+	_spawn("OBJ40_column_pavilion", temple_base, 0.0, 1.15 * TEMPLE_SCALE)
+	_spawn("OBJ39_crystal_observatory", temple_base + Vector3.UP * 0.1, 0.0, TEMPLE_SCALE)
 
 	# 신전 전면 계단 경사로 콜라이더 (원형 신전으로 자연스럽게 걸어 진입)
-	_collider(Vector3(c.x, TOP + 0.65, c.y + 0.7), Vector3(3.0, 0.3, 2.2), Vector3(30.0, 0.0, 0.0))
-	_collider(Vector3(c.x, TOP + 1.15, c.y - 0.3), Vector3(2.8, 0.35, 0.6))
+	_collider(temple_point.call(Vector3(0.0, 0.65, 2.2)), Vector3(3.0, 0.3, 2.2) * TEMPLE_SCALE, Vector3(30.0, 0.0, 0.0))
+	_collider(temple_point.call(Vector3(0.0, 1.15, 1.2)), Vector3(2.8, 0.35, 0.6) * TEMPLE_SCALE)
 	# 계단 측면 낙하/공중보행 방지 난간
-	_collider(Vector3(c.x - 1.55, TOP + 1.0, c.y + 0.6), Vector3(0.2, 1.2, 2.2))
-	_collider(Vector3(c.x + 1.55, TOP + 1.0, c.y + 0.6), Vector3(0.2, 1.2, 2.2))
+	_collider(temple_point.call(Vector3(-1.55, 1.0, 2.1)), Vector3(0.2, 1.2, 2.2) * TEMPLE_SCALE)
+	_collider(temple_point.call(Vector3(1.55, 1.0, 2.1)), Vector3(0.2, 1.2, 2.2) * TEMPLE_SCALE)
 
 	# [핵심] 신전 상부 원형 바닥 정밀 실린더 콜라이더 (사각 박스로 인한 공중 보행 버그 완전 해결!)
 	# 원형 회랑 직경에 100% 일치하도록 원형 실린더 콜라이더 적용
-	_cylinder_collider(Vector3(c.x, TOP + 1.15, c.y - 1.5), 3.05, 0.35)
+	_cylinder_collider(temple_point.call(Vector3(0.0, 1.15, 0.0)), 3.05 * TEMPLE_SCALE, 0.35 * TEMPLE_SCALE)
 
 	# 중앙 크리스탈 제단 콜라이더
-	_collider(Vector3(c.x, TOP + 1.8, c.y - 1.5), Vector3(1.2, 1.6, 1.2))
+	_collider(temple_point.call(Vector3(0.0, 1.8, 0.0)), Vector3(1.2, 1.6, 1.2) * TEMPLE_SCALE)
 
 	# 신전 기둥 라인을 따르는 외곽 방호벽 (원형 회랑 내부에서 조망하되 허공으로 떨어지지 않게 보호)
-	_collider(Vector3(c.x, TOP + 2.0, c.y - 4.45), Vector3(5.6, 1.8, 0.3))     # 북측 후면 (바다 방향)
-	_collider(Vector3(c.x - 2.95, TOP + 2.0, c.y - 1.5), Vector3(0.3, 1.8, 5.4))    # 서측 기둥 라인
-	_collider(Vector3(c.x + 2.95, TOP + 2.0, c.y - 1.5), Vector3(0.3, 1.8, 5.4))     # 동측 기둥 라인
-	_collider(Vector3(c.x - 2.25, TOP + 2.0, c.y + 0.65), Vector3(1.4, 1.8, 0.3))   # 남서 전면 기둥 날개
-	_collider(Vector3(c.x + 2.25, TOP + 2.0, c.y + 0.65), Vector3(1.4, 1.8, 0.3))    # 남동 전면 기둥 날개
+	_collider(temple_point.call(Vector3(0.0, 2.0, -2.95)), Vector3(5.6, 1.8, 0.3) * TEMPLE_SCALE)     # 북측 후면 (바다 방향)
+	_collider(temple_point.call(Vector3(-2.95, 2.0, 0.0)), Vector3(0.3, 1.8, 5.4) * TEMPLE_SCALE)    # 서측 기둥 라인
+	_collider(temple_point.call(Vector3(2.95, 2.0, 0.0)), Vector3(0.3, 1.8, 5.4) * TEMPLE_SCALE)     # 동측 기둥 라인
+	_collider(temple_point.call(Vector3(-2.25, 2.0, 2.15)), Vector3(1.4, 1.8, 0.3) * TEMPLE_SCALE)   # 남서 전면 기둥 날개
+	_collider(temple_point.call(Vector3(2.25, 2.0, 2.15)), Vector3(1.4, 1.8, 0.3) * TEMPLE_SCALE)    # 남동 전면 기둥 날개
 
 	# 4. 트로피 깃발 & 황동 난간
 	_spawn("55_banner_trophy", Vector3(c.x - 1.8, TOP, c.y + 4.5), 20.0, 1.0, true)
@@ -1500,6 +1527,30 @@ func _switch_to_2d() -> void:
 	root.remove_child(self)
 	root.add_child(menu)
 	tree.current_scene = menu
+	root.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+	root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
+	root.content_scale_size = GAME_2D_SIZE
+
+func _open_final_challenge() -> void:
+	if _zoom_busy:
+		return
+	if player != null:
+		saved_player_pos = player.global_position
+		saved_cam_yaw = player.cam_yaw
+		player.velocity = Vector3.ZERO
+		player.set("can_move", false)
+	if msg_label != null:
+		msg_label.text = ""
+	var tree := get_tree()
+	var root := tree.root
+	var nm = root.get_node_or_null("NetworkManager")
+	if nm:
+		nm.call("send_custom_event", "terminal_entered", {"zone": "FINAL_CHALLENGE"})
+	var stage: Node = (load("res://scenes/stages/CHALLENGE01_CodeBot.tscn") as PackedScene).instantiate()
+	cached_world = self
+	root.remove_child(self)
+	root.add_child(stage)
+	tree.current_scene = stage
 	root.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
 	root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
 	root.content_scale_size = GAME_2D_SIZE
@@ -1799,6 +1850,26 @@ func _configure_basics_board() -> void:
 		var marker := _make_enter_marker()
 		marker.position = Vector3(0, 2.15, 0)
 		_basics_board.add_child(marker)
+
+func _configure_challenge_shrine() -> void:
+	if not is_instance_valid(_challenge_shrine):
+		for node in find_children("*", "Node3D", true, false):
+			if node.name == "OBJ39_crystal_observatory":
+				_challenge_shrine = node
+				break
+	if is_instance_valid(_challenge_shrine) and not _challenge_shrine.has_node("EnterMarker"):
+		var marker := _make_enter_marker()
+		var roof_height := _local_aabb(_challenge_shrine).end.y
+		var shrine_scale := _challenge_shrine.scale.y
+		marker.position = Vector3.UP * (roof_height + 0.55 / shrine_scale)
+		marker.scale = Vector3.ONE * (1.4 / shrine_scale)
+		_challenge_shrine.add_child(marker)
+
+func _near_challenge_shrine() -> bool:
+	if not is_instance_valid(_challenge_shrine) or player == null:
+		return false
+	var interact_pt := _challenge_shrine.global_position + Vector3(0.0, 0.0, 1.2)
+	return player.global_position.distance_to(interact_pt) < SHRINE_INTERACT_DIST
 
 func _basics_open() -> bool:
 	return is_instance_valid(_basics_guide) and _basics_guide.visible
@@ -3756,7 +3827,7 @@ func _process(delta: float) -> void:
 			prompt_label.text = "[E] 히스토그램/전망대 관측  |  [T] 데이터 분석 퀴즈  |  [F4] 카메라 디버그"
 		"CHALLENGE":
 			zone_label.text = "👑 종합 도전 섬 (Grand Challenge) — 정상 천체 판테온 & 영예의 회랑"
-			prompt_label.text = "[E] 마스터 판테온 트로피 도전  |  [T] 종합 퀴즈  |  [F4] 카메라 디버그"
+			prompt_label.text = "[E] 최종 도전: 로봇 코드 자동화  |  [T] 종합 퀴즈  |  [F4] 카메라 디버그"
 
 	# NPC & 컴퓨터 터미널 감지
 	var near_npc: Node3D = null
@@ -3777,6 +3848,9 @@ func _process(delta: float) -> void:
 
 	if _near_basics_board():
 		prompt_label.text = "📖 [E] 게시판 읽기  ➜  기본 조작·학습 안내" + (" · 확인 완료" if _basics_completed else "")
+		prompt_label.modulate = Color(1.0, 0.95, 0.35)
+	elif _near_challenge_shrine():
+		prompt_label.text = "👑 [E] 판테온 신전 도전  ➜  최종 도전 (로봇 코드 자동화)"
 		prompt_label.modulate = Color(1.0, 0.95, 0.35)
 	elif near_comp:
 		var terminal := _nearest_terminal()
@@ -3883,6 +3957,9 @@ func _on_interact() -> void:
 	if _near_basics_board():
 		_open_basics_board()
 		return
+	if _near_challenge_shrine():
+		_open_final_challenge()
+		return
 
 	# 1. 컴퓨터 터미널 (2D 미니게임)
 	for cp: Vector3 in computer_positions:
@@ -3904,7 +3981,7 @@ func _on_interact() -> void:
 		"DATA":
 			_show_msg("📊 [데이터 탐험대] 히스토그램과 나침반 네트워크를 분석했습니다! (+15 EXP)", 3.0)
 		"CHALLENGE":
-			_show_msg("🏆 [판테온 신전] 최고 난이도 아키텍처 마스터 트로피에 도달했습니다! (+30 EXP)", 3.0)
+			_open_final_challenge()
 		"DS":
 			if pp.x < -18.0:
 				_array_swap()

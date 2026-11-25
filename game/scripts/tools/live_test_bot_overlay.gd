@@ -23,7 +23,8 @@ const ISLAND_DEFAULT_STAGE: Dictionary = {
 	"DS": "ST01",
 	"ALGO": "ALG01",
 	"SQL": "SQL01",
-	"DATA": "DATA01"
+	"DATA": "DATA01",
+	"CHALLENGE": "CHALLENGE01_CodeBot"
 }
 
 var _nav_astar: AStar2D = null
@@ -435,6 +436,21 @@ func _walk_to_terminal_and_enter_stage(world: Node, target_cat: String, stage_id
 	_ensure_world_playing(world)
 	Catalog.selected_category = target_cat
 	var cat_kor: String = str(Catalog.CATEGORIES.get(target_cat, target_cat))
+	if target_cat == "CHALLENGE":
+		var shrine_front := Vector3(0.0, float(world.TOP) + 0.1, -30.8)
+		_set_live_status("[%s 섬] 판테온 신전으로 걸어가는 중" % cat_kor, "3D 로봇이 [%s] 판테온 신전 계단 앞까지 직접 걸어갑니다..." % cat_kor)
+		await _walk_3d_player_to(world, shrine_front, 1.4, token)
+		if stop_requested or token != _run_token:
+			return false
+		_set_live_status("[%s 섬] 판테온 신전 도착 · 최종 도전(E)" % cat_kor, "👑 [E] 판테온 신전 상호작용 -> [%s] 진입!" % target_title)
+		if not await _wait_sec(0.55, token):
+			return false
+		if _world_in_tree(world):
+			world._open_final_challenge()
+		_active_2d_category = target_cat
+		await get_tree().process_frame
+		await get_tree().process_frame
+		return await _wait_sec(0.4, token)
 	var target_term: Node3D = _find_terminal_for_category(world, target_cat)
 
 	if is_instance_valid(target_term):
@@ -639,8 +655,8 @@ func _run_full_scenario_tour(token: int) -> void:
 			var st_id: String = str(ISLAND_DEFAULT_STAGE[zkey])
 			var st_scene := ""
 			var st_title := st_id
-			for g in Catalog.GAMES:
-				if str(g[0]) == st_id:
+			for g in (Catalog.GAMES + Catalog.CHALLENGE_GAMES):
+				if str(g[0]) == st_id or str(g[4]) == st_id:
 					st_title = "%s (%s)" % [str(g[1]), str(g[2])]
 					st_scene = str(g[4])
 					break
@@ -902,10 +918,72 @@ func _play_current_2d_stage(token: int, max_levels: int = 2) -> void:
 		await _play_visual_st01(stage, token, max_levels)
 	elif spath == "res://scripts/minigames/sql_drawer.gd":
 		await _play_visual_sql_drawer(stage, token, max_levels)
+	elif spath == "res://scripts/minigames/coding_test_challenge.gd":
+		await _play_visual_coding_test(stage, token, max_levels)
+	elif spath == "res://scripts/minigames/final_challenge_stage.gd":
+		await _play_visual_final_challenge(stage, token, max_levels)
 	elif stage.has_method("on_button") and "activity" in stage:
 		await _play_visual_lab_stage(stage, token, max_levels)
 	elif stage is WalkStage:
 		await _play_visual_walk_stage(stage, token, max_levels)
+
+func _play_visual_coding_test(stage: Node, token: int, max_levels: int) -> void:
+	var total_lv := mini(max_levels, stage.LEVELS.size())
+	for lv in total_lv:
+		if stop_requested or token != _run_token or not is_instance_valid(stage):
+			return
+		stage._load_level(lv)
+		var lv_data: Dictionary = stage.LEVELS[lv]
+		var ans: String = str(lv_data.answers[0])
+		_set_live_status("판테온 코딩테스트 (%d/%d단계)" % [lv + 1, total_lv], "목표 결과에 맞춰 '%s' 타이핑 중..." % ans)
+		if not await _wait_sec(0.35, token):
+			return
+		for ci in ans.length():
+			if stop_requested or token != _run_token or not is_instance_valid(stage):
+				return
+			var ch := ans.substr(ci, 1)
+			stage.typed_code += ch
+			stage._trigger_robot_typing_hop(ch, false)
+			stage.queue_redraw()
+			if not await _wait_sec(0.08, token):
+				return
+		if not await _wait_sec(0.3, token):
+			return
+		stage._submit_code()
+		if not await _wait_sec(0.55, token):
+			return
+
+func _play_visual_final_challenge(stage: Node, token: int, max_levels: int) -> void:
+	var lv_list: Array = stage.Levels.LEVELS
+	var total_lv := mini(max_levels, lv_list.size())
+	stage.speed_idx = 2 # 4x 배속으로 경쾌하게 시연
+	stage._speed_btn.text = "⏩ 4x"
+	for lv in total_lv:
+		if stop_requested or token != _run_token or not is_instance_valid(stage):
+			return
+		stage._load_level(lv)
+		var lv_data: Dictionary = lv_list[lv]
+		_set_live_status("로봇 코드 자동화 (%d/%d단계)" % [lv + 1, total_lv], "%s 빈칸 채우기 중..." % str(lv_data.title))
+		if not await _wait_sec(0.35, token):
+			return
+		for b in lv_data.blanks:
+			if stop_requested or token != _run_token or not is_instance_valid(stage):
+				return
+			var bid := int(b.id)
+			stage._select_blank(bid, false)
+			stage._insert_choice(str(b.answer))
+			if not await _wait_sec(0.25, token):
+				return
+		stage._on_run_pressed()
+		var guard := 0
+		while is_instance_valid(stage) and not stage.level_cleared and guard < 120:
+			if stop_requested or token != _run_token:
+				return
+			guard += 1
+			if not await _wait_sec(0.15, token):
+				return
+		if not await _wait_sec(0.5, token):
+			return
 
 func _skip_2d_dialogue_visually(stage: Node, token: int) -> void:
 	if not ("hud" in stage) or stage.hud == null:

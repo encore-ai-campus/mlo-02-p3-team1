@@ -1,0 +1,15 @@
+<form method="get" class="ov-filters" id="analysis-filters" aria-label="분석 조건">
+  {% if scope == 'game' and request.resolver_match.url_name != 'games' %}<input type="hidden" name="scope" value="game">{% endif %}
+  {% if filter.errors %}<div class="ov-errors" role="alert">{{ filter.non_field_errors }}{% for field in filter %}{% for error in field.errors %}<p>{{ field.label }}: {{ error }}</p>{% endfor %}{% endfor %}</div>{% endif %}
+  <div class="ov-range">{% include 'accounts/nav_icon.html' with icon='calendar' %}<label class="sr-only" for="{{ filter.start.id_for_label }}">시작일</label>{{ filter.start }}<span aria-hidden="true">–</span><label class="sr-only" for="{{ filter.end.id_for_label }}">종료일</label>{{ filter.end }}</div>
+  <div class="quick-period" role="group" aria-label="빠른 기간 선택"><button type="button" data-period-start="{{ week_start }}" data-period-end="{{ today }}">최근 7일</button><button type="button" data-period-start="{{ month_start }}" data-period-end="{{ today }}">최근 28일</button></div>
+  <span class="ov-divider" aria-hidden="true"></span>
+  <span class="ov-select" data-autosubmit><label class="sr-only" for="{{ filter.category.id_for_label }}">학습 분야</label>{{ filter.category }}</span>
+  <span class="ov-select" data-autosubmit><label class="sr-only" for="{{ filter.source.id_for_label }}">데이터 구분</label>{{ filter.source }}</span>
+  <details class="ov-more"{% if filter.player_id.value or filter.q.value or filter.topic.value or filter.task_id.value or filter.content_version.value %} open{% endif %}>
+    <summary>세부 조건</summary>
+    <div class="ov-more-grid">{% for field in filter %}{% if field.name == 'game_id' or field.name == 'player_id' or field.name == 'q' or field.name == 'topic' or field.name == 'task_id' or field.name == 'content_version' %}<div class="field">{{ field.label_tag }}{{ field }}</div>{% endif %}{% endfor %}</div>
+  </details>
+  <button type="submit" class="ov-apply">조회</button>
+  <a class="ov-reset" href="{{ request.path }}">{% include 'accounts/nav_icon.html' with icon='reset' %}필터 초기화</a>
+</form>

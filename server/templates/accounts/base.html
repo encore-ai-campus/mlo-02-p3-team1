@@ -5,63 +5,82 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
   <title>{% block title %}NODEVERSE &middot; Learning Observatory{% endblock %}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="stylesheet" href="{% static 'css/observatory.css' %}?v=9">
-  <link rel="stylesheet" href="{% static 'css/dashboard-refresh.css' %}?v=9">
+  <link rel="stylesheet" href="{% static 'css/dashboard-refresh.css' %}?v=12">
   <link rel="stylesheet" href="{% static 'css/catalog-dashboard.css' %}?v=9">
   <link rel="stylesheet" href="{% static 'css/live.css' %}?v=10">
   <link rel="stylesheet" href="{% static 'css/ui-polish.css' %}?v=10">
   <link rel="stylesheet" href="{% static 'css/pipeline-alerts.css' %}?v=1">
-  <script src="{% static 'js/observatory.js' %}?v=9" defer></script>
-  <script src="{% static 'js/dashboard-refresh.js' %}" defer></script>
+  <link rel="stylesheet" href="{% static 'css/admin-shell.css' %}?v=40">
+  <link rel="stylesheet" href="{% static 'css/admin-interactions.css' %}?v=1">
+  <script src="{% static 'js/observatory.js' %}?v=13" defer></script>
+  <script src="{% static 'js/dashboard-refresh.js' %}?v=3" defer></script>
+  <script src="{% static 'js/info-tip.js' %}?v=3" defer></script>
+  <script src="{% static 'js/admin-interactions.js' %}?v=2" defer></script>
+  <link rel="stylesheet" href="{% static 'css/analytics-explorer.css' %}?v=1">
+  <script src="{% static 'js/analytics-explorer.js' %}?v=1" defer></script>
 </head>
-<body>
+<body data-admin-id="{{ user.pk }}">
+{% with name=request.resolver_match.url_name %}
 <div class="app-shell {% if user.is_authenticated %}has-sidebar{% else %}auth-layout{% endif %}">
 {% if user.is_authenticated %}
-  <aside class="sidebar" id="workspace-navigation" aria-label="Workspace navigation">
-    <a class="sidebar-brand" href="{% url 'dashboard' %}"><span class="brand-mark">N<span></span></span> NODEVERSE<span class="brand-spark">&#10022;</span></a>
-    <div class="sidebar-profile">
-      <a class="profile-portrait" href="{% url 'me' %}" aria-label="My account"><span>{{ user.display_name|default:user.username|slice:':1' }}</span><i></i></a>
-      <strong>{{ user.display_name|default:user.username }}</strong>
-      <span class="profile-role">관리자</span>
-      <span class="profile-divider"></span>
+  <aside class="sidebar" id="workspace-navigation" aria-label="관리자 메뉴">
+    <a class="sidebar-brand" href="{% url 'dashboard' %}"><span class="brand-mark" aria-hidden="true">N</span><span class="brand-text"><strong>NODEVERSE</strong><small>Learning Observatory</small></span></a>
+    <span class="nav-caption" id="nav-analysis">분석</span>
+    <nav class="sidebar-nav" aria-labelledby="nav-analysis">
+      <a {% if name == 'dashboard' and scope != 'game' %}class="current" aria-current="page"{% endif %} href="{% url 'dashboard' %}">{% include 'accounts/nav_icon.html' with icon='chart' %}<span>전체 현황</span></a>
+      <a {% if name == 'games' or scope == 'game' %}class="current" aria-current="page"{% endif %} href="{% url 'games' %}">{% include 'accounts/nav_icon.html' with icon='gamepad' %}<span>게임 분석</span></a>
+      <a {% if name == 'players' or name == 'player-detail' or name == 'members' or name == 'member-detail' %}class="current" aria-current="page"{% endif %} href="{% url 'members' %}">{% include 'accounts/nav_icon.html' with icon='users' %}<span>플레이어</span></a>
+      <a {% if name == 'events' %}class="current" aria-current="page"{% endif %} href="{% url 'events' %}">{% include 'accounts/nav_icon.html' with icon='list' %}<span>행동 로그</span></a>
+    </nav>
+    <span class="nav-caption" id="nav-ops">운영</span>
+    <nav class="sidebar-nav" aria-labelledby="nav-ops">
+      <a {% if name == 'live' %}class="current" aria-current="page"{% endif %} href="{% url 'live' %}">{% include 'accounts/nav_icon.html' with icon='pulse' %}<span>실시간 현황</span></a>
+      <a {% if name == 'pipeline-alerts' %}class="current" aria-current="page"{% endif %} href="{% url 'pipeline-alerts' %}">{% include 'accounts/nav_icon.html' with icon='bell' %}<span>알림 현황</span><b class="nav-alert-badge" id="pipeline-alert-badge" hidden></b></a>
+      <a {% if name == 'download-tab' %}class="current" aria-current="page"{% endif %} href="{% url 'download-tab' %}">{% include 'accounts/nav_icon.html' with icon='download' %}<span>게임 다운로드</span></a>
+      <a {% if name == 'releases' %}class="current" aria-current="page"{% endif %} href="{% url 'releases' %}">{% include 'accounts/nav_icon.html' with icon='layers' %}<span>릴리스 관리</span></a>
+    </nav>
+    <div class="sidebar-bottom">
+      <nav class="sidebar-nav" aria-label="도움말 및 계정">
+        <a {% if name == 'guide' %}class="current" aria-current="page"{% endif %} href="{% url 'guide' %}">{% include 'accounts/nav_icon.html' with icon='info' %}<span>지표 가이드</span></a>
+        <a {% if name == 'me' %}class="current" aria-current="page"{% endif %} href="{% url 'me' %}">{% include 'accounts/nav_icon.html' with icon='profile' %}<span>내 계정</span></a>
+      </nav>
+      <div class="sidebar-account">
+        <span class="account-avatar" aria-hidden="true">{{ user.display_name|default:user.username|slice:':1' }}</span>
+        <span class="account-text"><strong>{{ user.display_name|default:user.username }}</strong><small>관리자</small></span>
+        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="sidebar-logout" type="submit" aria-label="로그아웃">{% include 'accounts/nav_icon.html' with icon='logout' %}</button></form>
+      </div>
     </div>
-    <span class="nav-caption">분석</span>
-    <nav class="sidebar-nav" aria-label="주요 메뉴">
-      <a {% if request.resolver_match.url_name == 'dashboard' and scope != 'game' %}class="current" aria-current="page"{% endif %} href="{% url 'dashboard' %}">{% include 'accounts/nav_icon.html' with icon='dashboard' %}<span>전체 현황</span></a>
-      <a {% if request.resolver_match.url_name == 'games' or scope == 'game' %}class="current" aria-current="page"{% endif %} href="{% url 'games' %}">{% include 'accounts/nav_icon.html' with icon='chart' %}<span>게임 분석</span></a>
-      <a {% if request.resolver_match.url_name == 'players' or request.resolver_match.url_name == 'player-detail' or request.resolver_match.url_name == 'members' or request.resolver_match.url_name == 'member-detail' %}class="current" aria-current="page"{% endif %} href="{% url 'members' %}">{% include 'accounts/nav_icon.html' with icon='users' %}<span>플레이어</span></a>
-      <a {% if request.resolver_match.url_name == 'events' %}class="current" aria-current="page"{% endif %} href="{% url 'events' %}">{% include 'accounts/nav_icon.html' with icon='activity' %}<span>행동 로그</span></a>
-    </nav>
-    <span class="nav-caption">실시간 · 운영</span>
-    <nav class="sidebar-nav" aria-label="실시간 및 운영">
-      <a {% if request.resolver_match.url_name == 'live' %}class="current" aria-current="page"{% endif %} href="{% url 'live' %}">{% include 'accounts/nav_icon.html' with icon='activity' %}<span>실시간 현황</span></a>
-      <a {% if request.resolver_match.url_name == 'pipeline-alerts' %}class="current" aria-current="page"{% endif %} href="{% url 'pipeline-alerts' %}">{% include 'accounts/nav_icon.html' with icon='bell' %}<span>알림 현황</span><b class="nav-alert-badge" id="pipeline-alert-badge" hidden></b></a>
-      <a {% if request.resolver_match.url_name == 'download-tab' %}class="current" aria-current="page"{% endif %} href="{% url 'download-tab' %}">{% include 'accounts/nav_icon.html' with icon='download' %}<span>게임 다운로드</span></a>
-      <a {% if request.resolver_match.url_name == 'releases' %}class="current" aria-current="page"{% endif %} href="{% url 'releases' %}">{% include 'accounts/nav_icon.html' with icon='calendar' %}<span>릴리스 관리</span></a>
-    </nav>
-    <span class="nav-caption management-caption">도움말 및 설정</span>
-    <nav class="sidebar-nav" aria-label="도움말 및 설정">
-      <a {% if request.resolver_match.url_name == 'guide' %}class="current" aria-current="page"{% endif %} href="{% url 'guide' %}">{% include 'accounts/nav_icon.html' with icon='guide' %}<span>지표 가이드</span></a>
-      <a {% if request.resolver_match.url_name == 'me' %}class="current" aria-current="page"{% endif %} href="{% url 'me' %}">{% include 'accounts/nav_icon.html' with icon='profile' %}<span>내 계정</span></a>
-    </nav>
-    <div class="sidebar-bottom"><a class="public-site-link" href="{% url 'home' %}">← 게임 홈페이지</a><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="sidebar-logout" type="submit">{% include 'accounts/nav_icon.html' with icon='logout' %} 로그아웃</button></form><small>NODEVERSE &copy; 2026</small></div>
   </aside>
 {% endif %}
   <div class="app-main">
     <header class="topbar">
-      {% if user.is_authenticated %}<button class="sidebar-toggle" type="button" aria-label="Toggle navigation" aria-controls="workspace-navigation" aria-expanded="false">&#9776;</button>{% endif %}
-      <a class="workspace-brand" href="{% url 'dashboard' %}"><span>Workspace <b>/</b> <strong>{% if request.resolver_match.url_name == 'players' or request.resolver_match.url_name == 'player-detail' %}Players{% elif request.resolver_match.url_name == 'events' %}Activity{% elif request.resolver_match.url_name == 'live' %}Live{% elif request.resolver_match.url_name == 'pipeline-alerts' %}Pipeline Alerts{% elif request.resolver_match.url_name == 'members' or request.resolver_match.url_name == 'member-detail' %}Members{% elif request.resolver_match.url_name == 'releases' %}Releases{% elif request.resolver_match.url_name == 'download-tab' %}Download{% elif request.resolver_match.url_name == 'guide' %}Guide{% elif request.resolver_match.url_name == 'me' %}Account{% elif scope == 'game' %}Games{% else %}Overview{% endif %}</strong></span><small>LEARNING INTELLIGENCE</small></a>
+      {% if user.is_authenticated %}<button class="sidebar-toggle" type="button" aria-label="메뉴 열기" aria-controls="workspace-navigation" aria-expanded="false">{% include 'accounts/nav_icon.html' with icon='menu' %}</button>{% endif %}
+      <nav class="crumbs" aria-label="현재 위치"><a href="{% url 'dashboard' %}" class="crumb-home" aria-label="워크스페이스 처음으로">{% include 'accounts/nav_icon.html' with icon='home' %}</a><span>워크스페이스</span><span class="crumb-sep" aria-hidden="true">/</span><strong>{% if name == 'players' or name == 'player-detail' or name == 'members' or name == 'member-detail' %}플레이어{% elif name == 'events' %}행동 로그{% elif name == 'live' %}실시간 현황{% elif name == 'pipeline-alerts' %}알림 현황{% elif name == 'releases' %}릴리스 관리{% elif name == 'download-tab' %}게임 다운로드{% elif name == 'guide' %}지표 가이드{% elif name == 'me' %}내 계정{% elif scope == 'game' or name == 'games' %}게임 분석{% elif user.is_authenticated %}전체 현황{% else %}관리자 로그인{% endif %}</strong></nav>
       <div class="header-tools">
-
-        <div class="themes" aria-label="&#54868;&#47732; &#53580;&#47560;"><button type="button" data-set-theme="light" title="Light" aria-label="Light theme">&#9788;</button><button type="button" data-set-theme="dark" title="Dark" aria-label="Dark theme">&#9790;</button></div>
-        {% if user.is_authenticated %}<a class="header-avatar" href="{% url 'me' %}" aria-label="My account">{{ user.display_name|default:user.username|slice:':1' }}</a>{% endif %}
+        {% if user.is_authenticated %}
+        <a class="header-icon" href="{% url 'pipeline-alerts' %}" aria-label="알림 현황">{% include 'accounts/nav_icon.html' with icon='bell' %}<b class="nav-alert-badge" data-badge-mirror hidden></b></a>
+        <details class="account-menu">
+          <summary aria-label="계정 메뉴"><span class="header-avatar">{{ user.display_name|default:user.username|slice:':1' }}</span>{% include 'accounts/nav_icon.html' with icon='chevron' %}</summary>
+          <div class="account-menu-panel">
+            <p><strong>{{ user.display_name|default:user.username }}</strong><small>관리자</small></p>
+            <a href="{% url 'me' %}">내 계정</a>
+            <a href="{% url 'home' %}">게임 홈페이지</a>
+            <div class="themes" role="group" aria-label="화면 테마"><button type="button" data-set-theme="light">밝게</button><button type="button" data-set-theme="dark">어둡게</button></div>
+            <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="menu-logout" type="submit">로그아웃</button></form>
+          </div>
+        </details>
+        {% else %}
+        <div class="themes" role="group" aria-label="화면 테마"><button type="button" data-set-theme="light" aria-label="밝은 테마">&#9788;</button><button type="button" data-set-theme="dark" aria-label="어두운 테마">&#9790;</button></div>
+        {% endif %}
       </div>
     </header>
-    {% if user.is_authenticated %}<main class="workspace">{% if messages %}<div class="flash-list">{% for message in messages %}<p class="notice flash {{ message.tags }}" role="status">{{ message }}</p>{% endfor %}</div>{% endif %}{% block content %}{% endblock %}</main>{% else %}<main class="auth-wrap">{% block auth_content %}{% endblock %}</main>{% endif %}
-    <footer class="footer"><span>NODEVERSE <span class="footer-separator">/</span> LEARNING OBSERVATORY</span><span>&#44288;&#52272;&#54616;&#44256;, &#51060;&#54644;&#54616;&#44256;, &#45908; &#45208;&#51008; &#54617;&#49845;&#51012;.</span></footer>
+    {% if user.is_authenticated %}<div class="workspace-scroll"><main class="workspace">{% if messages %}<div class="flash-list">{% for message in messages %}<p class="notice flash {{ message.tags }}" role="status">{{ message }}</p>{% endfor %}</div>{% endif %}{% block content %}{% endblock %}</main></div>{% else %}<main class="auth-wrap">{% block auth_content %}{% endblock %}</main>{% endif %}
   </div>
 </div>
+{% endwith %}
 <div class="chart-tooltip" id="chart-tooltip" role="status"></div>
-{% if user.is_authenticated %}<div class="pipeline-toast" id="pipeline-toast" role="status" hidden></div><script src="{% static 'js/pipeline-alerts.js' %}?v=2" data-status-url="/api/admin/pipeline-alerts" data-page-url="{% url 'pipeline-alerts' %}" defer></script>{% endif %}
+{% if user.is_authenticated %}<div class="pipeline-toast" id="pipeline-toast" role="status" hidden></div><script src="{% static 'js/pipeline-alerts.js' %}?v=3" data-status-url="/api/admin/pipeline-alerts" data-page-url="{% url 'pipeline-alerts' %}" defer></script>{% endif %}
 {% block scripts %}{% endblock %}
 </body></html>

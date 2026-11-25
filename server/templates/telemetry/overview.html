@@ -1,0 +1,201 @@
+{% extends 'accounts/base.html' %}{% load static %}{% block content %}
+<div class="ov" data-ov-root>
+<div class="ov-head">
+  <div><h1>전체 현황</h1><p>플레이어의 학습 흐름과 어려운 구간을 확인하세요.</p></div>
+  <div class="head-actions">
+    <div class="ov-live" role="group" aria-label="자동 갱신" data-live hidden>
+      <span class="live-dot" aria-hidden="true"></span>
+      <button type="button" class="btn-ghost ov-live-toggle" data-live-toggle aria-pressed="true">{% include 'accounts/nav_icon.html' with icon='pause' %}<span>일시정지</span></button>
+      <label class="sr-only" for="ov-live-interval">갱신 주기</label>
+      <select id="ov-live-interval" data-live-interval><option value="30">30초마다</option><option value="60" selected>1분마다</option><option value="300">5분마다</option></select>
+      <span class="ov-live-status" data-live-status></span>
+    </div>
+    <button type="button" class="btn-ghost" data-edit-toggle aria-pressed="false" hidden>{% include 'accounts/nav_icon.html' with icon='pencil' %}<span>배치 편집</span></button>
+    <a class="btn-outline" data-qs-link="export" href="{% url 'export' %}?{{ querystring }}">데이터 내보내기 {% include 'accounts/nav_icon.html' with icon='arrow' %}</a>
+  </div>
+</div>
+
+{% include 'telemetry/filter_bar.html' %}
+
+<div class="ov-notice" data-live-notice role="status" aria-live="polite" hidden></div>
+<div class="ov-editbar" data-edit-bar hidden><span>{% include 'accounts/nav_icon.html' with icon='pencil' %}카드 머리글을 끌어 옮기거나 ↑↓ 버튼으로 순서를, ↔ 버튼으로 너비를 바꿉니다. 배치는 이 브라우저에 저장됩니다.</span><button type="button" class="btn-ghost" data-layout-reset>기본 배치로</button><button type="button" class="btn-solid" data-edit-done>편집 완료</button></div>
+
+{% if filter.is_valid %}
+<section class="kpis" aria-label="핵심 지표" data-live-part="kpis">
+  <article class="kpi is-linkable" data-kpi="players">
+    <button type="button" class="kpi-link" data-kpi-link="players" aria-pressed="false" aria-label="활성 플레이어와 연결된 그래프·로그 보기"></button>
+    <span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='users' %}</span>
+    <div class="kpi-body">
+      <span class="kpi-label">활성 플레이어<span class="kpi-info" role="button" tabindex="0" aria-label="활성 플레이어 기준 보기" data-tip="선택한 기간에 행동 기록이 1건 이상 있는 플레이어 수입니다. 조건에 맞는 전체 플레이어는 {{ stats.players }}명입니다. 카드를 누르면 그래프에서 문제 시작을 강조하고 로그에서 플레이어 열을 강조합니다.">i</span></span>
+      <strong class="kpi-value" data-watch="players">{{ stats.active_players }}<small>명</small></strong>
+      {% if compare.players %}<span class="kpi-delta {{ compare.players.tone }}"><b>{% if compare.players.direction == 'up' %}▲{% elif compare.players.direction == 'down' %}▼{% else %}—{% endif %} {{ compare.players.value }}</b> {{ compare.label }}</span>{% endif %}
+      <span class="kpi-basis">전체 {{ stats.players }}명 중</span>
+    </div>
+  </article>
+  <article class="kpi is-linkable" data-kpi="completion">
+    <button type="button" class="kpi-link" data-kpi-link="completion" aria-pressed="false" aria-label="문제 해결률과 연결된 그래프·로그 보기"></button>
+    <span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='target' %}</span>
+    <div class="kpi-body">
+      <span class="kpi-label">문제 해결률<span class="kpi-info" role="button" tabindex="0" aria-label="문제 해결률 기준 보기" data-tip="선택 기간에 시작한 문제 중 해결(문제 완료) 기록이 있는 비율입니다. 연산 성공은 행동 하나의 성공이라 포함하지 않습니다. 카드를 누르면 로그에 문제 해결 기록만 남깁니다.">i</span></span>
+      {% if kpi.has_runs %}<strong class="kpi-value" data-watch="completion">{{ learning.completion_rate }}<small>%</small></strong>{% else %}<strong class="kpi-value is-empty" data-watch="completion">기록 없음</strong>{% endif %}
+      {% if compare.completion %}<span class="kpi-delta {{ compare.completion.tone }}"><b>{% if compare.completion.direction == 'up' %}▲{% elif compare.completion.direction == 'down' %}▼{% else %}—{% endif %} {{ compare.completion.value }}</b> {{ compare.label }}</span>{% endif %}
+      <span class="kpi-basis">해결 {{ learning.completed|default:0 }} / 시작 {{ learning.runs|default:0 }}건</span>
+    </div>
+  </article>
+  <article class="kpi is-linkable" data-kpi="time">
+    <button type="button" class="kpi-link" data-kpi-link="time" aria-pressed="false" aria-label="평균 풀이 시간과 연결된 그래프·로그 보기"></button>
+    <span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='clock' %}</span>
+    <div class="kpi-body">
+      <span class="kpi-label">평균 풀이 시간<span class="kpi-info" role="button" tabindex="0" aria-label="평균 풀이 시간 기준 보기" data-tip="해결한 문제에서 실제로 풀이한 시간의 평균입니다. 일시정지한 시간은 빼고 계산합니다. 카드를 누르면 로그에 문제 해결 기록만 남깁니다.">i</span></span>
+      {% if kpi.time_state == 'value' %}<strong class="kpi-value" data-watch="time">{{ kpi.avg_time }}</strong>
+      {% elif kpi.time_state == 'not_collected' %}<strong class="kpi-value is-empty" data-watch="time">미수집</strong>
+      {% else %}<strong class="kpi-value is-empty" data-watch="time">기록 없음</strong>{% endif %}
+      {% if compare.time %}<span class="kpi-delta neutral"><b>{% if compare.time.direction == 'up' %}▲{% elif compare.time.direction == 'down' %}▼{% else %}—{% endif %} {{ compare.time.value }}</b> {{ compare.label }}</span>{% endif %}
+      <span class="kpi-basis">{% if kpi.time_state == 'not_collected' %}해결 {{ learning.completed }}건에 풀이 시간 없음{% elif kpi.time_state == 'no_completed' %}해결한 문제가 생기면 표시{% else %}해결 {{ learning.completed }}건 기준{% if kpi.missing_time %} · 시간 누락 {{ kpi.missing_time }}건 제외{% endif %}{% endif %}</span>
+    </div>
+  </article>
+  <article class="kpi is-linkable" data-kpi="retry">
+    <button type="button" class="kpi-link" data-kpi-link="retry" aria-pressed="false" aria-label="재시도한 문제와 연결된 카드·로그 보기"></button>
+    <span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='retry' %}</span>
+    <div class="kpi-body">
+      <span class="kpi-label">재시도한 문제<span class="kpi-info" role="button" tabindex="0" aria-label="재시도한 문제 기준 보기" data-tip="선택 기간에 시작한 문제 중 풀이를 2번 이상 시도한 문제 수입니다. 카드를 누르면 확인이 필요한 문제를 강조하고 로그에 실패 기록만 남깁니다.">i</span></span>
+      {% if kpi.has_runs %}<strong class="kpi-value" data-watch="retry">{{ learning.retry_runs }}<small>건</small></strong>{% else %}<strong class="kpi-value is-empty" data-watch="retry">기록 없음</strong>{% endif %}
+      <span class="kpi-basis">시도 2회 이상 · 시작 {{ learning.runs|default:0 }}건 중</span>
+    </div>
+  </article>
+</section>
+<div class="ov-linkbar" data-link-bar role="status" aria-live="polite" hidden><span data-link-text></span><button type="button" class="btn-ghost" data-link-clear>{% include 'accounts/nav_icon.html' with icon='x' %}연결 해제</button></div>
+{% endif %}
+
+<div class="ov-board" data-board>
+{% if filter.is_valid %}
+  <article class="card ov-card ov-trend board-card" data-card="trend" data-span="8" aria-labelledby="trend-title">
+    <div class="ov-card-head" data-card-handle>
+      <h2 id="trend-title">학습 활동 추이<span class="kpi-info" role="button" tabindex="0" aria-label="학습 활동 추이 기준 보기" data-tip="날짜별로 그날 시작한 문제 수와, 그중 지금까지 해결된 문제 수입니다.{% if visuals.stride > 1 %} 기간이 길어 {{ visuals.stride }}일씩 묶었습니다.{% endif %} 그래프를 끌면 그 구간을 확대합니다.">i</span></h2>
+      <p class="ov-totals" data-live-part="trend-totals">문제 시작 <b data-watch="started">{{ trend_totals.started }}</b><span aria-hidden="true">·</span>해결 <b data-watch="solved">{{ trend_totals.completed }}</b></p>
+      {% include 'telemetry/overview_card_tools.html' %}
+    </div>
+    <div class="trend-tools" role="toolbar" aria-label="그래프 조작" data-trend-tools hidden>
+      <div class="trend-legend" data-trend-legend>
+        <button type="button" data-series="started" aria-pressed="true"><i style="background:var(--trend-start)"></i>문제 시작</button>
+        <button type="button" data-series="completed" aria-pressed="true"><i style="background:var(--trend-done)"></i>문제 해결</button>
+      </div>
+      <span class="trend-range" data-trend-range aria-live="polite"></span>
+      <span class="trend-zoom">
+        <button type="button" data-zoom="in" aria-label="그래프 확대" title="확대 (+)">+</button>
+        <button type="button" data-zoom="out" aria-label="그래프 축소" title="축소 (−)">−</button>
+        <button type="button" data-zoom="reset" title="전체 기간 (0)">전체 기간</button>
+      </span>
+      <a class="text-link trend-apply" data-zoom-apply href="#" hidden>이 구간으로 조회</a>
+    </div>
+    <div class="ov-trend-chart" data-ov-trend tabindex="0" role="group" aria-label="날짜별 문제 시작과 해결 건수 그래프" aria-describedby="trend-help"><noscript><p class="ov-empty">그래프는 스크립트가 필요합니다. 아래 원자료를 확인하세요.</p></noscript></div>
+    <dl class="trend-summary" data-trend-summary hidden></dl>
+    <p class="trend-help" id="trend-help">끌어서 구간 확대 · 더블클릭 날짜별 로그 · ←→ 날짜 이동 · +/− 확대·축소 · 0 전체 기간</p>
+    <details class="chart-data"><summary>원자료 보기</summary><div class="table-scroll" data-live-part="trend-table"><table class="ov-table"><thead><tr><th scope="col">날짜</th><th scope="col" class="numeric">문제 시작</th><th scope="col" class="numeric">문제 해결</th></tr></thead><tbody>{% for row in visuals.trend %}<tr><td>{{ row.label }}</td><td class="numeric">{{ row.started }}</td><td class="numeric">{{ row.completed }}</td></tr>{% endfor %}</tbody></table></div></details>
+  </article>
+
+  <article class="card ov-card ov-attention board-card" data-card="attention" data-span="4" aria-labelledby="attention-title">
+    <div class="ov-card-head" data-card-handle>
+      <h2 id="attention-title">확인이 필요한 문제<span class="kpi-info" role="button" tabindex="0" aria-label="재시도율 기준 보기" data-tip="재시도율 = 풀이를 2번 이상 시도한 문제 실행 ÷ 그 문제의 전체 실행. 재시도율이 높은 순서이며, 같으면 실행이 많은 문제가 먼저입니다. 실패 원인은 그 문제에서 기록된 연산 실패만 셉니다. 문제를 누르면 오른쪽에 자세히 표시합니다.">i</span></h2>
+      <a class="text-link" data-qs-link="games" href="{% url 'games' %}?{{ querystring }}">게임 분석 {% include 'accounts/nav_icon.html' with icon='arrow' %}</a>
+      {% include 'telemetry/overview_card_tools.html' %}
+    </div>
+    <div data-live-part="attention" tabindex="0" role="region" aria-label="확인이 필요한 문제 스크롤 목록">
+    {% if attention %}
+    <ol class="attention-list">{% for row in attention %}<li data-key="{{ row.task_id }}|{{ row.version }}">
+      <span class="attention-rank">{{ forloop.counter }}</span>
+      <span class="attention-main">
+        <button type="button" class="attention-name" data-detail="task-{{ forloop.counter }}" aria-haspopup="dialog"><span class="code-chip">{{ row.code }}</span><span>{{ row.title }}</span></button>
+        <small class="attention-cause">{% if row.failure_top %}{% with top=row.failure_top.0 %}주요 실패 <b>{{ top.reason }}</b> · {{ top.count }}건{% if top.share != None %} ({{ top.share }}%){% endif %}{% endwith %}{% else %}연산 실패 기록 없음{% endif %}</small>
+      </span>
+      <span class="attention-rate"><span>재시도율 <b data-watch="rate-{{ row.task_id }}-{{ row.version }}">{{ row.rate }}%</b></span><span class="bar" role="img" aria-label="실행 {{ row.runs }}건 중 {{ row.retry_runs }}건 재시도"><i style="width:{{ row.rate }}%"></i></span><small>표본 {{ row.retry_runs }} / {{ row.runs }}회{% if row.small %} · <em class="small-sample">표본 적음</em>{% endif %}</small></span>
+      <template id="detail-task-{{ forloop.counter }}">
+        <p class="drawer-kicker"><span class="code-chip">{{ row.code }}</span> {{ row.task_id }} · 버전 {{ row.version }}</p>
+        <h3 class="drawer-title">{{ row.title }}</h3>
+        <dl class="drawer-stats">
+          <div><dt>재시도율</dt><dd><b>{{ row.rate }}%</b><small>{{ row.retry_runs }} / {{ row.runs }}회</small></dd></div>
+          <div><dt>표본 수</dt><dd><b>{{ row.runs }}</b><small>문제 실행{% if row.small %} · 표본 적음{% endif %}</small></dd></div>
+          <div><dt>문제 해결률</dt><dd><b>{{ row.completion_rate }}%</b><small>해결 {{ row.completed }}건</small></dd></div>
+          <div><dt>실행당 시도</dt><dd><b>{{ row.attempts_per_run }}</b><small>시도 {{ row.attempts }}회</small></dd></div>
+          <div><dt>평균 풀이 시간</dt><dd>{% if row.avg_time %}<b>{{ row.avg_time }}</b><small>해결한 실행 기준</small>{% elif row.completed %}<b class="is-empty">미수집</b><small>해결 기록에 시간 없음</small>{% else %}<b class="is-empty">기록 없음</b><small>해결한 실행 없음</small>{% endif %}</dd></div>
+          <div><dt>힌트 사용</dt><dd><b>{{ row.hint_runs }}</b><small>실행</small></dd></div>
+        </dl>
+        {% if row.small %}<p class="ov-note">실행이 5건 미만이라 한두 번의 재시도로도 비율이 크게 바뀝니다.</p>{% endif %}
+        <h4 class="drawer-sub">실패 원인 <small>연산 실패 {{ row.failure_total }}건</small></h4>
+        {% if row.failure_top %}<ol class="drawer-causes">{% for item in row.failure_top %}<li><span><b>{{ item.reason }}</b><small>{{ item.operation }}</small></span><span class="bar" role="img" aria-label="연산 실패 중 {{ item.share }}%"><i style="width:{{ item.share }}%"></i></span><span class="numeric">{{ item.count }}건 · {{ item.share }}%</span></li>{% endfor %}</ol>
+        {% else %}<p class="ov-empty">이 문제에서 기록된 연산 실패가 없습니다.<small>재시도는 있었지만 실패 원인이 남지 않았습니다.</small></p>{% endif %}
+        <div class="drawer-actions">{% if row.url %}<a class="btn-solid" href="{{ row.url }}">{% include 'accounts/nav_icon.html' with icon='gamepad' %}게임 분석</a>{% endif %}<a class="btn-ghost" href="{{ row.failures_url }}">{% include 'accounts/nav_icon.html' with icon='x' %}실패 로그</a><a class="btn-ghost" href="{{ row.events_url }}">{% include 'accounts/nav_icon.html' with icon='list' %}전체 행동 로그</a></div>
+      </template>
+    </li>{% endfor %}</ol>
+    {% if attention_small %}<p class="ov-note">실행이 5건 미만인 문제는 한두 번의 재시도로도 비율이 크게 바뀝니다. 표본 수를 함께 보세요.</p>{% endif %}
+    {% elif kpi.has_runs %}<p class="ov-empty">재시도한 문제가 없습니다. <small>시작한 문제 {{ learning.runs }}건 모두 한 번에 끝났거나 아직 시도가 1회입니다.</small></p>
+    {% else %}<p class="ov-empty">선택한 기간에 시작한 문제가 없습니다.</p>{% endif %}
+    </div>
+  </article>
+
+  <section class="card ov-card ov-areas board-card" data-card="areas" data-span="12" aria-labelledby="areas-title">
+    <div class="ov-card-head" data-card-handle><h2 id="areas-title">분야별 학습 현황<span class="kpi-info" role="button" tabindex="0" aria-label="분야별 해결률 기준 보기" data-tip="분야별로 선택 기간에 시작한 문제 중 해결한 비율입니다. 분야를 누르면 이 화면 전체(지표·그래프·로그)에 그 분야 필터가 걸리고, 다시 누르면 풀립니다.">i</span></h2><span class="ov-sub" data-live-part="areas-sub">기록 있는 게임 {{ catalog.observed }} / {{ catalog.registered }}</span>{% include 'telemetry/overview_card_tools.html' %}</div>
+    <div class="area-list" data-live-part="areas">{% for area in area_rows %}
+      <div class="area-item area-{{ area.key }}{% if area.current %} is-current{% endif %}">
+        <a class="area-main" href="{{ area.overview_url }}" data-area-filter="{{ area.key }}"{% if area.current %} aria-current="true"{% endif %} aria-label="{{ area.label }}{% if area.current %} 필터 해제{% else %} 분야로 이 화면 보기{% endif %}">
+          <span class="area-icon">{% if area.key == 'structures' %}{% include 'accounts/nav_icon.html' with icon='layers' %}{% elif area.key == 'algorithms' %}{% include 'accounts/nav_icon.html' with icon='code' %}{% elif area.key == 'sql' %}{% include 'accounts/nav_icon.html' with icon='database' %}{% else %}{% include 'accounts/nav_icon.html' with icon='search' %}{% endif %}</span>
+          <span class="area-name"><strong>{{ area.label }}</strong><small>{{ area.code }} {{ area.registered }}종</small></span>
+          <span class="area-progress">{% if area.runs %}<span class="bar" role="img" aria-label="{{ area.label }} 해결률 {{ area.completion_rate }}%"><i style="width:{{ area.width }}%"></i></span><b data-watch="area-{{ area.key }}">{{ area.completion_rate }}%</b>{% else %}<span class="bar is-empty"></span><b class="is-empty" data-watch="area-{{ area.key }}">기록 없음</b>{% endif %}</span>
+          <small class="area-count">{% if area.runs %}해결 {{ area.completed }} / 시작 {{ area.runs }}건{% else %}시작한 문제 없음{% endif %}</small>
+        </a>
+        <a class="area-go text-link" href="{{ area.url }}">게임 분석 {% include 'accounts/nav_icon.html' with icon='arrow' %}</a>
+      </div>{% endfor %}
+    </div>
+    <div data-live-part="areas-note">{% if catalog.unmapped.runs %}<p class="ov-note">게임 분류가 필요한 문제 실행 {{ catalog.unmapped.runs }}건은 분야별 현황에서 빠지고 전체 지표에는 포함됩니다. <a class="text-link" href="{% url 'games' %}?{{ querystring }}#unmapped-records">기록 확인</a></p>{% endif %}</div>
+  </section>
+{% endif %}
+
+  <section class="card ov-card ov-recent board-card" data-card="recent" data-span="12" aria-labelledby="recent-title">
+    <div class="ov-card-head" data-card-handle><h2 id="recent-title">최근 행동 로그 <small class="ov-count" data-log-count data-live-part="recent-count">최근 {{ recent_rows|length }}건</small></h2>{% include 'telemetry/overview_card_tools.html' %}</div>
+    <div class="log-chips" role="group" aria-label="로그 결과 필터" data-log-chips hidden>
+      <button type="button" class="chip" data-log-filter="all" aria-pressed="true">전체</button>
+      <button type="button" class="chip" data-log-filter="success" aria-pressed="false">성공</button>
+      <button type="button" class="chip" data-log-filter="failure" aria-pressed="false">실패</button>
+      <button type="button" class="chip" data-log-filter="solved" aria-pressed="false">문제 해결</button>
+      <button type="button" class="chip" data-log-filter="hint" aria-pressed="false">힌트</button>
+    </div>
+    <div class="table-scroll ov-log-scroll" tabindex="0" aria-label="최근 행동 로그 표, 위아래로 스크롤"><table class="ov-table">
+      <thead><tr><th scope="col">발생 시각</th><th scope="col" data-col="player">플레이어</th><th scope="col">게임</th><th scope="col">행동</th><th scope="col">결과</th></tr></thead>
+      <tbody data-live-part="recent">{% for row in recent_rows %}<tr data-key="{{ row.key }}" data-result="{{ row.result|default:'none' }}"{% if row.solved %} data-solved{% endif %}{% if row.hint %} data-hint{% endif %} data-detail="log-{{ forloop.counter }}" tabindex="0" aria-haspopup="dialog">
+        <td class="mono">{{ row.occurred_at|date:'Y.m.d H:i:s' }}</td>
+        <td data-col="player"><a href="{% url 'player-detail' row.player_id %}?{{ querystring }}" title="{{ row.player.external_id }}" data-player="{{ row.player_id }}" data-player-name="{{ row.player.display_name }}">{{ row.player.display_name }}</a></td>
+        <td>{% if row.game_code %}<span class="code-chip">{{ row.game_code }}</span> {{ row.game_title }}{% else %}<span class="muted">문제 정보 없음</span>{% endif %}</td>
+        <td>{{ row.action }}{% if row.detail %}<small>{{ row.detail }}</small>{% endif %}</td>
+        <td>{% if row.result == 'success' %}<span class="result-badge success">✓ 성공</span>{% elif row.result == 'failure' %}<span class="result-badge failure">✕ 실패</span>{% else %}<span class="result-badge neutral" title="성공·실패 판정이 없는 행동">—</span>{% endif %}
+        <template id="detail-log-{{ forloop.counter }}">
+          <p class="drawer-kicker">행동 로그 · {{ row.occurred_at|date:'Y.m.d H:i:s' }}</p>
+          <h3 class="drawer-title">{{ row.action }} {% if row.result == 'success' %}<span class="result-badge success">✓ 성공</span>{% elif row.result == 'failure' %}<span class="result-badge failure">✕ 실패</span>{% else %}<span class="result-badge neutral">판정 없음</span>{% endif %}</h3>
+          {% if row.run_id %}<button type="button" class="btn-outline timeline-open" data-run-timeline="{{ row.run_id }}">행동 타임라인 ▶</button>{% endif %}
+          <dl class="drawer-fields">
+            <dt>플레이어</dt><dd>{{ row.player.display_name }} <small>{{ row.player.external_id }}</small></dd>
+            <dt>게임</dt><dd>{% if row.game_code %}<span class="code-chip">{{ row.game_code }}</span> {{ row.game_title }}{% else %}문제 정보 없음{% endif %}</dd>
+            <dt>문제</dt><dd>{% if row.task_id %}{{ row.task_id }} · 버전 {{ row.version }}{% else %}연결된 문제 없음{% endif %}</dd>
+            <dt>시도</dt><dd>{% if row.attempt %}{{ row.attempt }}번째 시도{% else %}—{% endif %}</dd>
+            <dt>연산</dt><dd>{{ row.operation|default:'—' }}</dd>
+            <dt>실패 원인</dt><dd>{{ row.detail|default:'—' }}</dd>
+            <dt>행동 코드</dt><dd><code>{{ row.kind }}</code></dd>
+            <dt>세션 · 순번</dt><dd><code>{{ row.session|slice:':8' }}</code> · #{{ row.sequence }}</dd>
+          </dl>
+          <div class="drawer-actions"><a class="btn-solid" href="{% url 'player-detail' row.player_id %}?{{ querystring }}">{% include 'accounts/nav_icon.html' with icon='users' %}플레이어 상세</a><a class="btn-ghost" href="{% url 'events' %}?{{ querystring }}&amp;player_id={{ row.player_id }}">{% include 'accounts/nav_icon.html' with icon='list' %}이 플레이어 로그</a>{% if row.task_id %}<a class="btn-ghost" href="{% url 'events' %}?{{ querystring }}&amp;task_id={{ row.task_id|urlencode }}&amp;content_version={{ row.version|urlencode }}">{% include 'accounts/nav_icon.html' with icon='list' %}이 문제 로그</a>{% endif %}</div>
+        </template></td>
+      </tr>{% empty %}<tr><td colspan="5" class="ov-empty">선택한 기간에 행동 기록이 없습니다.</td></tr>{% endfor %}
+      <tr class="log-filter-empty" hidden><td colspan="5" class="ov-empty">선택한 조건에 맞는 최근 기록이 없습니다.</td></tr></tbody>
+    </table></div>
+  </section>
+</div>
+
+<p class="ov-foot"><span>{% include 'accounts/nav_icon.html' with icon='info' %}선택 기간의 저장된 기록 기준 · {% if filter.source.value == 'live' %}실제 데이터{% elif filter.source.value == 'demo' %}데모 데이터{% else %}실제+데모 데이터{% endif %} · Asia/Seoul</span><span data-live-part="foot-time">{% include 'accounts/nav_icon.html' with icon='clock' %}마지막 갱신 <time datetime="{{ rendered_at|date:'c' }}">{{ rendered_at|date:'H:i:s' }}</time></span></p>
+
+<aside class="ov-drawer" data-drawer role="dialog" aria-modal="false" aria-labelledby="drawer-heading" hidden>
+  <header class="drawer-head"><h2 id="drawer-heading" data-drawer-heading>상세</h2><button type="button" class="btn-ghost drawer-close" data-drawer-close aria-label="상세 닫기">{% include 'accounts/nav_icon.html' with icon='x' %}</button></header>
+  <div class="drawer-body" data-drawer-body tabindex="-1"></div>
+</aside>
+<dialog class="ov-zoom" data-zoom-dialog aria-label="크게 보기"><div class="ov-zoom-bar"><button type="button" class="btn-ghost" data-zoom-close>{% include 'accounts/nav_icon.html' with icon='x' %}닫기</button></div><div data-zoom-slot></div></dialog>
+</div>
+{% if visuals %}{{ visuals|json_script:'visualization-data' }}{% endif %}
+{% endblock %}{% block scripts %}<script src="{% static 'js/overview.js' %}?v=4" defer></script>{% endblock %}

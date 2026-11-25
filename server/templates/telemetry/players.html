@@ -1,7 +1,26 @@
 {% extends 'accounts/base.html' %}{% block content %}
-<div class="page-heading"><div><span class="eyebrow">PLAYERS</span><h1>플레이어</h1><p class="subtitle">각 플레이어의 학습 기록과 문제 해결 과정을 한눈에 살펴보세요. 가입하지 않은 플레이어도 포함됩니다.</p>{% include 'telemetry/person_tabs.html' with current='learning' %}</div><a class="btn secondary" href="{% url 'export' %}?{{ querystring }}">풀이 기록 내보내기 ↗</a></div>
+<div class="ov players-page">
+<div class="ov-head">
+  <div class="ov-head-stack"><h1>플레이어</h1><p>플레이어별 학습 기록과 문제 해결 과정을 확인하세요. 가입하지 않은 플레이어도 포함됩니다.</p></div>
+  <div class="head-actions">{% include 'telemetry/person_tabs.html' with current='learning' %}<a class="btn-outline" href="{% url 'export' %}?{{ querystring }}">풀이 기록 내보내기 {% include 'accounts/nav_icon.html' with icon='arrow' %}</a></div>
+</div>
 {% include 'telemetry/filters.html' %}
-<section class="card section data-table-card"><div class="section-head"><div><span class="eyebrow">ALL PLAYERS</span><h2>플레이어 목록 <span class="count-badge">{{ page.paginator.count }}명</span></h2></div><span class="section-caption">회원 정보와 학습 기록</span></div>
-{% include 'telemetry/table_controls.html' %}
-<div class="table-scroll"><table><thead><tr><th>플레이어</th><th>데이터 구분</th><th class="numeric">세션</th><th class="numeric">행동 로그</th><th class="numeric">연산 성공률</th><th class="numeric">실패</th><th class="numeric">힌트</th></tr></thead><tbody>{% for row in rows %}<tr><td><a class="person-cell" href="{% url 'player-detail' row.player.pk %}?{{ querystring }}"><span class="person-avatar">{{ row.player.display_name|slice:':1' }}</span><span><span class="person-name">{{ row.player.display_name }}</span><small>{{ row.player.external_id }}</small></span></a></td><td><span class="badge {% if row.player.source == 'demo' %}demo{% endif %}">{{ row.player.get_source_display }}</span></td><td class="numeric">{{ row.sessions }}</td><td class="numeric">{{ row.events }}</td><td class="numeric">{% if row.rate != None %}{{ row.rate }}%{% else %}—{% endif %}</td><td class="numeric">{{ row.failures }}</td><td class="numeric">{{ row.hints }}</td></tr>{% empty %}<tr><td colspan="7" class="empty"><span class="empty-symbol">{% include 'accounts/nav_icon.html' with icon='users' %}</span><strong>표시할 플레이어가 없습니다</strong><p>회원 정보가 등록되면 이곳에 표시됩니다. 검색 중이라면 조건을 확인해 주세요.</p></td></tr>{% endfor %}</tbody></table></div>
-{% include 'telemetry/pagination.html' %}<p class="metric-note">아직 플레이 기록이 없는 회원의 세션·행동 수는 0으로 표시됩니다.</p></section>{% endblock %}
+<section class="card ov-card" aria-labelledby="players-title">
+  <div class="ov-card-head"><h2 id="players-title">플레이어 목록 <small class="ov-count">{{ page.paginator.count }}명</small></h2></div>
+  {% include 'telemetry/table_controls.html' %}
+  <div class="table-scroll" tabindex="0" aria-label="플레이어 목록 표"><table class="ov-table">
+    <thead><tr><th scope="col">플레이어</th><th scope="col">데이터 구분</th><th scope="col" class="numeric">세션</th><th scope="col" class="numeric">행동 로그</th><th scope="col">연산 성공률</th><th scope="col" class="numeric">연산 실패</th><th scope="col" class="numeric">힌트</th><th scope="col"><span class="sr-only">상세</span></th></tr></thead>
+    <tbody>{% for row in rows %}<tr>
+      <td><a class="person-cell" href="{% url 'player-detail' row.player.pk %}?{{ querystring }}"><span class="person-avatar">{{ row.player.display_name|slice:':1' }}</span><span><span class="person-name">{{ row.player.display_name }}</span><small class="id-text">{{ row.player.external_id|truncatechars:28 }}</small></span></a></td>
+      <td><span class="result-badge {% if row.player.source == 'demo' %}warn{% else %}info{% endif %}">{{ row.player.get_source_display }}</span></td>
+      <td class="numeric">{{ row.sessions }}</td><td class="numeric">{{ row.events }}</td>
+      <td>{% if row.rate != None %}<span class="cell-progress"><b>{{ row.rate }}%</b><span class="bar"><i style="width:{{ row.rate }}%"></i></span></span>{% else %}<span class="muted">기록 없음</span>{% endif %}</td>
+      <td class="numeric">{{ row.failures }}</td><td class="numeric">{{ row.hints }}</td>
+      <td><a class="text-link" href="{% url 'player-detail' row.player.pk %}?{{ querystring }}">상세 보기 ›</a></td>
+    </tr>{% empty %}<tr><td colspan="8" class="ov-empty">표시할 플레이어가 없습니다<small>회원 정보가 등록되면 이곳에 표시됩니다. 검색 중이라면 조건을 확인해 주세요.</small></td></tr>{% endfor %}</tbody>
+  </table></div>
+  {% include 'telemetry/pagination.html' %}
+  <p class="ov-note">연산 성공률은 조작 하나하나의 성공 비율이며 문제 해결률과 다릅니다. 플레이 기록이 없는 회원의 세션·행동 수는 0으로 표시됩니다.</p>
+</section>
+</div>
+{% endblock %}

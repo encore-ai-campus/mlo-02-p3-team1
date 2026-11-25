@@ -1,63 +1,68 @@
 {% extends 'accounts/base.html' %}{% block content %}
-<div class="page-heading"><div><span class="eyebrow">GAME DOWNLOAD</span><h1>게임 다운로드</h1><p class="subtitle">지금 플레이어가 받는 게임과, 공유·설정에 쓰는 주소를 한곳에서 확인합니다.</p></div>
-<div class="actions"><a class="btn secondary" href="{% url 'download' %}" target="_blank" rel="noopener">공개 페이지 보기 ↗</a><a class="btn secondary" href="{% url 'releases' %}">릴리스 관리</a></div></div>
+<div class="ov">
+<div class="ov-head">
+  <div class="ov-head-stack"><h1>게임 다운로드</h1><p>지금 플레이어가 받는 게임과, 공유·설정에 쓰는 주소를 한곳에서 확인합니다.</p></div>
+  <div class="head-actions"><a class="text-link" href="{% url 'download' %}" target="_blank" rel="noopener">공개 페이지 보기 {% include 'accounts/nav_icon.html' with icon='arrow' %}</a><a class="btn-ghost" href="{% url 'releases' %}">{% include 'accounts/nav_icon.html' with icon='layers' %}릴리스 관리</a></div>
+</div>
 
-<section class="card download-hero">
-  {% if release %}
-  <div>
-    <span class="eyebrow">CURRENT RELEASE · WINDOWS</span>
-    <h2 class="download-hero-title">NODEVERSE {{ release.build_version }}</h2>
-    <p class="subtitle">{{ release.notes|default:'변경 내용 없음' }}</p>
-    <div class="badge-row download-meta">
-      <span class="badge">최소 빌드 {{ release.min_build }}</span>
-      <span class="badge">콘텐츠 {% if pack %}{{ pack.version }}{% else %}base{% endif %}</span>
-      <span class="badge">{{ release.published_at|date:'Y-m-d H:i' }} 등록</span>
-    </div>
-  </div>
-  <div class="download-hero-action">
-    {% if link %}<a class="btn download-btn" href="{{ link }}">⬇ 게임 다운로드 (ZIP)</a>
-    <small class="muted">{% if release.package_url %}외부 링크로 연결됩니다{% else %}이 서버에 올린 파일입니다{% endif %}</small>
-    {% else %}<p class="notice">이 릴리스에 다운로드 파일이 없습니다. <a href="{% url 'releases' %}">릴리스 관리</a>에서 EXE ZIP을 올리거나 외부 주소를 넣어 주세요.</p>{% endif %}
-  </div>
-  {% else %}
-  <div>
-    <span class="eyebrow">NO RELEASE</span>
-    <h2 class="download-hero-title">공개된 릴리스가 없습니다</h2>
-    <p class="subtitle">릴리스가 없으면 다운로드 페이지가 비어 있고, 게임은 매니페스트 404를 받아 업데이트 확인 없이 실행됩니다.</p>
-  </div>
-  <div class="download-hero-action"><a class="btn" href="{% url 'releases' %}">첫 릴리스 등록하기</a></div>
-  {% endif %}
+<div class="split-grid wide-left">
+  <section class="card ov-card download-hero-card" aria-labelledby="dl-title">
+    {% if release %}
+    <h2 id="dl-title" class="dl-title">NODEVERSE {{ release.build_version }} <span class="result-badge info">{{ release.channel }}</span></h2>
+    <p class="dl-meta">{% include 'accounts/nav_icon.html' with icon='windows' %}Windows Desktop<span aria-hidden="true">|</span>등록 {{ release.published_at|date:'Y.m.d' }}<span aria-hidden="true">|</span>최소 빌드 {{ release.min_build }}<span aria-hidden="true">|</span>콘텐츠 {% if pack %}{{ pack.version }}{% else %}base{% endif %}</p>
+    {% if link %}
+    <div class="dl-actions"><a class="btn-solid dl-button" href="{{ link }}">{% include 'accounts/nav_icon.html' with icon='windows' %}Windows 다운로드</a>{% for item in links %}{% if forloop.first %}<button type="button" class="btn-ghost" data-copy="{{ item.url }}">{% include 'accounts/nav_icon.html' with icon='link' %}<span>다운로드 페이지 주소 복사</span></button>{% endif %}{% endfor %}</div>
+    <p class="dl-file">{% include 'accounts/nav_icon.html' with icon='file' %}{% if release.package_url %}외부 링크로 연결됩니다{% else %}{{ release.package.name|cut:'builds/' }}{% for r in history %}{% if r.pk == release.pk and r.size %}<span aria-hidden="true">|</span>{{ r.size|filesizeformat }}{% endif %}{% endfor %}{% endif %}</p>
+    {% else %}<p class="notice">이 릴리스에 다운로드 파일이 없습니다. <a class="text-link" href="{% url 'releases' %}">릴리스 관리</a>에서 EXE ZIP을 올리거나 외부 주소를 넣어 주세요.</p>{% endif %}
+    {% if release.notes %}<p class="ov-note">변경 내용: {{ release.notes }}</p>{% endif %}
+    {% else %}
+    <h2 id="dl-title" class="dl-title">공개된 릴리스가 없습니다</h2>
+    <p class="ov-sub">릴리스가 없으면 다운로드 페이지가 비어 있고, 게임은 매니페스트 404를 받아 업데이트 확인 없이 실행됩니다.</p>
+    <div class="dl-actions"><a class="btn-solid" href="{% url 'releases' %}">{% include 'accounts/nav_icon.html' with icon='plus' %}첫 릴리스 등록하기</a></div>
+    {% endif %}
+  </section>
+
+  <section class="card ov-card" aria-labelledby="guide-steps-title">
+    <div class="ov-card-head"><h2 id="guide-steps-title">플레이어 설치 안내</h2></div>
+    <ol class="step-list">
+      <li><b>1</b><div><strong>다운로드 및 압축 해제</strong><p>Windows 다운로드 버튼으로 ZIP을 받아 압축을 풉니다.</p></div></li>
+      <li><b>2</b><div><strong><code>NODEVERSE.exe</code> 실행</strong><p>SmartScreen 창이 뜨면 <b>추가 정보 → 실행</b>을 누릅니다.</p></div></li>
+      <li><b>3</b><div><strong>로그인 후 플레이</strong><p>리소스 팩은 게임이 켜질 때 자동으로 받습니다. 새 EXE가 필요하면 게임이 다운로드 페이지로 안내합니다.</p></div></li>
+    </ol>
+  </section>
+</div>
+
+<section class="card ov-card" aria-labelledby="links-title">
+  <div class="ov-card-head"><h2 id="links-title">공유·설정 주소</h2><span class="ov-sub">플레이어에게 안내할 다운로드 페이지와 클라이언트 업데이트 매니페스트 주소입니다. 로컬 실행 중에는 같은 네트워크에서만 열립니다.</span></div>
+  <div class="link-rows">{% for item in links %}
+    <div class="link-row-item"><span class="link-label">{% if forloop.counter == 1 %}{% include 'accounts/nav_icon.html' with icon='globe' %}{% elif forloop.counter == 2 %}{% include 'accounts/nav_icon.html' with icon='code' %}{% elif forloop.counter == 3 %}{% include 'accounts/nav_icon.html' with icon='database' %}{% else %}{% include 'accounts/nav_icon.html' with icon='file' %}{% endif %}<strong>{{ item.label }}</strong><span class="kpi-info" role="button" tabindex="0" aria-label="{{ item.label }} 설명 보기" data-tip="{{ item.help }}">i</span></span>
+    <input class="link-value" type="text" readonly value="{{ item.url }}" aria-label="{{ item.label }} 주소">
+    <button type="button" class="btn-ghost" data-copy="{{ item.url }}">{% include 'accounts/nav_icon.html' with icon='copy' %}<span>복사</span></button></div>
+  {% endfor %}</div>
 </section>
 
-<section class="card section"><div class="section-head"><div><span class="eyebrow">LINKS</span><h2>공유·설정 주소</h2></div><span class="section-caption">로컬 실행 중에는 같은 네트워크에서만 열립니다</span></div>
-<div class="link-list">{% for item in links %}
-  <div class="link-row"><div><strong>{{ item.label }}</strong><small>{{ item.help }}</small></div>
-  <code class="link-url">{{ item.url }}</code>
-  <button type="button" class="btn secondary small-btn" data-copy="{{ item.url }}">복사</button></div>
-{% endfor %}</div></section>
-
-<div class="viz-grid">
-<section class="card viz-card wide"><div class="section-head"><div><span class="eyebrow">HISTORY</span><h2>버전 기록</h2></div><span class="section-caption">비활성 버전은 다운로드할 수 없습니다</span></div>
-<div class="table-scroll"><table><thead><tr><th>버전</th><th>최소 빌드</th><th>변경 내용</th><th>등록</th><th class="numeric">크기</th><th>상태</th><th></th></tr></thead><tbody>
-{% for r in history %}<tr><td><strong>{{ r.build_version }}</strong></td><td>{{ r.min_build }}</td><td>{{ r.notes|default:'—' }}</td><td>{{ r.published_at|date:'Y-m-d' }}</td><td class="numeric">{% if r.size %}{{ r.size|filesizeformat }}{% else %}—{% endif %}</td>
-<td>{% if release and r.pk == release.pk %}<span class="badge">현재</span>{% elif r.is_active %}<span class="badge">활성</span>{% else %}<span class="badge demo">비활성</span>{% endif %}</td>
-<td>{% if r.link %}<a href="{{ r.link }}">받기</a>{% else %}—{% endif %}</td></tr>
-{% empty %}<tr><td colspan="7" class="empty">아직 등록된 버전이 없습니다.</td></tr>{% endfor %}
-</tbody></table></div></section>
-
-<section class="card viz-card"><div class="section-head"><div><span class="eyebrow">GUIDE</span><h2>플레이어 설치 안내</h2></div></div>
-<ol class="download-steps">
-  <li>ZIP을 받아 압축을 풉니다.</li>
-  <li><code>NODEVERSE.exe</code>를 실행합니다.</li>
-  <li>SmartScreen 창이 뜨면 <strong>추가 정보 → 실행</strong>을 누릅니다.</li>
-  <li>리소스 팩은 게임이 켜질 때 자동으로 받습니다. 새 EXE가 필요하면 게임이 다운로드 페이지로 안내합니다.</li>
-</ol></section>
+<section class="card ov-card" aria-labelledby="history-title">
+  <div class="ov-card-head"><h2 id="history-title">버전 기록</h2><span class="ov-sub">최근 10개 · 비활성 버전은 다운로드할 수 없습니다</span></div>
+  <div class="table-scroll" tabindex="0" aria-label="버전 기록 표"><table class="ov-table">
+    <thead><tr><th scope="col">버전</th><th scope="col">상태</th><th scope="col">릴리스 날짜</th><th scope="col">최소 빌드</th><th scope="col">변경 사항</th><th scope="col" class="numeric">크기</th><th scope="col"><span class="sr-only">받기</span></th></tr></thead>
+    <tbody>{% for r in history %}<tr>
+      <td><strong class="version-text">{{ r.build_version }}</strong></td>
+      <td>{% if release and r.pk == release.pk %}<span class="result-badge success">현재 공개</span>{% elif r.is_active %}<span class="result-badge info">활성</span>{% else %}<span class="result-badge muted-badge">비활성</span>{% endif %}</td>
+      <td class="mono">{{ r.published_at|date:'Y.m.d' }}</td><td>{{ r.min_build }}</td>
+      <td class="wrap-cell">{{ r.notes|default:'—' }}</td>
+      <td class="numeric">{% if r.size %}{{ r.size|filesizeformat }}{% else %}—{% endif %}</td>
+      <td>{% if r.link %}<a class="text-link" href="{{ r.link }}">받기</a>{% else %}<span class="muted">—</span>{% endif %}</td>
+    </tr>{% empty %}<tr><td colspan="7" class="ov-empty">아직 등록된 버전이 없습니다.</td></tr>{% endfor %}</tbody>
+  </table></div>
+</section>
 </div>
 {% endblock %}{% block scripts %}<script>
 document.querySelectorAll('[data-copy]').forEach(function (button) {
+  var label = button.querySelector('span') || button;
+  var original = label.textContent;
   button.addEventListener('click', function () {
     var text = button.getAttribute('data-copy');
-    var done = function () { button.textContent = '복사됨'; setTimeout(function () { button.textContent = '복사'; }, 1500); };
+    var done = function () { label.textContent = '복사됨'; setTimeout(function () { label.textContent = original; }, 1500); };
     if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(done); return; }
     var area = document.createElement('textarea'); area.value = text; document.body.appendChild(area); area.select();
     try { document.execCommand('copy'); done(); } finally { area.remove(); }

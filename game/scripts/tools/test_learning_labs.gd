@@ -87,6 +87,14 @@ func test_world_terminals() -> void:
 		check(current_scene == world, "월드 복귀")
 		await process_frame
 	check(seen.size() == 4, "네 분야 컴퓨터, 실제 %d" % seen.size())
+	var shrine: Node3D = world._challenge_shrine
+	world.player.teleport_to(shrine.global_position + Vector3(0.0, 0.0, 3.4))
+	world._on_interact()
+	var challenge := current_scene
+	check(challenge.scene_file_path == "res://scenes/stages/CHALLENGE01_CodeBot.tscn", "판테온에서 최종 도전 진입")
+	if challenge != world:
+		challenge.call("_exit_to_world")
+		check(current_scene == world, "최종 도전에서 월드 복귀")
 	world.queue_free()
 	await process_frame
 	print("TERMINAL_ROUTES ok ", seen.keys())
@@ -103,7 +111,9 @@ func test_catalog() -> void:
 		var folder: String = g[6]
 		check(ResourceLoader.exists("res://textures/stages/%s/bg_game.png" % folder), "배경 없음 " + folder)
 	check(plan.size() == 23, "기획 게임 23개여야 함, 실제 %d" % plan.size())
-	check(Catalog.CATEGORIES.size() == 4, "분야는 4개")
+	check(Catalog.CATEGORIES.size() == 5 and Catalog.CATEGORIES.has_all(["DS", "ALGO", "SQL", "DATA", "CHALLENGE"]), "학습 4개 분야와 종합 도전")
+	for game in Catalog.games_for("CHALLENGE"):
+		check(ResourceLoader.exists("res://scenes/stages/%s.tscn" % game[4]), "종합 도전 씬 없음 " + game[4])
 	check(Catalog.games_for("DS").size() == 10, "자료구조 9+보너스")
 	check(Catalog.games_for("ALGO").size() == 6, "알고리즘 6")
 	check(Catalog.games_for("SQL").size() == 4, "SQL 4")

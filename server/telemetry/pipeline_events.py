@@ -15,6 +15,12 @@ EVENT_LABELS = {
 }
 
 
+# Pipeline event type -> result shown on staff screens. Other types (start, hint) have no result.
+SUCCESS_TYPES = ('attempt_succeeded', 'operation_succeeded', 'problem_completed')
+FAILURE_TYPES = ('attempt_failed', 'operation_failed')
+RESULTS = {**{t: 'success' for t in SUCCESS_TYPES}, **{t: 'failure' for t in FAILURE_TYPES}}
+
+
 def member_keys(player, install_ids=None):
     """Every player_id value an event for this member may carry."""
     if install_ids is None:
@@ -71,6 +77,10 @@ def describe(doc, identities):
         'build': doc.get('build_version', ''), 'content': doc.get('content_version', ''),
         'sequence': doc.get('sequence'), 'session': (doc.get('session_id') or '')[:8],
         'member': who, 'raw_player': raw_player,
+        'event_id': str(doc.get('event_id') or doc.get('_id') or ''), 'session_full': doc.get('session_id') or '',
+        'run_id': doc.get('run_id') or '', 'attempt_id': doc.get('attempt_id') or '',
+        'received': doc.get('received_at'), 'details': sorted(details.items()),
+        'result': RESULTS.get(doc.get('event_type')),
     }
 
 
