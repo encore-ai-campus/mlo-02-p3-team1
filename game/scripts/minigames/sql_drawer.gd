@@ -702,12 +702,14 @@ func submit() -> void:
 	var v := judge()
 	if v.ok:
 		phase = "solved"
+		Sfx.play("clear")
 		wrong_cols = []
 		say(v.msg + " Enter로 다음으로 가요.", true)
 		var stars := _stars()
 		_telemetry("complete_attempt", [stage_id, true, "", {"level": level + 1, "mistakes": mistakes, "stars": stars}])
 	else:
 		mistakes += 1
+		Sfx.play("wrong")
 		wrong_cols = v.cols
 		say(v.msg)
 		_op("submit_wrong", false, v.msg)

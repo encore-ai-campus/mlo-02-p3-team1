@@ -50,6 +50,7 @@ var done := false
 var _undo: Array = []
 var code_lines: Array = []     # [코드, 주석]
 var crates := {}               # "slot0".."slot4", "tray", "hand" -> StageCrate
+var _sfx_done := false         # 이번 E 동작에서 이미 효과음(실수·클리어)을 냈는지
 
 @onready var world: Node2D = $Field/World
 @onready var player: StagePlayer = $Field/World/Player
@@ -249,15 +250,21 @@ func _summary_code() -> void:
 func _on_interact(t: Interactable) -> void:
 	if done:
 		return
+	var was_holding := hand != null
+	_sfx_done = false
 	match t.kind:
 		"slot": _slot(t.index)
 		"tray": _tray()
 		"bin": _bin()
 		"npc":
+			Sfx.play("boing")
 			_talk(INTRO.slice(1) + [LEVEL_TALK[level]])
 			return
 	_refresh()
 	_check()
+	if not _sfx_done:
+		# 집으면 올라가는 '뾰옹', 놓거나 버리면 짧은 '뽁'
+		Sfx.play("pickup" if hand != null and not was_holding else "place")
 
 func _slot(i: int) -> void:
 	if not reads.is_empty():
@@ -289,6 +296,11 @@ func _slot(i: int) -> void:
 		return
 	if typeof(hand.from) == TYPE_INT and absi(int(hand.from) - i) > 1:
 		_wrong("상자는 바로 옆 칸으로만 한 칸씩 옮길 수 있어요.")
+		return
+	# 새 상자는 목표에 적힌 인덱스에만 넣는다. 다른 빈칸에 넣으면 목표와 다른 배열이 되는데도 아무 안내가 없었다.
+	var goal_i := int(LEVELS[level].get("ins", -1))
+	if typeof(hand.from) != TYPE_INT and goal_i >= 0 and i != goal_i:
+		_wrong("새 상자 %d 은(는) 인덱스 %d 에 넣어야 해요. %d번 칸을 비워 주세요." % [hand.v, goal_i, goal_i])
 		return
 	_snapshot()
 	slots[i] = hand.v
@@ -351,7 +363,7 @@ func _bin() -> void:
 	var nm = get_node_or_null("/root/NetworkManager")
 	if nm:
 		nm.call("record_operation", "bin_delete", true, "", {}, {}, {"value": hand.v, "moves": moves})
-	_code_replace("arr[%d] = null;" % hand.from, "%d 삭제" % hand.v)
+	_code_replace("arr[%d] = null;" % hand.from, "%d 삭제, %d번 칸 비움" % [hand.v, hand.from])
 	hud.toast("%d 삭제! 이제 뒤쪽 상자들을 왼쪽으로 한 칸씩 당기세요." % hand.v, StageHUD.GREEN)
 	hand = null
 	var c: StageCrate = crates["hand"]
@@ -367,6 +379,8 @@ func _carry(c: StageCrate) -> void:
 
 func _wrong(msg: String) -> void:
 	mistakes += 1
+	Sfx.play("wrong")
+	_sfx_done = true
 	hud.toast("✗ " + msg, StageHUD.RED, 3.0)
 	var nm = get_node_or_null("/root/NetworkManager")
 	if nm:
@@ -398,6 +412,8 @@ func _check() -> void:
 			mistakes = maxi(mistakes, 1)
 		var stars := 3 if mistakes == 0 else (2 if mistakes <= 2 else 1)
 		var last := level >= LEVELS.size() - 1
+		Sfx.play("clear")
+		_sfx_done = true
 		hud.show_clear("스테이지 클리어!" if last else "레벨 %d 클리어!" % (level + 1), stars,
 			"배열 %s 완성\n이동 %d회 (최소 %d회) · 실수 %d회" % [str(arr), moves, opt, mistakes], last)
 		var nm = get_node_or_null("/root/NetworkManager")

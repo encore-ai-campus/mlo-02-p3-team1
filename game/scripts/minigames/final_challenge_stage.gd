@@ -1291,6 +1291,7 @@ func _on_level_cleared(reason: String) -> void:
 	_clear_detail.text = "%s\n실행 횟수: %d회 · 총 스텝: %d" % [reason, attempts, exec_steps.size()]
 	_clear_next_btn.text = "3D 월드로 복귀 ▶" if is_last else "다음 레벨 ▶"
 	_clear_overlay.visible = true
+	Sfx.play("clear")
 
 	_telemetry("complete_attempt", [Levels.STAGE_ID, true, "", {"level": level_idx + 1, "attempts": attempts, "hints": hints_used, "stars": stars}])
 	if is_last or cleared_levels.size() >= Levels.LEVELS.size():

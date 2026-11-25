@@ -46,6 +46,7 @@ func _go_back_to_world() -> void:
 	get_tree().change_scene_to_file("res://scenes/NodeverseWorld.tscn")
 
 func _go(id) -> void:
+	Sfx.play("click")
 	var key := str(id)
 	if key == "world":
 		_go_back_to_world()

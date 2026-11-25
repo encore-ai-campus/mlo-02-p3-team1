@@ -37,6 +37,7 @@ var _undo: Array = []
 var _talked_level := -1
 var _spots := {}
 var _num_re := RegEx.new()
+var _sfx_done := false      # 이번 E 동작에서 이미 효과음(정답·실수·클리어)을 냈는지
 
 @onready var field: Node2D = $Field
 @onready var world: Node2D = $Field/World
@@ -162,6 +163,8 @@ func set_goal(t: String) -> void:
 # ---------- 실수·칭찬·클리어 ----------
 func wrong(msg: String) -> void:
 	mistakes += 1
+	Sfx.play("wrong")
+	_sfx_done = true
 	hud.toast("✗ " + msg, StageHUD.RED, 3.0)
 	var nm = get_node_or_null("/root/NetworkManager")
 	if nm:
@@ -174,6 +177,8 @@ func wrong(msg: String) -> void:
 
 func good(msg: String) -> void:
 	hud.toast("✓ " + msg, StageHUD.GREEN)
+	Sfx.play("correct")
+	_sfx_done = true
 	var nm = get_node_or_null("/root/NetworkManager")
 	if nm:
 		nm.call("record_operation", "good_move", true, msg, {}, {}, {"mistakes": mistakes, "moves": moves, "stage": stage_id})
@@ -188,6 +193,8 @@ func win(detail: String) -> void:
 	player.active = false
 	var last := level >= level_count - 1
 	var s := stars()
+	Sfx.play("clear")
+	_sfx_done = true
 	hud.show_clear("스테이지 클리어!" if last else "레벨 %d 클리어!" % (level + 1), s, detail, last)
 	var nm = get_node_or_null("/root/NetworkManager")
 	if nm:
@@ -327,10 +334,16 @@ func _on_interact(t: Interactable) -> void:
 	if done:
 		return
 	if t.kind == "npc":
+		Sfx.play("boing")
 		talk(intro.slice(1) + [level_talk[level]])
 		return
+	var was_holding := player.carried != null or _held_id != null
+	_sfx_done = false
 	interact(t)
 	refresh()
+	if not _sfx_done:
+		# 그 밖의 올바른 동작: 집으면 올라가는 '뾰옹', 놓거나 조작하면 짧은 '뽁'
+		Sfx.play("pickup" if _held_id != null and not was_holding else "place")
 
 func _unhandled_input(ev: InputEvent) -> void:
 	if hud.dialogue_open():

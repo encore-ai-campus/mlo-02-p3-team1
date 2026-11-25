@@ -1523,6 +1523,7 @@ func _switch_to_2d() -> void:
 	if nm:
 		nm.call("send_custom_event", "terminal_entered", {"zone": "COMPUTER_MINIGAME"})
 	var menu: Node = (load("res://scenes/Main.tscn") as PackedScene).instantiate()
+	Sfx.play("enter")
 	cached_world = self
 	root.remove_child(self)
 	root.add_child(menu)
@@ -1547,6 +1548,7 @@ func _open_final_challenge() -> void:
 	if nm:
 		nm.call("send_custom_event", "terminal_entered", {"zone": "FINAL_CHALLENGE"})
 	var stage: Node = (load("res://scenes/stages/CHALLENGE01_CodeBot.tscn") as PackedScene).instantiate()
+	Sfx.play("enter")
 	cached_world = self
 	root.remove_child(self)
 	root.add_child(stage)
@@ -1641,6 +1643,7 @@ func _talk_to_npc(npc: Node3D) -> void:
 		if t != "":
 			pages.append(t)
 	var nid: String = String(npc.get_meta("npc_id", npc.name)).left(5)
+	Sfx.play("boing")
 	_open_npc_dialog(String(npc.get_meta("npc_name", "NPC")), load("res://textures/npc_portraits/%s_portrait.png" % nid), pages)
 
 # ---------- NPC 대화창 (화면 하단: 초상화 + 이름표 + 말풍선) ----------
@@ -1747,6 +1750,7 @@ func _show_dlg_page() -> void:
 	_dlg_tween.tween_property(npc_dlg_text, "visible_ratio", 1.0, maxf(0.25, npc_dlg_text.text.length() * 0.03))
 
 func _advance_npc_dialog() -> void:
+	Sfx.play("talk")
 	if npc_dlg_text.visible_ratio < 1.0:
 		if _dlg_tween:
 			_dlg_tween.kill()
@@ -3441,7 +3445,7 @@ func _build_pause_modal(canvas: CanvasLayer) -> void:
 	pause_modal.add_child(center)
 
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(500, 420)
+	panel.custom_minimum_size = Vector2(520, 420)
 	panel.add_theme_stylebox_override("panel", _style_panel(Color(0.06, 0.09, 0.16, 0.96), Color(0.24, 0.88, 1.0, 0.9), 16, 28))
 	center.add_child(panel)
 
@@ -3506,11 +3510,48 @@ func _build_pause_modal(canvas: CanvasLayer) -> void:
 	btn_v.add_child(quality_btn)
 	_refresh_quality_btn()
 
+	# 소리: 배경음 / 효과음 크기 + 끄기 (user://audio_settings.cfg 에 저장)
+	Sfx.load_settings_now()
+	var on_sfx := func(v: float) -> void:
+		Sfx.set_sfx_volume(v)
+		Sfx.play("place")   # 바꾼 크기를 바로 들어 보게
+	btn_v.add_child(_audio_row("🎵 배경음", Sfx.bgm_volume, Sfx.bgm_muted, Sfx.set_bgm_volume, Sfx.set_bgm_muted))
+	btn_v.add_child(_audio_row("🔊 효과음", Sfx.sfx_volume, Sfx.sfx_muted, on_sfx, Sfx.set_sfx_muted))
+
 	var logout_btn := Button.new()
 	logout_btn.text = "🚪 타이틀로 나가기 / 로그아웃"
 	logout_btn.custom_minimum_size = Vector2(0, 44)
 	logout_btn.pressed.connect(func(): _on_logout())
 	btn_v.add_child(logout_btn)
+
+## 소리 크기 한 줄: [이름] [슬라이더] [끄기]
+func _audio_row(label_text: String, value: float, muted: bool, on_value: Callable, on_mute: Callable) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var lbl := Label.new()
+	lbl.text = label_text
+	lbl.custom_minimum_size = Vector2(96, 0)
+	lbl.add_theme_font_size_override("font_size", 16)
+	row.add_child(lbl)
+	var slider := HSlider.new()
+	slider.min_value = 0.0
+	slider.max_value = 1.0
+	slider.step = 0.05
+	slider.value = value
+	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	slider.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	slider.custom_minimum_size = Vector2(0, 28)
+	slider.drag_ended.connect(func(_changed: bool): on_value.call(slider.value))
+	slider.value_changed.connect(func(v: float):
+		if not slider.has_focus() or not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
+			on_value.call(v))
+	row.add_child(slider)
+	var mute := CheckBox.new()
+	mute.text = "끄기"
+	mute.button_pressed = muted
+	mute.toggled.connect(func(on: bool): on_mute.call(on))
+	row.add_child(mute)
+	return row
 
 func _refresh_quality_btn() -> void:
 	if quality_btn != null:

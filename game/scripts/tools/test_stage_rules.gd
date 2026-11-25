@@ -77,6 +77,21 @@ func test_st01() -> void:
 	s._tray()
 	s._slot(1)
 	check(s.mistakes == 1 and s.hand != null, "ST01 가득 찬 배열 삽입 거부")
+	# 사용자 신고 재현 (레벨 6): 35 삭제 → 28, 21, 14 를 뒤로 → 14 를 다시 1번으로 → 9 를 2번에 넣기
+	s.start_level(5)
+	s.hud.dialogue_skip()
+	s._slot(4)
+	s._bin()
+	for j in [3, 2, 1]:
+		s._slot(j)
+		s._slot(j + 1)
+	s._slot(2)
+	s._slot(1)
+	s._tray()
+	s._slot(2)
+	check(s.mistakes == 1 and s.hand != null and s.slots[2] == null, "ST01 새 상자는 목표 인덱스(1)가 아니면 거부")
+	s._slot(1)
+	check(s.mistakes == 2 and s.hand != null, "ST01 목표 칸이 차 있으면 거부")
 	for lv in s.LEVELS.size():
 		s.start_level(lv)
 		s.hud.dialogue_skip()

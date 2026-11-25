@@ -34,6 +34,7 @@ func _ready() -> void:
 	# 가장 먼저 뜨는 오토로드라 여기서 창 제목을 바꾼다 (헤드리스 실행은 창이 없어 건너뜀)
 	if DisplayServer.get_name() != "headless":
 		get_window().title = WINDOW_TITLE
+		Sfx.start_bgm()
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(PACK_DIR))
 	update_required.connect(_show_required_update_dialog)
 	update_available.connect(_show_optional_update_dialog)

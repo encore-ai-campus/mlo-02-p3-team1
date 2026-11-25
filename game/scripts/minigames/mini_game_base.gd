@@ -171,6 +171,7 @@ func say(t: String, c := C_WHITE, dur := 2.6) -> void:
 
 func wrong(t: String, key = null) -> void:
 	mistakes += 1
+	Sfx.play("wrong")
 	say("✗ " + t, C_RED, 3.2)
 	if key != null:
 		_flash[key] = 0.6
@@ -179,6 +180,7 @@ func wrong(t: String, key = null) -> void:
 		nm.call("record_operation", "wrong_move", false, t, {}, {}, {"mistakes": mistakes, "moves": moves, "stage": stage_id})
 
 func good(t: String, key = null) -> void:
+	Sfx.play("correct")
 	say("✓ " + t, C_GREEN)
 	if key != null:
 		_flash[key] = 0.5
@@ -194,6 +196,7 @@ func stars() -> int:
 
 func win(t: String) -> void:
 	level_done = true
+	Sfx.play("clear")
 	say("★ " + t, C_GOLD, 6.0)
 	var nm = get_node_or_null("/root/NetworkManager")
 	if nm:
@@ -249,6 +252,7 @@ func _unhandled_input(ev: InputEvent) -> void:
 					on_key(ev)
 
 func _click(id) -> void:
+	Sfx.play("click")
 	match str(id):
 		"__next": next_level()
 		"__retry": start_level(level)

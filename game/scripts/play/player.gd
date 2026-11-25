@@ -13,6 +13,8 @@ var focus: Interactable = null
 var carried: Node2D = null
 var _t := 0.0
 var _moving := false
+var _step_t := 0.0
+var _step_alt := false
 
 @onready var sprite: Sprite2D = $Sprite
 @onready var reach: Area2D = $Reach
@@ -42,6 +44,15 @@ func _physics_process(delta: float) -> void:
 	velocity = dir * speed
 	move_and_slide()
 	_moving = dir.length() > 0.1
+	# 뽀짝뽀짝 발소리: 걷는 동안 번갈아 두 소리
+	if _moving:
+		_step_t -= delta
+		if _step_t <= 0.0:
+			_step_t = 0.26
+			_step_alt = not _step_alt
+			Sfx.play("step_a" if _step_alt else "step_b", 1.0, -8.0)
+	else:
+		_step_t = 0.0
 	if absf(dir.x) > 0.1:
 		sprite.flip_h = dir.x < 0
 	_t += delta * (12.0 if _moving else 3.0)

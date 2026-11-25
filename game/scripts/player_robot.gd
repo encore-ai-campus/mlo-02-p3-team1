@@ -49,6 +49,8 @@ var _base_pos: Dictionary = {}
 
 var _coyote: float = 0.0
 var _jump_buf: float = 0.0
+var _step_t: float = 0.0
+var _step_alt: bool = false
 var _phase: float = 0.0
 var _squash: float = 0.0
 var _was_on_floor: bool = false
@@ -196,6 +198,7 @@ func _physics_process(delta: float) -> void:
 		_jump_buf = 0.0
 		_coyote = 0.0
 		_squash = -0.12
+		Sfx.play("jump")
 
 	_prev_vy = velocity.y
 
@@ -220,7 +223,19 @@ func _physics_process(delta: float) -> void:
 
 	if is_on_floor() and not _was_on_floor and _prev_vy < -5.0:
 		_squash = 0.18
+	if is_on_floor() and not _was_on_floor and _prev_vy < -2.0:
+		Sfx.play("land")
 	_was_on_floor = is_on_floor()
+	# 뽀짝뽀짝 발소리: 땅 위에서 움직일 때만, 달리면(Shift) 더 빠르게
+	var hspeed := Vector2(velocity.x, velocity.z).length()
+	if is_on_floor() and can_move and hspeed > 1.0:
+		_step_t -= delta
+		if _step_t <= 0.0:
+			_step_t = 0.19 if speed > WALK_SPEED + 0.01 else 0.28
+			_step_alt = not _step_alt
+			Sfx.play("step_a" if _step_alt else "step_b")
+	else:
+		_step_t = 0.0
 
 	if is_on_floor() and global_position.y >= 0.35:
 		_safe_timer += delta

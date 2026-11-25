@@ -319,6 +319,7 @@ func dialogue_open() -> bool:
 	return dlg.visible
 
 func dialogue_advance() -> void:
+	Sfx.play("talk")
 	if dlg_text.visible_ratio < 1.0:
 		if _type_tween:
 			_type_tween.kill()
