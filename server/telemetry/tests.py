@@ -392,3 +392,25 @@ class PlayerKindFilterTests(TestCase):
         picked = {kind: set(selection({'player_kind': kind})[1]) for kind in ('all', 'member', 'guest')}
         self.assertEqual(picked, {'all': {member, guest}, 'member': {member}, 'guest': {guest}})
         self.assertFalse(selection({'player_kind': 'everyone'})[0].is_valid())
+
+
+class GameTagDisplayTests(TestCase):
+    """화면용 분류 태그(DS-01 ...)는 게임 메뉴(learning_catalog.gd)와 같아야 하고, 실행 ID 는 그대로 키로 남는다."""
+
+    def test_tags_match_game_catalog_and_unknown_ids_are_kept(self):
+        import re
+        from pathlib import Path
+        from django.conf import settings
+        from .catalog import CATALOG, tag_for
+        from .templatetags.game_tags import game_tag
+        self.assertEqual(tag_for('ST01'), 'DS-01')
+        self.assertEqual(tag_for('st06'), 'AL-04')
+        self.assertEqual(tag_for('NOT_A_GAME'), 'NOT_A_GAME')
+        self.assertEqual(game_tag('DS10'), 'DS-09')
+        self.assertEqual(len({g['tag'] for g in CATALOG.values()}), len(CATALOG))
+        gd = Path(settings.BASE_DIR).parent / 'game' / 'scripts' / 'learning_catalog.gd'
+        if not gd.exists():
+            self.skipTest('game folder not present')
+        text = gd.read_text(encoding='utf-8').split('const GAMES', 1)[1]
+        game_tags = dict(re.findall(r'\[\s*"(\w+)",[^\n]*"([^"]+)"\],', text))
+        self.assertEqual(game_tags, {code: g['tag'] for code, g in CATALOG.items()})

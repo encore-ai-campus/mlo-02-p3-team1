@@ -2,7 +2,7 @@
 <div class="ov game-analysis"{% if selected_game %} data-learning-area="{{ selected_game.area }}"{% endif %}>
 <div class="ov-head">
   <div class="ov-head-stack">{% if selected_game %}<a class="text-link back-link" href="{% for tab in area_tabs %}{% if tab.key == selected_game.area %}{{ tab.url }}{% endif %}{% endfor %}">‹ 게임 목록</a>{% endif %}
-    <h1>{% if selected_game %}<span class="code-chip code-chip-lg">{{ selected_game.code }}</span> {% endif %}{{ scope_title }}</h1></div>
+    <h1>{% if selected_game %}<span class="code-chip code-chip-lg" title="실행 ID {{ selected_game.code }}">{{ selected_game.tag }}</span> {% endif %}{{ scope_title }}</h1></div>
   <div class="head-actions">{% if selected_game %}<a class="text-link" href="{% url 'events' %}?{{ querystring }}">이 게임의 행동 로그 {% include 'accounts/nav_icon.html' with icon='arrow' %}</a>{% endif %}<a class="btn-outline" href="{% url 'export' %}?{{ querystring }}">데이터 내보내기 {% include 'accounts/nav_icon.html' with icon='arrow' %}</a></div>
 </div>
 
@@ -32,7 +32,7 @@
 {% if selected_game %}
 {% include 'telemetry/charts.html' %}
 <section class="card ov-card" aria-labelledby="failure-title">
-  <div class="ov-card-head"><h2 id="failure-title">{% include 'accounts/nav_icon.html' with icon='alert' %}자주 실패하는 시도 <small class="ov-count">{{ selected_game.title }} · {{ selected_game.code }}</small></h2>{% if failure_rows %}<span class="ov-sub">연산 실패 {{ failure_rows.0.total }}건 기준</span>{% endif %}</div>
+  <div class="ov-card-head"><h2 id="failure-title">{% include 'accounts/nav_icon.html' with icon='alert' %}자주 실패하는 시도 <small class="ov-count">{{ selected_game.title }} · {{ selected_game.tag }}</small></h2>{% if failure_rows %}<span class="ov-sub">연산 실패 {{ failure_rows.0.total }}건 기준</span>{% endif %}</div>
   {% if failure_rows %}<div class="table-scroll"><table class="ov-table">
     <thead><tr><th scope="col">순위</th><th scope="col">연산</th><th scope="col">실패 원인 코드</th><th scope="col">실패 비율</th><th scope="col" class="numeric">실패 건수</th></tr></thead>
     <tbody>{% for row in failure_rows %}<tr><td><span class="rank-chip rank-{{ forloop.counter }}">{{ forloop.counter }}</span></td><td><code class="op-chip">{{ row.operation }}</code></td><td>{{ row.reason }}</td><td><span class="cell-progress"><b>{{ row.share }}%</b><span class="bar bar-warn"><i style="width:{{ row.share }}%"></i></span></span></td><td class="numeric">{{ row.count }}건</td></tr>{% endfor %}</tbody>
@@ -49,7 +49,7 @@
   </h2>
   {% endifchanged %}
   <a class="game-card{% if not game.runs %} is-empty{% endif %}" href="{{ game.url }}" data-game-code="{{ game.code }}" data-learning-area="{{ game.area }}">
-    <span class="game-card-head"><span class="code-chip">{{ game.code }}</span><strong>{{ game.title }}</strong></span>
+    <span class="game-card-head"><span class="code-chip" title="실행 ID {{ game.code }}">{{ game.tag }}</span><strong>{{ game.title }}</strong></span>
     <span class="game-card-desc" title="{{ game.concept }} · {{ game.goal }}">{{ game.concept }} · {{ game.goal }}</span>
     <span class="game-card-metrics">
       <span><small>플레이어</small><b>{{ game.players|default:0 }}<em>명</em></b></span>

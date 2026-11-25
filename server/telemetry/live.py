@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_GET
 
 from accounts.views import admin_page, api
-from .catalog import AREAS, CATALOG, classify
+from .catalog import AREAS, CATALOG, classify, tag_for
 from .models import GameAccount, GameLoginRecord
 from .mongo import database
 from .pipeline_events import EVENT_LABELS, member_keys
@@ -268,7 +268,7 @@ def play_history(player, install_ids, limit=60):
     games = {}
     for d in docs:
         code = d.get('minigame_id') or '—'
-        g = games.setdefault(code, {'code': code, 'title': CATALOG.get(code, {}).get('title', ''), 'attempts': 0,
+        g = games.setdefault(code, {'code': code, 'tag': tag_for(code), 'title': CATALOG.get(code, {}).get('title', ''), 'attempts': 0,
                                     'succeeded': 0, 'failed': 0, 'mistakes': 0, 'hints': 0, 'completed': 0, 'last': d.get('occurred_at')})
         kind = d.get('event_type')
         g['attempts'] += kind == 'attempt_started'
@@ -283,7 +283,7 @@ def play_history(player, install_ids, limit=60):
     events = []
     for d in docs[:limit]:
         details = d.get('details') or {}
-        events.append({'at': d.get('occurred_at'), 'code': d.get('minigame_id') or '—',
+        events.append({'at': d.get('occurred_at'), 'code': d.get('minigame_id') or '—', 'tag': tag_for(d.get('minigame_id') or '—'),
                        'title': CATALOG.get(d.get('minigame_id'), {}).get('title', ''),
                        'kind': d.get('event_type', ''), 'label': EVENT_LABELS.get(d.get('event_type'), d.get('event_type', '')),
                        'operation': details.get('operation', ''), 'reason': details.get('failure_reason', ''),

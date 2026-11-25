@@ -32,8 +32,22 @@ GAMES = [
     ('DATA03', 'data', '대표값 실험실', '기술 통계', '평균·중앙값·범위와 이상치'),
     ('DATA04', 'data', '차트 관측소', '데이터 시각화', '막대·선·산점도와 결론'),
 ]
-CATALOG = {code: dict(code=code, area=area, title=title, concept=concept, goal=goal)
+# 사람에게 보여 줄 분류 태그 (게임 learning_catalog.gd 의 기획 ID 와 같다: 메뉴 카드와 게임 안 제목에 나오는 값).
+# 화면 표시에만 쓴다. 저장·집계·필터·내보내기의 키는 계속 실행 ID(code)다.
+TAGS = {
+    'ST01': 'DS-01', 'ST02': 'DS-02', 'ST03': 'DS-03', 'ST04': 'DS-04', 'ST05': 'DS-05',
+    'DS09': 'DS-06', 'ST07': 'DS-07', 'ST08': 'DS-08', 'DS10': 'DS-09', 'ST10': '보너스',
+    'ALG02': 'AL-01', 'ALG01': 'AL-02', 'ALG03': 'AL-03', 'ST06': 'AL-04', 'ST09': 'AL-05', 'ALG04': 'AL-06',
+    'SQL01': 'SQ-01', 'SQL02': 'SQ-02', 'SQL03': 'SQ-03', 'SQL04': 'SQ-04',
+    'DATA02': 'DA-01', 'DATA01': 'DA-02', 'DATA03': 'DA-03', 'DATA04': 'DA-04',
+}
+CATALOG = {code: dict(code=code, tag=TAGS[code], area=area, title=title, concept=concept, goal=goal)
            for code, area, title, concept, goal in GAMES}
+
+
+def tag_for(code):
+    """화면용 태그. 목록에 없는 ID 는 그대로 보여 준다 (추측해서 바꾸지 않는다)."""
+    return TAGS.get(str(code).upper(), code)
 
 
 def game_for(task_id):

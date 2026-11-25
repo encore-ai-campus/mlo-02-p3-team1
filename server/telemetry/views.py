@@ -73,7 +73,7 @@ def dashboard_page(request, scope=None):
     page_context['selected_game'] = selected_game
     if selected_game:
         page_context['scope_title'] = selected_game['title']
-        page_context['scope_description'] = selected_game['code'] + ' · ' + selected_game['concept']
+        page_context['scope_description'] = selected_game['tag'] + ' · ' + selected_game['concept']
     page_context['show_analysis'] = scope == 'overview' or bool(selected_game)
     page_context['compact_charts'] = scope == 'overview'
     page_context['recent_events'] = events.select_related('session__player', 'run__task', 'attempt').order_by('-occurred_at', '-sequence')[:8]

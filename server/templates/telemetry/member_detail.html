@@ -20,7 +20,7 @@
   <div class="table-scroll person-scroll" tabindex="0" aria-label="미니게임별 플레이 표"><table class="ov-table">
     <thead><tr><th scope="col">미니게임</th><th scope="col" class="numeric">시도</th><th scope="col" class="numeric">성공</th><th scope="col" class="numeric">실패</th><th scope="col">시도 성공률</th><th scope="col" class="numeric">잘못된 조작</th><th scope="col" class="numeric">힌트</th><th scope="col" class="numeric">완료</th><th scope="col">마지막 플레이</th></tr></thead>
     <tbody>{% for g in play.games %}<tr>
-      <td><span class="game-cell"><span class="code-chip">{{ g.code }}</span><span>{{ g.title }}</span></span></td>
+      <td><span class="game-cell"><span class="code-chip" title="실행 ID {{ g.code }}">{{ g.tag }}</span><span>{{ g.title }}</span></span></td>
       <td class="numeric">{{ g.attempts }}</td><td class="numeric">{{ g.succeeded }}</td><td class="numeric">{{ g.failed }}</td>
       <td>{% if g.rate != None %}<span class="cell-progress"><b>{{ g.rate }}%</b><span class="bar"><i style="width:{{ g.rate }}%"></i></span></span>{% else %}<span class="muted">결과 없음</span>{% endif %}</td>
       <td class="numeric">{{ g.mistakes }}</td><td class="numeric">{{ g.hints }}</td><td class="numeric">{{ g.completed }}</td>
@@ -37,7 +37,7 @@
     <thead><tr><th scope="col">시각</th><th scope="col">미니게임</th><th scope="col">행동</th><th scope="col">상세</th><th scope="col">빌드</th></tr></thead>
     <tbody>{% for e in play.events %}<tr>
       <td class="mono">{{ e.at|date:'H:i:s' }}<small>{{ e.at|date:'m.d' }}</small></td>
-      <td><span class="code-chip">{{ e.code }}</span><small>{{ e.title }}</small></td>
+      <td><span class="code-chip" title="실행 ID {{ e.code }}">{{ e.tag }}</span><small>{{ e.title }}</small></td>
       <td><span class="event-kind {{ e.kind }}">{{ e.label }}</span></td>
       <td>{{ e.operation|default:'' }}{% if e.reason %}<small>{{ e.reason }}</small>{% endif %}</td>
       <td class="mono">{{ e.build|default:'—' }}</td>
@@ -51,7 +51,7 @@
   <div class="progress-areas">{% for area in areas %}
     <div class="progress-area" data-learning-area="{{ area.key }}">
       <div class="progress-area-head"><strong>{{ area.label }}</strong><span class="cell-progress"><b>{{ area.done }} / {{ area.games|length }}</b><span class="bar"><i style="width:{% widthratio area.done area.games|length 100 %}%"></i></span></span></div>
-      <div class="game-grid">{% for g in area.games %}<div class="game-tile{% if g.stars %} done{% endif %}"><span class="code-chip">{{ g.code }}</span><strong>{{ g.title }}</strong><small>{% if g.stars %}<span class="tile-state">✓ 클리어</span> <span class="tile-stars" aria-label="별 {{ g.stars }}개">★ {{ g.stars }}</span>{% else %}기록 없음{% endif %}</small></div>{% endfor %}</div>
+      <div class="game-grid">{% for g in area.games %}<div class="game-tile{% if g.stars %} done{% endif %}"><span class="code-chip" title="실행 ID {{ g.code }}">{{ g.tag }}</span><strong>{{ g.title }}</strong><small>{% if g.stars %}<span class="tile-state">✓ 클리어</span> <span class="tile-stars" aria-label="별 {{ g.stars }}개">★ {{ g.stars }}</span>{% else %}기록 없음{% endif %}</small></div>{% endfor %}</div>
     </div>
   {% endfor %}</div>
   {% if progress.other %}<h3 class="ov-subhead">다른 이름으로 저장된 클리어 기록</h3><p class="ov-note">게임의 minigame_cleared 키가 24개 실행 ID(ST01 등)와 다릅니다.</p>
