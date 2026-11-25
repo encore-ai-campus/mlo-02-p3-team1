@@ -2,8 +2,7 @@
 <div class="ov game-analysis"{% if selected_game %} data-learning-area="{{ selected_game.area }}"{% endif %}>
 <div class="ov-head">
   <div class="ov-head-stack">{% if selected_game %}<a class="text-link back-link" href="{% for tab in area_tabs %}{% if tab.key == selected_game.area %}{{ tab.url }}{% endif %}{% endfor %}">‹ 게임 목록</a>{% endif %}
-    <h1>{% if selected_game %}<span class="code-chip code-chip-lg">{{ selected_game.code }}</span> {% endif %}{{ scope_title }}</h1>
-    <p>{% if selected_game %}{{ selected_game.concept }} · {{ selected_game.goal }}{% else %}{{ catalog.areas|length }}개 분야 · {{ catalog.registered }}개의 학습 게임 · 게임을 선택해 풀이 과정과 실패 원인을 확인하세요.{% endif %}</p></div>
+    <h1>{% if selected_game %}<span class="code-chip code-chip-lg">{{ selected_game.code }}</span> {% endif %}{{ scope_title }}</h1></div>
   <div class="head-actions">{% if selected_game %}<a class="text-link" href="{% url 'events' %}?{{ querystring }}">이 게임의 행동 로그 {% include 'accounts/nav_icon.html' with icon='arrow' %}</a>{% endif %}<a class="btn-outline" href="{% url 'export' %}?{{ querystring }}">데이터 내보내기 {% include 'accounts/nav_icon.html' with icon='arrow' %}</a></div>
 </div>
 

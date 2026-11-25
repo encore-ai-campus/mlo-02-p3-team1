@@ -1,7 +1,7 @@
 {% extends 'accounts/base.html' %}{% block content %}
 <div class="ov players-page">
 <div class="ov-head">
-  <div class="ov-head-stack"><h1>플레이어</h1><p>플레이어별 학습 기록과 문제 해결 과정을 확인하세요. 가입하지 않은 플레이어도 포함됩니다.</p></div>
+  <div class="ov-head-stack"><h1>플레이어</h1></div>
   <div class="head-actions">{% include 'telemetry/person_tabs.html' with current='learning' %}<a class="btn-outline" href="{% url 'export' %}?{{ querystring }}">풀이 기록 내보내기 {% include 'accounts/nav_icon.html' with icon='arrow' %}</a></div>
 </div>
 {% include 'telemetry/filters.html' %}

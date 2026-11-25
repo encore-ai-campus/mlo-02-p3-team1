@@ -1,7 +1,7 @@
 {% extends 'accounts/base.html' %}{% block content %}
 <div class="ov">
 <div class="ov-head">
-  <div class="ov-head-stack"><h1>게임 다운로드</h1><p>지금 플레이어가 받는 게임과, 공유·설정에 쓰는 주소를 한곳에서 확인합니다.</p></div>
+  <div class="ov-head-stack"><h1>게임 다운로드</h1></div>
   <div class="head-actions"><a class="text-link" href="{% url 'download' %}" target="_blank" rel="noopener">공개 페이지 보기 {% include 'accounts/nav_icon.html' with icon='arrow' %}</a><a class="btn-ghost" href="{% url 'releases' %}">{% include 'accounts/nav_icon.html' with icon='layers' %}릴리스 관리</a></div>
 </div>
 

@@ -1,7 +1,7 @@
 {% extends 'accounts/base.html' %}{% block content %}
 <div class="ov">
 <div class="ov-head">
-  <div class="ov-head-stack"><h1>릴리스 관리</h1><p>게임이 시작할 때 읽는 매니페스트를 정합니다. 활성 릴리스·팩만 공개되고, 비활성화해도 파일은 지우지 않습니다.</p></div>
+  <div class="ov-head-stack"><h1>릴리스 관리</h1></div>
   <div class="head-actions"><a class="text-link" href="{{ manifest_url }}" target="_blank" rel="noopener">매니페스트 보기 {% include 'accounts/nav_icon.html' with icon='arrow' %}</a><a class="btn-solid" href="#release-form">{% include 'accounts/nav_icon.html' with icon='plus' %}새 릴리스 등록</a></div>
 </div>
 <nav class="line-tabs" aria-label="릴리스 화면 구역"><a href="#release-list" aria-current="true">릴리스</a><a href="#pack-list">리소스 팩</a></nav>
