@@ -1756,14 +1756,18 @@ func _draw_robot() -> void:
 # INPUT & NAVIGATION
 # ============================================================================
 
+## ESC 는 GUI 보다 먼저 받는다. 빈칸 입력창(LineEdit)에 포커스가 있으면 ESC 를 입력창이 먹어서
+## 한 번 눌러서는 나가지지 않던 문제 대응. 씬 전환 뒤에는 get_viewport() 가 null 이 되므로 먼저 처리 표시를 한다.
+func _input(ev: InputEvent) -> void:
+	if ev is InputEventKey and ev.pressed and not ev.echo and ev.keycode == KEY_ESCAPE:
+		get_viewport().set_input_as_handled()
+		_exit_to_world()
+
+
 func _unhandled_input(ev: InputEvent) -> void:
 	if not (ev is InputEventKey and ev.pressed and not ev.echo):
 		return
 	match ev.keycode:
-		KEY_ESCAPE:
-			# 씬 전환 뒤에는 get_viewport() 가 null 이 되므로 먼저 처리 표시를 한다.
-			get_viewport().set_input_as_handled()
-			_exit_to_world()
 		KEY_F:
 			if not (get_viewport().gui_get_focus_owner() is LineEdit):
 				_show_next_hint()
