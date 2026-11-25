@@ -12,11 +12,11 @@
   <link rel="stylesheet" href="{% static 'css/live.css' %}?v=10">
   <link rel="stylesheet" href="{% static 'css/ui-polish.css' %}?v=10">
   <link rel="stylesheet" href="{% static 'css/pipeline-alerts.css' %}?v=1">
-  <link rel="stylesheet" href="{% static 'css/admin-shell.css' %}?v=39">
+  <link rel="stylesheet" href="{% static 'css/admin-shell.css' %}?v=40">
   <link rel="stylesheet" href="{% static 'css/admin-interactions.css' %}?v=1">
   <script src="{% static 'js/observatory.js' %}?v=13" defer></script>
   <script src="{% static 'js/dashboard-refresh.js' %}?v=3" defer></script>
-  <script src="{% static 'js/info-tip.js' %}?v=2" defer></script>
+  <script src="{% static 'js/info-tip.js' %}?v=3" defer></script>
   <script src="{% static 'js/admin-interactions.js' %}?v=2" defer></script>
   <link rel="stylesheet" href="{% static 'css/analytics-explorer.css' %}?v=1">
   <script src="{% static 'js/analytics-explorer.js' %}?v=1" defer></script>
@@ -76,7 +76,7 @@
         {% endif %}
       </div>
     </header>
-    {% if user.is_authenticated %}<main class="workspace">{% if messages %}<div class="flash-list">{% for message in messages %}<p class="notice flash {{ message.tags }}" role="status">{{ message }}</p>{% endfor %}</div>{% endif %}{% block content %}{% endblock %}</main>{% else %}<main class="auth-wrap">{% block auth_content %}{% endblock %}</main>{% endif %}
+    {% if user.is_authenticated %}<div class="workspace-scroll"><main class="workspace">{% if messages %}<div class="flash-list">{% for message in messages %}<p class="notice flash {{ message.tags }}" role="status">{{ message }}</p>{% endfor %}</div>{% endif %}{% block content %}{% endblock %}</main></div>{% else %}<main class="auth-wrap">{% block auth_content %}{% endblock %}</main>{% endif %}
   </div>
 </div>
 {% endwith %}

@@ -48,5 +48,6 @@
     const el = e.target.closest('.kpi-info[data-tip]');
     if (el && !pinned && !el.contains(e.relatedTarget)) hide();
   });
-  window.addEventListener('scroll', () => { if (!tip.hidden) { pinned = null; hide(); } }, { passive: true });
+  // 본문은 .workspace-scroll 안에서 스크롤되므로, 어떤 영역의 스크롤이든 잡도록 capture로 받는다.
+  window.addEventListener('scroll', () => { if (!tip.hidden) { pinned = null; hide(); } }, { passive: true, capture: true });
 })();

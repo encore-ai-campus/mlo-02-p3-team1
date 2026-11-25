@@ -1411,3 +1411,10 @@ button.attention-name:hover span:last-child, button.attention-name:focus-visible
 .motion-expanded .area-dash-tile { padding:18px!important; }
 .motion-expanded .area-dash-figures > strong { font-size:26px; }
 @media(prefers-reduced-motion:reduce) { .area-dash-segments i,.area-dash-tile { transition:none; } }
+
+/* 헤더 고정: 화면 전체는 움직이지 않고, 헤더 아래 본문 영역만 스크롤된다. */
+body:has(> .app-shell.has-sidebar) { overflow: hidden; }
+.app-shell.has-sidebar { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+.app-shell.has-sidebar .app-main { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
+.app-shell.has-sidebar .topbar { flex: none; }
+.workspace-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
