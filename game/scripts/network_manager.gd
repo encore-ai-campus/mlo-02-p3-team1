@@ -442,7 +442,8 @@ func _load_external_config() -> void:
 	if load_error != OK:
 		push_warning("%s 설정을 읽을 수 없습니다: %s" % [path.get_file(), error_string(load_error)])
 		return
-	var debug_setting: Variant = config.get_value("debug", "enabled", debug_enabled)
+	var debug_setting: Variant = config.get_value("debug", "debug_enabled",
+		config.get_value("debug", "enabled", debug_enabled))
 	if debug_setting is bool:
 		debug_enabled = debug_setting
 	target_host = _ini_string(config, "pipeline", "host", target_host)
