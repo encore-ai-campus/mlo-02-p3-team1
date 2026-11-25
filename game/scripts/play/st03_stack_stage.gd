@@ -1,7 +1,7 @@
 extends WalkStage
 ## ST03 스택 - 최근 작업 복구실
 ## 복구 레벨: 입고 레일의 상자를 차례로 탑에 넣고(push) 꺼내(pop) 복구 작업대에 목표 순서대로 놓는다.
-## 괄호 레벨: 글자 하나씩 탑(push) / 레버(pop) / 책상(불일치 선언)을 골라 괄호 검사기를 직접 돌린다.
+## 괄호 레벨: 글자 하나씩 탑(push) / POP 레버(pop)로 처리하고, 복구 작업대 앞 판정 발판(올바름 / 불일치 / 괄호 남음)에서 결과를 선언한다.
 
 const CAP := 3
 const LEVELS := [
@@ -9,11 +9,12 @@ const LEVELS := [
 	{"type": "order", "in": ["A", "B", "C"], "out": ["C", "B", "A"], "goal": "복구 순서 C → B → A 맞추기"},
 	{"type": "order", "in": ["A", "B", "C"], "out": ["B", "C", "A"], "goal": "복구 순서 B → C → A 맞추기"},
 	{"type": "bracket", "s": "([]{})", "goal": "괄호 검사: 여는 괄호는 push, 닫는 괄호는 짝이면 pop"},
-	{"type": "bracket", "s": "{[(])}", "goal": "괄호 검사: 짝이 안 맞는 순간 책상에서 불일치 선언"},
+	{"type": "bracket", "s": "{[(])}", "goal": "괄호 검사: 짝이 안 맞는 순간 '불일치' 발판에서 선언"},
 	{"type": "bracket", "s": "(()", "goal": "괄호 검사: 끝까지 읽고 결과 판정하기"},
 ]
 const PAIR := {")": "(", "]": "[", "}": "{"}
 const ORDER_KINDS := ["tower", "intake", "output"]
+const JUDGE := ["올바름", "불일치", "괄호 남음"]   # 판정 발판 0, 1, 2
 
 var L: Dictionary
 var stack: Array = []
@@ -24,6 +25,8 @@ var hand = null
 var step := 0
 var peeked := false
 var board: Node2D
+var pads: Node2D          # 바닥 발판(작업대 앞 판정 자리) - 로봇보다 아래에 그린다
+var lever_sign: Node2D
 
 func _init() -> void:
 	stage_id = "ST03"
@@ -38,20 +41,28 @@ func _init() -> void:
 		"나중에 들어간 게 먼저 나온다고 해서 후입선출, LIFO라고 불러. 접시를 쌓는 거랑 똑같지. 맨 아래 접시는 위를 다 치워야 꺼낼 수 있어.",
 		"넣는 걸 push, 꺼내는 걸 pop, 맨 위를 'top'이라고 해. 실행 취소나 뒤로 가기가 다 스택으로 만들어졌단다.",
 		"조작법! 입고 레일에서 E로 상자를 집고, 탑 앞에서 E를 누르면 push, 빈손으로 E를 누르면 pop이야. 작업대에는 정해진 순서대로만 놓을 수 있어.",
-		"뒤의 괄호 검사는 책상 위 글자판을 앞에서부터 읽는 일이란다. 여는 괄호는 탑에 push, 닫는 괄호는 레버로 pop하며 짝을 맞춰 보렴. 막히면 노란 화살표를 따라가!",
+		"뒤의 괄호 검사는 책상 위 글자판을 앞에서부터 읽는 일이란다. 여는 괄호는 탑에 push, 닫는 괄호는 탑 앞의 POP 레버로 꺼내며 짝을 맞춰 보렴. 판정은 복구 작업대 앞 발판에서 한단다. 막히면 노란 화살표를 따라가!",
 	]
 	level_talk = [
 		"먼저 살펴보는 법을 배우자. A, B를 탑에 넣고, 책상에서 E를 눌러 Peek로 맨 위를 확인해 보렴. Peek는 보기만 하니까 탑은 그대로란다. 그다음 B, A 순서로 복구해.",
 		"첫 일감이야. A, B, C가 차례로 들어오는데 복구는 C, B, A 순서로 해야 해. 전부 탑에 넣었다가 꺼내면 저절로 거꾸로 되지!",
 		"이번엔 B, C, A 순서야. 상자가 어떤 순서로 나올지 머릿속으로 그리면서 push와 pop을 번갈아 해 보렴.",
-		"이제 괄호 검사기야! ([]{})를 읽자. 여는 괄호는 탑에 넣고, 닫는 괄호를 만나면 맨 위와 짝이 맞는지 보고 레버로 꺼내렴. 다 읽고 탑이 비면 복구 작업대에서 '올바름'을 선언해.",
-		"{[(])} 이건 수상한데? 닫는 괄호가 맨 위와 짝이 안 맞는 순간, 책상으로 가서 '불일치'를 선언하렴.",
-		"마지막은 (() 란다. 끝까지 읽었는데 탑에 괄호가 남아 있으면 닫히지 않은 거야. 그땐 입고 레일에서 '남음'을 선언해.",
+		"이제 괄호 검사기야! ([]{})를 읽자. 여는 괄호는 탑에 넣고, 닫는 괄호를 만나면 맨 위와 짝이 맞는지 보고 레버로 꺼내렴. 다 읽고 탑이 비면 복구 작업대 앞 '올바름' 발판에서 E로 선언해.",
+		"{[(])} 이건 수상한데? 닫는 괄호가 맨 위와 짝이 안 맞는 순간, 복구 작업대 앞 '불일치' 발판에서 선언하렴.",
+		"마지막은 (() 란다. 끝까지 읽었는데 탑에 괄호가 남아 있으면 닫히지 않은 거야. 그땐 복구 작업대 앞 '괄호 남음' 발판에서 선언해.",
 	]
 
 func build_stage() -> void:
 	board = Node2D.new()
 	overlay.add_child(board)
+	pads = make_floor_layer()
+	# POP 레버: 탑 옆의 판이 무엇인지 분명히 보이게 이름표를 붙인다 (탑 앞에서 E 로 하는 push / pop 과 구분)
+	lever_sign = Node2D.new()
+	overlay.add_child(lever_sign)
+	var lp := spot("lever").position
+	panel_at(Rect2(lp.x - 58, lp.y - 96, 116, 50), Color("c0392b"), StageHUD.INK, 3, lever_sign)
+	text_at("POP ▲", lp + Vector2(0, -80), 22, Color.WHITE, 4, lever_sign)
+	text_at("맨 위 꺼내기", lp + Vector2(0, -58), 15, Color("ffe7c2"), 3, lever_sign)
 
 func setup_level(n: int) -> void:
 	L = LEVELS[n]
@@ -67,8 +78,16 @@ func setup_level(n: int) -> void:
 	else:
 		inbox = []
 		target = []
-	spot("lever").enabled = L.type == "bracket"
-	spot("desk").enabled = L.type == "bracket" or L.get("peek", false)
+	var bracket: bool = L.type == "bracket"
+	spot("lever").enabled = bracket
+	spot("desk").enabled = L.get("peek", false)
+	spot("output").enabled = not bracket
+	spot("intake").enabled = not bracket
+	for j in JUDGE.size():
+		spot("judge", j).enabled = bracket
+	# 상자 복구 레벨에서는 POP 레버를 쓰지 않으니 흐리게 (꺼내기는 탑 앞에서 빈손으로 E)
+	lever_sign.modulate = Color(1, 1, 1, 1.0 if bracket else 0.35)
+	_draw_pads()
 
 func get_state() -> Dictionary:
 	return {"s": stack, "i": inbox, "o": out, "h": hand, "t": step, "p": peeked}
@@ -98,10 +117,25 @@ func rebuild() -> void:
 	sync_items(want, hand)
 	_draw_board()
 
+## 복구 작업대 앞 바닥 발판. 상자 레벨은 "여기서 놓기" 발판 1개, 괄호 레벨은 판정 발판 3개.
+func _draw_pads() -> void:
+	clear_children(pads)
+	var list := []
+	if L.type == "bracket":
+		for j in JUDGE.size():
+			list.append([spot("judge", j).position, JUDGE[j], [Color("4caf50"), Color("e05252"), Color("e8a33d")][j]])
+	else:
+		list.append([spot("output").position, "여기서 놓기", Color("5fd6ff")])
+	for e in list:
+		floor_pad(pads, e[0], e[1], e[2])
+
 func _draw_board() -> void:
 	clear_children(board)
 	if L.type != "bracket":
 		return
+	# 작업대 위 세 칸에 판정 이름을 크게 써서 발판과 짝지어 보이게 한다
+	for j in JUDGE.size():
+		text_at(JUDGE[j], mark("Out%d" % j) + Vector2(0, -6), 20, [Color("8ee59a"), Color("ff8f8f"), Color("ffc46b")][j], 5, board)
 	var s: String = L.s
 	var w := 58.0
 	var c := mark("Board")
@@ -147,10 +181,8 @@ func prompt(t: Interactable) -> String:
 		var more: bool = step < L.s.length()
 		match t.kind:
 			"tower": return "push '%s'" % L.s[step] if more else "괄호 탑"
-			"lever": return "pop (짝 맞추기)" if more else "pop 레버"
-			"desk": return "불일치 선언"
-			"output": return "다 읽음: 올바름 선언"
-			"intake": return "다 읽음: 괄호 남음 선언"
+			"lever": return "POP 레버 (짝 맞추기)" if more else "POP 레버"
+			"judge": return "%s 선언" % JUDGE[t.index]
 	return t.prompt
 
 func interact(t: Interactable) -> void:
@@ -217,29 +249,30 @@ func _order(t: Interactable) -> void:
 
 func _bracket(t: Interactable) -> void:
 	var s: String = L.s
-	if t.kind == "output" or t.kind == "intake":
+	# 판정 발판: 0 올바름, 1 불일치, 2 괄호 남음
+	if t.kind == "judge" and t.index != 1:
 		if step < s.length():
 			wrong("아직 글자를 다 읽지 않았어요.")
 			return
-		var correct := "output" if stack.is_empty() else "intake"
-		if t.kind != correct:
+		var correct := 0 if stack.is_empty() else 2
+		if t.index != correct:
 			wrong("스택 상태를 다시 보세요.")
 			return
-		code("return %s;" % ("true" if correct == "output" else "false"), "스택이 비었나?")
-		win("판정 정답! " + ("스택이 비어 올바른 괄호예요." if correct == "output" else "닫히지 않은 괄호 %d개가 남았어요." % stack.size()) + "\n실수 %d회" % mistakes)
+		code("return %s;" % ("true" if correct == 0 else "false"), "스택이 비었나?")
+		win("판정 정답! " + ("스택이 비어 올바른 괄호예요." if correct == 0 else "닫히지 않은 괄호 %d개가 남았어요." % stack.size()) + "\n실수 %d회" % mistakes)
 		return
 	if step >= s.length():
-		wrong("다 읽었어요. 복구 작업대(올바름)나 입고 레일(남음)에서 판정하세요.")
+		wrong("다 읽었어요. 작업대 앞 '올바름'이나 '괄호 남음' 발판에서 판정하세요.")
 		return
 	var ch := s[step]
 	var need := "tower"
 	if PAIR.has(ch):
-		need = "lever" if not stack.is_empty() and stack.back() == PAIR[ch] else "desk"
+		need = "lever" if not stack.is_empty() and stack.back() == PAIR[ch] else "judge"
 	if t.kind != need:
 		match need:
 			"tower": wrong("'%s' 는 여는 괄호라 탑에 push 해야 해요." % ch)
-			"lever": wrong("'%s' 의 짝이 top 과 맞으니 레버로 pop 해야 해요." % ch)
-			"desk": wrong("'%s' 의 짝이 top 과 맞지 않아요. 책상에서 불일치 선언!" % ch)
+			"lever": wrong("'%s' 의 짝이 top 과 맞으니 POP 레버로 꺼내야 해요." % ch)
+			"judge": wrong("'%s' 의 짝이 top 과 맞지 않아요. '불일치' 발판에서 선언!" % ch)
 		return
 	snapshot()
 	moves += 1
@@ -252,7 +285,7 @@ func _bracket(t: Interactable) -> void:
 			stack.pop_back()
 			code("stack.pop();", "'%s' 와 짝" % ch)
 			step += 1
-		"desk":
+		"judge":
 			code("return false;", "'%s' 짝이 안 맞음" % ch)
 			win("정답! '%s' 에서 짝이 어긋나는 걸 찾아냈어요.\n실수 %d회" % [ch, mistakes])
 
@@ -280,10 +313,10 @@ func next_action() -> Array:
 		return [null, ""]
 	var s: String = L.s
 	if step >= s.length():
-		return [spot("output"), "올바름 선언"] if stack.is_empty() else [spot("intake"), "괄호 남음 선언"]
+		return [spot("judge", 0), "올바름 선언"] if stack.is_empty() else [spot("judge", 2), "괄호 남음 선언"]
 	var ch := s[step]
 	if not PAIR.has(ch):
 		return [spot("tower"), "'%s' push" % ch]
 	if not stack.is_empty() and stack.back() == PAIR[ch]:
-		return [spot("lever"), "'%s' 짝 맞추기" % ch]
-	return [spot("desk"), "불일치 선언"]
+		return [spot("lever"), "'%s' POP 레버로 꺼내기" % ch]
+	return [spot("judge", 1), "불일치 선언"]

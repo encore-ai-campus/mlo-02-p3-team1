@@ -7,6 +7,9 @@
 [ext_resource type="Script" path="res://scripts/play/stage_hud.gd" id="5"]
 [ext_resource type="Texture2D" path="res://textures/npc_portraits/NPC03_world.png" id="6"]
 
+[sub_resource type="CircleShape2D" id="r46"]
+radius = 46.0
+
 [sub_resource type="CircleShape2D" id="r52"]
 radius = 52.0
 
@@ -64,7 +67,7 @@ centered = false
 
 [node name="Boundary0" type="CollisionPolygon2D" parent="Field/Walls"]
 build_mode = 1
-polygon = PackedVector2Array(496.5, 312.6, 956.2, 312.6, 980.7, 361.6, 974.5, 373.9, 689.5, 373.9, 689.5, 484.2, 833.6, 484.2, 845.8, 484.2, 852.0, 493.4, 815.2, 508.7, 677.3, 521.0, 358.6, 511.8, 272.7, 496.5, 260.5, 478.1, 266.6, 468.9, 490.3, 468.9, 490.3, 318.7, 496.5, 312.6)
+polygon = PackedVector2Array(496.5, 312.6, 956.2, 312.6, 980.7, 361.6, 974.5, 373.9, 689.5, 373.9, 689.5, 484.2, 962.3, 484.2, 974.5, 493.4, 943.9, 521.0, 677.3, 527.1, 358.6, 511.8, 272.7, 496.5, 260.5, 478.1, 266.6, 468.9, 490.3, 468.9, 490.3, 318.7, 496.5, 312.6)
 
 [node name="Links" type="Node2D" parent="Field"]
 
@@ -101,11 +104,11 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r58")
 
 [node name="Output" type="Area2D" parent="Field/World"]
-position = Vector2(812.1, 341.7)
+position = Vector2(827.4, 496.5)
 script = ExtResource("3")
 kind = "output"
 index = -1
-bubble_offset = Vector2(0, -60)
+bubble_offset = Vector2(0, -64)
 
 [node name="Shape" type="CollisionShape2D" parent="Field/World/Output"]
 shape = SubResource("r70")
@@ -129,6 +132,36 @@ bubble_offset = Vector2(0, -150)
 
 [node name="Shape" type="CollisionShape2D" parent="Field/World/Desk"]
 shape = SubResource("r58")
+
+[node name="Judge0" type="Area2D" parent="Field/World"]
+position = Vector2(747.0, 496.5)
+script = ExtResource("3")
+kind = "judge"
+index = 0
+bubble_offset = Vector2(0, -64)
+
+[node name="Shape" type="CollisionShape2D" parent="Field/World/Judge0"]
+shape = SubResource("r46")
+
+[node name="Judge1" type="Area2D" parent="Field/World"]
+position = Vector2(827.4, 496.5)
+script = ExtResource("3")
+kind = "judge"
+index = 1
+bubble_offset = Vector2(0, -64)
+
+[node name="Shape" type="CollisionShape2D" parent="Field/World/Judge1"]
+shape = SubResource("r46")
+
+[node name="Judge2" type="Area2D" parent="Field/World"]
+position = Vector2(910.2, 496.5)
+script = ExtResource("3")
+kind = "judge"
+index = 2
+bubble_offset = Vector2(0, -64)
+
+[node name="Shape" type="CollisionShape2D" parent="Field/World/Judge2"]
+shape = SubResource("r46")
 
 [node name="Stack0" type="Marker2D" parent="Field/World"]
 position = Vector2(297.3, 441.3)
@@ -208,9 +241,9 @@ horizontal_alignment = 1
 [node name="Sign2" type="Label" parent="Field/World"]
 z_index = 4
 offset_left = 741.3
-offset_top = 468.1
+offset_top = 341.0
 offset_right = 921.3
-offset_bottom = 494.1
+offset_bottom = 367.0
 text = "복구 작업대"
 label_settings = SubResource("sign_text")
 horizontal_alignment = 1
