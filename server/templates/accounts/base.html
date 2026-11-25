@@ -81,6 +81,6 @@
 </div>
 {% endwith %}
 <div class="chart-tooltip" id="chart-tooltip" role="status"></div>
-{% if user.is_authenticated %}<div class="pipeline-toast" id="pipeline-toast" role="status" hidden></div><script src="{% static 'js/pipeline-alerts.js' %}?v=2" data-status-url="/api/admin/pipeline-alerts" data-page-url="{% url 'pipeline-alerts' %}" defer></script>{% endif %}
+{% if user.is_authenticated %}<div class="pipeline-toast" id="pipeline-toast" role="status" hidden></div><script src="{% static 'js/pipeline-alerts.js' %}?v=3" data-status-url="/api/admin/pipeline-alerts" data-page-url="{% url 'pipeline-alerts' %}" defer></script>{% endif %}
 {% block scripts %}{% endblock %}
 </body></html>
