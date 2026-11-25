@@ -185,6 +185,7 @@ def events_page(request):
         'start': start, 'end': end, 'members': members, 'selected_member': selected_member,
         'games': [(code, g['title']) for code, g in CATALOG.items()], 'game': game,
         'kinds': list(EVENT_LABELS.items()), 'kind': kind, 'selected_sort': selected_sort,
+        'who': request.GET.get('who') if request.GET.get('who') in ('member', 'guest') else '',
     })
 
 

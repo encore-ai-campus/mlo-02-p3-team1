@@ -3,6 +3,9 @@ from django.db import models
 from django.db.models import Q, F
 
 
+GUEST_KEY_PREFIX = 'game:member:guest:'  # members the pipeline creates for unregistered (guest) play
+
+
 class Player(models.Model):
     """Analysis subject, with no password, role, or web-login capabilities."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False,
@@ -18,6 +21,11 @@ class Player(models.Model):
         db_table = 'game_members'
         db_table_comment = '게임 회원 식별 정보. 비밀번호와 플레이 로그는 저장하지 않음'
         constraints = [models.CheckConstraint(condition=Q(source__in=['live', 'demo']), name='player_source_valid')]
+
+    @property
+    def is_guest(self):
+        """Guest play: a member the pipeline provisioned for a player who never signed up."""
+        return self.external_id.startswith(GUEST_KEY_PREFIX)
 
 
 class GameAccount(models.Model):

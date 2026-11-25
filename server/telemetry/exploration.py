@@ -124,6 +124,18 @@ def log_query(params):
         q['event_type']={'$in':list(SUCCESS_TYPES if params['result']=='success' else FAILURE_TYPES)}
     for key,field in [('operation','details.operation'),('reason','details.failure_reason'),('run','run_id'),('content_version','content_version')]:
         if params.get(key):q[field]=params[key][:100]
+    who=params.get('who')
+    if who in ('member','guest'):
+        # 회원 = 가입 계정(또는 그 계정이 로그인한 기기)에 연결된 기록, 게스트 = 그 밖의 모든 기록
+        from .pipeline_events import identity_map
+        member_ids=set(identity_map())
+        current=set(q['player_id']['$in']) if 'player_id' in q else None
+        if who=='member':
+            q['player_id']={'$in':sorted(member_ids if current is None else current&member_ids)}
+        elif current is None:
+            q['player_id']={'$nin':sorted(member_ids)}
+        else:
+            q['player_id']={'$in':sorted(current-member_ids)}
     return q
 
 

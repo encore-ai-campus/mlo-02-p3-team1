@@ -4,12 +4,14 @@ from django.utils import timezone
 from .models import Player, PlaySession, BehaviorEvent
 from .catalog import AREAS, CATALOG
 
+PLAYER_KINDS = [('all', '회원+게스트'), ('member', '회원만'), ('guest', '게스트만')]
 
 class AnalysisFilter(forms.Form):
     player_id = forms.ModelChoiceField(label='플레이어 선택', queryset=Player.objects.order_by('display_name', 'external_id'), required=False, empty_label='플레이어를 선택하세요')
     start = forms.DateField(label='시작일', widget=forms.DateInput(attrs={'type': 'date'}))
     end = forms.DateField(label='종료일', widget=forms.DateInput(attrs={'type': 'date'}))
     source = forms.ChoiceField(label='데이터', choices=[('all', '전체 (실제+데모)'), ('live', '실제 데이터'), ('demo', '데모 데이터')])
+    player_kind = forms.ChoiceField(label='플레이어 구분', choices=PLAYER_KINDS)
     category = forms.ChoiceField(label='학습 분야', required=False, choices=[('', '전체 분야')] + AREAS)
     game_id = forms.ChoiceField(label='게임 선택', required=False, choices=[('', '전체 게임')] + [
         (code, f"{code} · {game['title']}") for code, game in CATALOG.items()])
@@ -22,7 +24,7 @@ class AnalysisFilter(forms.Form):
 
     def __init__(self, data=None, *args, **kwargs):
         today = timezone.localdate()
-        defaults = {'start': (today - timedelta(days=27)).isoformat(), 'end': today.isoformat(), 'source': 'all'}
+        defaults = {'start': (today - timedelta(days=27)).isoformat(), 'end': today.isoformat(), 'source': 'all', 'player_kind': 'all'}
         if data:
             defaults.update(data.dict() if hasattr(data, 'dict') else data)
         super().__init__(defaults, *args, **kwargs)

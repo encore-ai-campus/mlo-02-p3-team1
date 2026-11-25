@@ -378,3 +378,17 @@ class ProjectedRunSolveTimeTests(TestCase):
         self.assertEqual(run_from_document(self.doc(active_ms=120000)).active_ms, 120000)
         self.assertIsNone(run_from_document(self.doc(status='in_progress', ended_at=None)).active_ms)
         self.assertIsNone(run_from_document(self.doc(status='abandoned')).active_ms)
+
+
+class PlayerKindFilterTests(TestCase):
+    """Guest members (game:member:guest:<UUID>) can be shown alone or left out of the summary tabs."""
+
+    def test_selection_splits_members_and_guests(self):
+        from .queries import selection
+        member = Player.objects.create(external_id='game:member:member-1', display_name='회원')
+        guest = Player.objects.create(external_id='game:member:guest:70195171-4865-4218-bb1e-d0d21ee39398', display_name='게스트-70195171')
+        self.assertTrue(guest.is_guest)
+        self.assertFalse(member.is_guest)
+        picked = {kind: set(selection({'player_kind': kind})[1]) for kind in ('all', 'member', 'guest')}
+        self.assertEqual(picked, {'all': {member, guest}, 'member': {member}, 'guest': {guest}})
+        self.assertFalse(selection({'player_kind': 'everyone'})[0].is_valid())

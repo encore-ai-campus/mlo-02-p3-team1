@@ -1,7 +1,7 @@
 {% extends 'accounts/base.html' %}{% block content %}
 <div class="ov person-page player-detail-page">
 <div class="ov-head">
-  <div class="person-head"><span class="person-avatar">{{ player.display_name|slice:':1' }}</span><div class="ov-head-stack"><h1>{{ player.display_name }} <span class="result-badge {% if player.source == 'demo' %}warn{% else %}info{% endif %}">{{ player.get_source_display }} 데이터</span></h1><p class="person-ids"><span class="mono">{{ player.external_id }}</span> · 플레이어 ID <span class="mono">{{ player.pk }}</span></p></div></div>
+  <div class="person-head"><span class="person-avatar">{{ player.display_name|slice:':1' }}</span><div class="ov-head-stack"><h1>{{ player.display_name }} <span class="result-badge {% if player.source == 'demo' %}warn{% else %}info{% endif %}">{{ player.get_source_display }} 데이터</span>{% if player.is_guest %} <span class="result-badge neutral">게스트</span>{% endif %}</h1><p class="person-ids"><span class="mono">{{ player.external_id }}</span> · 플레이어 ID <span class="mono">{{ player.pk }}</span></p></div></div>
   <div class="head-actions">{% include 'telemetry/person_tabs.html' with current='learning' pid=player.pk has_account=player.game_account %}<a class="btn-ghost" href="{% url 'players' %}">← 플레이어 목록</a></div>
 </div>
 {% include 'telemetry/filters.html' %}

@@ -376,9 +376,14 @@ class LiveApiTests(TestCase):
         rows = [(r['code'], r['kind'], r['member']['name'] if r['member'] else None) for r in page.context['rows'] if r['code'] in ('SQL01', 'ST01')]
         self.assertEqual(rows, [('SQL01', 'attempt_succeeded', 'player7'), ('ST01', 'attempt_started', None), ('SQL01', 'hint_used', 'player7')])
         self.assertContains(page, f'/staff/members/{account.player_id}/#play')
-        self.assertContains(page, '미가입 기기')
+        self.assertContains(page, '게스트 · stranger')
         only = self.client.get(f'/staff/events/?member={account.player_id}&kind=hint_used')
         self.assertEqual([r['kind'] for r in only.context['rows']], ['hint_used'])
+        guests = self.client.get('/staff/events/?who=guest')
+        self.assertEqual([r['raw_player'] for r in guests.context['rows'] if r['code'] in ('SQL01', 'ST01')], ['stranger-device'])
+        members_only = self.client.get('/staff/events/?who=member')
+        self.assertEqual({r['member']['name'] for r in members_only.context['rows'] if r['code'] in ('SQL01', 'ST01')}, {'player7'})
+        self.assertEqual(self.client.get(f'/staff/events/?who=guest&member={account.player_id}').context['rows'], [])
         events.delete_many({'_id': {'$in': ids}})
 
     def test_overview_counts_pipeline_play_of_members(self):

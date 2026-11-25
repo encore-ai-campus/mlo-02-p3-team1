@@ -12,7 +12,7 @@
     <thead><tr><th scope="col">플레이어</th><th scope="col">데이터 구분</th><th scope="col" class="numeric">세션</th><th scope="col" class="numeric">행동 로그</th><th scope="col">연산 성공률</th><th scope="col" class="numeric">연산 실패</th><th scope="col" class="numeric">힌트</th><th scope="col"><span class="sr-only">상세</span></th></tr></thead>
     <tbody>{% for row in rows %}<tr>
       <td><a class="person-cell" href="{% url 'player-detail' row.player.pk %}?{{ querystring }}"><span class="person-avatar">{{ row.player.display_name|slice:':1' }}</span><span><span class="person-name">{{ row.player.display_name }}</span><small class="id-text">{{ row.player.external_id|truncatechars:28 }}</small></span></a></td>
-      <td><span class="result-badge {% if row.player.source == 'demo' %}warn{% else %}info{% endif %}">{{ row.player.get_source_display }}</span></td>
+      <td><span class="result-badge {% if row.player.source == 'demo' %}warn{% else %}info{% endif %}">{{ row.player.get_source_display }}</span>{% if row.player.is_guest %} <span class="result-badge neutral">게스트</span>{% endif %}</td>
       <td class="numeric">{{ row.sessions }}</td><td class="numeric">{{ row.events }}</td>
       <td>{% if row.rate != None %}<span class="cell-progress"><b>{{ row.rate }}%</b><span class="bar"><i style="width:{{ row.rate }}%"></i></span></span>{% else %}<span class="muted">기록 없음</span>{% endif %}</td>
       <td class="numeric">{{ row.failures }}</td><td class="numeric">{{ row.hints }}</td>

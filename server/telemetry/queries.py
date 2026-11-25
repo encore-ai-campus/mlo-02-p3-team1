@@ -3,7 +3,7 @@ from datetime import datetime, time, timedelta
 from django.db.models import Q
 from django.utils import timezone
 from .forms import AnalysisFilter
-from .models import Player, PlaySession
+from .models import GUEST_KEY_PREFIX, Player, PlaySession
 from .mongo import Records, load_snapshot
 
 
@@ -20,6 +20,10 @@ def selection(params, player=None):
         players = players.filter(pk=filters['player_id'].pk)
     if filters['source'] != 'all':
         players = players.filter(source=filters['source'])
+    if filters['player_kind'] == 'guest':
+        players = players.filter(external_id__startswith=GUEST_KEY_PREFIX)
+    elif filters['player_kind'] == 'member':
+        players = players.exclude(external_id__startswith=GUEST_KEY_PREFIX)
     if filters['q']:
         players = players.filter(Q(display_name__icontains=filters['q']) | Q(external_id__icontains=filters['q']))
     start = timezone.make_aware(datetime.combine(filters['start'], time.min))

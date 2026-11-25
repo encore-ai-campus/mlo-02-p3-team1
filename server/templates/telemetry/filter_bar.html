@@ -6,6 +6,7 @@
   <span class="ov-divider" aria-hidden="true"></span>
   <span class="ov-select" data-autosubmit><label class="sr-only" for="{{ filter.category.id_for_label }}">학습 분야</label>{{ filter.category }}</span>
   <span class="ov-select" data-autosubmit><label class="sr-only" for="{{ filter.source.id_for_label }}">데이터 구분</label>{{ filter.source }}</span>
+  <span class="ov-select" data-autosubmit><label class="sr-only" for="{{ filter.player_kind.id_for_label }}">플레이어 구분</label>{{ filter.player_kind }}</span>
   <details class="ov-more"{% if filter.player_id.value or filter.q.value or filter.topic.value or filter.task_id.value or filter.content_version.value %} open{% endif %}>
     <summary>세부 조건</summary>
     <div class="ov-more-grid">{% for field in filter %}{% if field.name == 'game_id' or field.name == 'player_id' or field.name == 'q' or field.name == 'topic' or field.name == 'task_id' or field.name == 'content_version' %}<div class="field">{{ field.label_tag }}{{ field }}</div>{% endif %}{% endfor %}</div>
