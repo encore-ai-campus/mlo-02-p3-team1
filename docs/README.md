@@ -5,6 +5,16 @@
 - [DATA_FLOW_AND_GAPS.md](DATA_FLOW_AND_GAPS.md) — 합친 코드 기준 데이터 흐름과 보완·추가 구현 목록 (우선순위별)
 - [INTEGRATION_REVIEW_2026-11-20.md](INTEGRATION_REVIEW_2026-11-20.md) — 게임·파이프라인·서버 연동 종합 검토
 
+## architecture/ — 아키텍처 그림
+
+- `pipeline-architecture-2026-11-25.svg·png` — 현재 파이프라인 동작 아키텍처 (1~8차 보완과 후속 반영, 관측소·게스트 포함). 생성: `python docs/architecture/pipeline_architecture.py`
+- `pipeline-architecture-2026-11-21.svg·png` — 1~8차 보완 시점 그림 (이전 보고서가 참조)
+- `data-flow-2026-11-20.svg·png` — 보완 전 데이터 흐름과 문제 지점
+
+## presentation/ — 발표 자료
+
+- 파이프라인 처음 구조·현재 구조·최적화 비교 PDF와 16:9 그림 6장. 생성: `python docs/presentation/pipeline_comparison.py`
+
 ## changes/ — 파트별 변경 구현서 (각 파트 AI 에이전트 학습용)
 
 - [2026-11-20_game.md](changes/2026-11-20_game.md) — UUIDv7 이벤트 ID, 전송 큐·만료, 미등록 미니게임, player-login, 테스트 봇
@@ -22,6 +32,6 @@
 ## 파트별 문서
 
 - 게임: [`game/docs/`](../game/docs/), [`game/README.md`](../game/README.md), `game/MINIGAME_GUIDE.md`, `game/MAP_EDIT_GUIDE.md`
-- 파이프라인: [`pipeline/docs/`](../pipeline/docs/) — 설계 결정, 통합 현황, E2E 시험 보고서, 델타레이크 요구사항 검토 보고서, 구현 결과서(`TEAM_AI_HANDOFF_2026-11-20.pdf`), 구현계획서 v1.2·v1.3
+- 파이프라인: [`pipeline/docs/`](../pipeline/docs/) — 개요 그림(`architecture.png`), 설계 결정, 통합 현황, 원격 적재·관측소 운영, 복구 보고, E2E 시험 보고서, 델타레이크 요구사항 검토 보고서, 구현계획서·설명서
 - 서버: [`server/docs/`](../server/docs/) — DB 구조, MongoDB 연동, 게임 로그인 연동, 팀 인수인계
 - 공유 이벤트 형식: [`contracts/`](../contracts/)

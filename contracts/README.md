@@ -18,6 +18,8 @@
 1. 파이프라인이 `contracts/`를 import 하도록 바꾸고 `pipeline/` 쪽 사본을 지운다 (Docker 빌드 컨텍스트 조정 필요).
 2. `contracts/`를 기준으로 두고, CI에서 `pipeline/` 사본과 내용이 같은지 검사한다.
 
+복사본이 원본보다 늦을 수 있습니다. 지금 `pipeline/contract.py`에는 `details.state_before`·`state_after`가 JSON 객체로 오면 키 순서를 고정한 JSON 문자열로 바꾸는 검사가 있지만, 이 폴더의 `contract.py`에는 아직 없습니다. 차이가 있으면 `pipeline/` 쪽이 기준입니다.
+
 ## ⚠️ 맞춰야 할 차이 (2026-11-20 기준)
 
 파이프라인의 `LearningEventV2`와 서버의 JSON Schema가 서로 다릅니다.

@@ -20,8 +20,8 @@ NODEVERSE는 **자료구조·알고리즘·SQL·데이터 탐색**을 3D 섬 월
 
 | 구성 | 한 줄 설명 |
 |---|---|
-| 게임 | Godot 4.7 클라이언트. 섬 7개로 된 3D 월드와 미니게임 24종, 학습 이벤트 송신, 회원·클라우드 세이브, 자동 업데이트 |
-| 파이프라인 | 수집 API → Kafka → Spark Structured Streaming + Delta Lake(Bronze·Silver·Gold) → MongoDB, 원격 DB 적재 |
+| 게임 | Godot 4.7 클라이언트. 섬 7개로 된 3D 월드와 미니게임(실습 23종 + 보너스, 종합 도전 2종), 학습 이벤트 송신, 회원·클라우드 세이브, 자동 업데이트 |
+| 파이프라인 | 수집 API → Kafka → Spark Structured Streaming + Delta Lake(Bronze·Silver·Gold) → MongoDB, 원격 DB 적재, 읽기 전용 관측소 |
 | 서버 | Django 관리자 대시보드, 게임 회원·세이브 API, 배포·업데이트 관리, 소개 웹사이트 |
 
 ---
@@ -35,7 +35,7 @@ NODEVERSE는 **자료구조·알고리즘·SQL·데이터 탐색**을 3D 섬 월
 | 경로 | 내용 | 설명서 |
 |---|---|---|
 | `game/` | Godot 게임 클라이언트, 소개 웹사이트 원본 | [game/README.md](game/README.md) |
-| `pipeline/` | 수집기·Kafka·Spark/Delta·원격 적재 작업자 | [pipeline/README.md](pipeline/README.md) |
+| `pipeline/` | 수집기·Kafka·Spark/Delta·원격 적재 작업자·관측소 | [pipeline/README.md](pipeline/README.md) |
 | `server/` | Django 대시보드·게임 API | [server/README.md](server/README.md) |
 | `contracts/` | 세 파트 공통 이벤트 형식·Kafka 토픽 | [contracts/README.md](contracts/README.md) |
 | `docs/` | 팀 공통 문서·보고서·아키텍처 그림 | [docs/README.md](docs/README.md) |
@@ -43,7 +43,7 @@ NODEVERSE는 **자료구조·알고리즘·SQL·데이터 탐색**을 3D 섬 월
 ```
 mlo-02-p3-team1/
 ├─ game/        Godot 프로젝트 (바이너리 에셋은 Git LFS)
-├─ pipeline/    collector.py · spark/ · remote/ · compose.json · launcher.py
+├─ pipeline/    collector.py · spark/ · remote/ · observatory/ · compose.json · launcher.py
 ├─ server/      config/ · accounts/ · telemetry/ · templates/ · static/
 ├─ contracts/   공통 이벤트 규약
 ├─ docs/        가이드 · 검토 · 보고서 · architecture/
@@ -64,16 +64,18 @@ mlo-02-p3-team1/
 |---|---|
 | 엔진 | Godot **4.7.2** (웹 빌드는 Compatibility/WebGL2) |
 | 메인 씬 | `scenes/NodeverseWorld.tscn` — 메인 섬과 자료구조·알고리즘·SQL·데이터 섬이 다리로 연결된 3D 월드 |
-| 미니게임 | 24종 (`scripts/learning_catalog.gd`): DS 10 · ALGO 6 · SQL 4 · DATA 4 |
+| 미니게임 | `scripts/learning_catalog.gd`: 실습 23종(DS 9 · ALGO 6 · SQL 4 · DATA 4) + 자료구조 종합 보너스, 종합 도전 섬의 판테온 코드 자동화·종합 코딩테스트 |
 | 자동 로드 | `NetworkManager`(이벤트 송신·회원 API·F6 디버그 패널), `UpdateManager`(시작 시 업데이트 확인) |
+| 주소 설정 | `config.ini`(예시 `game/config.ini.example`)의 `[pipeline]`·`[server]` 주소와 `[debug] debug_enabled`. EXE 옆 또는 `project.godot` 옆에 두고 재시작 |
 | 내보내기 | `Windows Desktop`(EXE), `Web`, `Content Pack`(.pck 리소스 팩) |
 
 **동작 방식**
 1. 로그인하면 Django `/api/game/auth/login`으로 회원을 확인하고 클라우드 세이브를 불러옵니다. 이후 학습 이벤트의 `player_id`는 회원 ID입니다.
 2. 미니게임에서 행동이 일어날 때마다 `NetworkManager`가 v2 이벤트를 만들어 **디스크 큐**(`user://telemetry/pending/`)에 먼저 저장합니다.
-3. 큐에서 하나씩 `POST /v2/events`로 보냅니다(3초 타임아웃, `X-API-Key`). 202면 삭제, 401·422면 `rejected/`로 옮기고, 그 밖의 오류는 같은 event_id로 1~60초 간격으로 재시도합니다. 네트워크가 없어도 게임은 멈추지 않습니다.
+3. 큐에서 하나씩 `POST /v2/events`로 보냅니다(3초 타임아웃, `X-API-Key`). 202면 삭제, 4xx 거절은 `rejected/`로 옮기고(401 키 오류는 큐에 둔 채 60초마다 재시도), 그 밖의 오류는 같은 event_id로 1~60초 간격으로 재시도합니다. 네트워크가 없어도 게임은 멈추지 않습니다.
 4. 시작할 때 `/api/game/manifest`로 새 버전·리소스 팩을 확인하고 업데이트 이벤트를 보냅니다.
 5. 실행·종료 감시는 `launcher.exe`(`pipeline/launcher.py`)가 맡아 `/v1/events`로 보냅니다.
+6. 수집기·Django 주소는 `config.ini`가 있으면 그 값을, 없으면 기존 JSON 설정이나 코드 기본값을 씁니다. 디버그 기능(F3~F6)은 `debug_enabled`로 켜고 끕니다.
 
 **실행 화면**
 
@@ -89,8 +91,9 @@ mlo-02-p3-team1/
 |---|---|
 | `collector.py` (FastAPI) | `POST /v2/events` 단일 이벤트 수집. 키 확인 → 스키마 검사 → 토픽 분류 → Kafka `acks=all` 확인 후 **202**. 잘못된 입력은 **422 + DLQ**, Kafka 장애는 **503** |
 | Kafka 3대 | 토픽 5개, 복제 3·최소 ISR 2, 보관 7일 |
-| `spark/delta_stream.py` | Spark 앱 1개·스트리밍 쿼리 7개. Bronze(원본 보존) → Silver(검증·중복 제거) → Gold(1분·5분 집계) → MongoDB `rt_*` |
+| `spark/` | Spark 앱 1개·스트리밍 쿼리 7개(원격 적재 시 8개). `delta_stream.py`가 진입점·감독이고 `bronze`·`silver`·`gold`·`periodic`·`sinks`·`compaction` 모듈이 Bronze(원본 보존) → Silver(검증·중복 제거) → Gold(1분·5분 집계) → MongoDB `rt_*`를 처리 |
 | `remote/` (remote-writer) | Silver를 통과한 이벤트를 outbox에 쌓고, 작업자가 원격 MySQL·MongoDB에 서버가 읽는 형태(세션·문제 실행·시도·이벤트)로 적재 |
+| `observatory/` | 읽기 전용 관측소(:8011). 쿼리별 처리 속도, 적재 상태별 건수·최대 대기, 경고·복구 이력과 알림 센터 |
 | `simulator.py`, `spark/verify.py`, `spark/probe_latency.py` | 계약 점검·부하 시험·행 수 대조·지연 측정 |
 | `launcher.py` | 게임 실행기. 실행·하트비트·종료 이벤트를 SQLite 큐에 보관 후 전송 |
 
@@ -98,7 +101,9 @@ mlo-02-p3-team1/
 - **유실 방지:** 202는 Kafka에 복제·기록된 뒤에만 돌려줍니다. Kafka가 7일 보관하므로 Spark가 멈춰도 재시작하면 체크포인트부터 이어서 처리합니다.
 - **중복 방지:** 같은 event_id 재전송은 Silver에서 7일 동안 걸러지고, insert-only MERGE라 다시 실행해도 행이 늘지 않습니다. 같은 ID에 다른 내용이 오면 `silver.quarantine`에 `id_conflict`로 격리합니다.
 - **지연:** 이벤트가 대시보드 `rt_*`에 반영되기까지 평시 약 10~18초입니다(구조상 제약, D22).
-- **원격 적재:** 회원 매핑이 없거나 세션 순서가 비면 `waiting_context`로 기다리고, 잘못된 데이터는 `blocked`, 일시 오류는 `retrying`으로 둡니다.
+- **원격 적재:** 회원 매핑이 없거나 세션 순서가 비면 `waiting_context`로 기다리고, 잘못된 데이터는 `blocked`, 일시 오류는 `retrying`으로 둡니다. `REMOTE_ALLOW_GUESTS=1`이면 등록 회원에 없는 UUID 플레이어를 게스트 회원으로 적재합니다.
+- **압축:** 각 테이블을 쓰는 스레드가 300배치마다 작은 파일만 합치고, Silver는 outbox 적재 뒤·Gold는 MongoDB 게시 뒤에 압축해 원격 적재와 화면 게시가 기다리지 않습니다.
+- **상태 객체:** 게임이 `state_before`·`state_after`를 객체로 보내면 수집기가 정렬된 JSON 문자열로 바꿔 받습니다.
 
 **실행 화면**
 
@@ -162,9 +167,9 @@ mlo-02-p3-team1/
 
 ## 4. 종합 구조와 동작 흐름
 
-![파이프라인 동작 아키텍처 (1~7차 보완 반영)](docs/architecture/pipeline-architecture-2026-11-21.png)
+![파이프라인 동작 아키텍처 (1~8차 보완과 후속 반영)](docs/architecture/pipeline-architecture-2026-11-25.png)
 
-원본 SVG: [`docs/architecture/pipeline-architecture-2026-11-21.svg`](docs/architecture/pipeline-architecture-2026-11-21.svg) (생성: `python docs/architecture/pipeline_architecture.py`). 보완 전 흐름과 문제 지점은 아래 그림입니다.
+원본 SVG: [`docs/architecture/pipeline-architecture-2026-11-25.svg`](docs/architecture/pipeline-architecture-2026-11-25.svg) (생성: `python docs/architecture/pipeline_architecture.py`). 한 장짜리 개요는 [`pipeline/docs/architecture.png`](pipeline/docs/architecture.png)입니다. 보완 전 흐름과 문제 지점은 아래 그림입니다.
 
 ![현재 데이터 흐름](docs/architecture/data-flow-2026-11-20.png)
 
@@ -178,12 +183,13 @@ mlo-02-p3-team1/
 | ④ | 〃 | Gold → 로컬 MongoDB `rt_*`, Silver → outbox |
 | ⑤ | 〃 → DB PC (.167) | remote-writer가 MySQL `game_members`, MongoDB 세션·시도·이벤트와 `rt_*` 사본으로 적재 |
 | ⑥ | 대시보드 PC (.29) | Django가 MySQL·MongoDB를 읽어 `/staff/` 화면에 표시 |
-| ⑦ | 게임 ↔ Django | 회원가입·로그인·클라우드 세이브·업데이트 확인은 직접 호출 |
+| ⑦ | 파이프라인 PC | 관측소(:8011)가 Spark 진행 파일·로컬 MongoDB를 읽어 처리 상태와 경고 표시 |
+| ⑧ | 게임 ↔ Django | 회원가입·로그인·클라우드 세이브·업데이트 확인은 직접 호출 |
 
 | PC | 실행하는 것 | 기본 포트 |
 |---|---|---|
 | 게임 PC | 게임 EXE, launcher.exe | — |
-| 파이프라인 PC | 게이트웨이, 수집기, Kafka×3, Spark, 로컬 MongoDB, remote-writer (Docker Compose) | 8000(게이트웨이), 8003(수집기), 27017·27020(Mongo) |
+| 파이프라인 PC | 게이트웨이, 수집기, Kafka×3, Spark, 로컬 MongoDB, remote-writer, 관측소 (Docker Compose) | 8000(게이트웨이), 8003(수집기), 27017·27020(Mongo), 8011(관측소) |
 | DB PC | MySQL, MongoDB | 3306, 27017 |
 | 대시보드 PC | Django | 8000 |
 
@@ -191,22 +197,25 @@ mlo-02-p3-team1/
 
 ## 5. 추후 예정
 
-남은 항목만 적었습니다. 1~7차 보완에서 처리한 내용은 [변경 리포트](docs/reports/2026-11-20_NODEVERSE_변경리포트.md)와 [구조 비교 자료](docs/presentation/)에, 항목별 근거(파일·줄 번호)는 [docs/DATA_FLOW_AND_GAPS.md](docs/DATA_FLOW_AND_GAPS.md)에 있습니다.
+남은 항목만 적었습니다. 처리한 내용은 [변경 리포트](docs/reports/2026-11-20_NODEVERSE_변경리포트.md), [구조 비교 자료](docs/presentation/), [파이프라인 문서](pipeline/docs/)에, 항목별 근거(파일·줄 번호)는 [docs/DATA_FLOW_AND_GAPS.md](docs/DATA_FLOW_AND_GAPS.md)에 있습니다.
+
+**파이프라인**
+- 운영 PC의 Spark를 분리형 모듈로 전환. 지금은 이전 단일 `delta_stream.py`와 기존 체크포인트로 동작하므로 별도 볼륨·체크포인트에서 호환 시험 후 전환
+- 압축을 같은 배치 밖의 별도 작업으로 분리 (게시 지연·다음 배치 지연을 나눠 측정한 뒤)
+- 원격 작업자 다중 프로세스: 지금 초당 약 200건까지 따라감. 그 이상이 계속되면 세션 단위로 나눠 확장
+- 대량 부하 시험, 중복 제거 상태 48시간 비교, Silver MERGE 범위 최적화
+- DLQ 재처리 범위 확대 (현재 복구 도구는 상태 객체 사례만)
 
 **운영·보안**
 - 게이트웨이(:8000 → v2 수집기) 설정을 저장소로 가져오기. 지금은 저장소만으로 운영 경로를 재현할 수 없음 (PL-1)
 - Groq 키 폐기, 코봇 채팅을 서버 경유로 변경. 공용 저장소 기록에서는 키를 지웠음 (CM-1, CM-2)
 - 수집기 동시 처리 제한 (PL-3의 남은 부분)
-- DLQ에 쌓인 이벤트를 원인 수정 후 다시 넣는 재처리 스크립트 (PL-8의 남은 부분)
 - 모든 PC 시간 동기화(NTP) 확인 (CM-4)
 
-**성능 (대량 수집 대비)**
-- 원격 작업자 다중 프로세스: 지금 초당 약 200건까지 따라감. 그 이상이 계속되면 세션 단위로 나눠 프로세스 확장
-- 대량 수집 단계에서 중복 제거 상태 TTL을 48시간으로 (`DEDUP_TTL_HOURS`, 기존 체크포인트 호환 시험 완료)
-
 **게임**
-- 수집기·서버 주소를 코드 기본값 대신 설정으로 받기 (GM-6)
-- 최신 EXE로 실제 종단 시험(강제 종료·재실행·계정 전환 포함), 실제 디스크 부족 재현
+- 최초 실행 시 guest UUID를 프로필에 보관하고 플레이마다 새 session UUID 만들기
+- 남은 격리 원인 수정: 문제 시작 없이 온 행동 이벤트, `operation` 값 누락
+- 최신 EXE로 실제 종단 시험(강제 종료·재실행·계정 전환·회원/게스트 포함), 실제 디스크 부족 재현
 
 **구조 정리**
 - Spark 처리 로직 단위 테스트, 흩어진 시험 스크립트 정리 (RF-9, RF-10)
