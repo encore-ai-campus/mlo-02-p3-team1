@@ -1828,7 +1828,8 @@ func _build_hud() -> void:
 	ui_canvas.add_child(hud_root)
 
 	_build_ingame_hud(ui_canvas)
-	_build_camera_debug_panel(ui_canvas)
+	if NetworkManager.debug_enabled:
+		_build_camera_debug_panel(ui_canvas)
 	_build_title_modal(ui_canvas)
 	_build_recovery_modal(ui_canvas)
 	_build_lobby_modal(ui_canvas)
@@ -1913,21 +1914,20 @@ func _build_ingame_hud(canvas: CanvasLayer) -> void:
 	top_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top_h.add_child(top_spacer)
 
-	# Live Test Bot toggle button (Top Right, right next to Camera Debug)
-	test_bot_btn = Button.new()
-	test_bot_btn.text = "🤖 테스트 봇 (F5)"
-	test_bot_btn.custom_minimum_size = Vector2(152, 36)
-	_apply_btn_styles_g(test_bot_btn, Color(0.08, 0.38, 0.32, 0.90), Color(0.12, 0.52, 0.43, 0.98), Color.WHITE, 14)
-	test_bot_btn.pressed.connect(_on_test_bot_btn_pressed)
-	top_h.add_child(test_bot_btn)
+	if NetworkManager.debug_enabled:
+		test_bot_btn = Button.new()
+		test_bot_btn.text = "🤖 테스트 봇 (F5)"
+		test_bot_btn.custom_minimum_size = Vector2(152, 36)
+		_apply_btn_styles_g(test_bot_btn, Color(0.08, 0.38, 0.32, 0.90), Color(0.12, 0.52, 0.43, 0.98), Color.WHITE, 14)
+		test_bot_btn.pressed.connect(_on_test_bot_btn_pressed)
+		top_h.add_child(test_bot_btn)
 
-	# Camera Debug toggle button (Top Right)
-	cam_debug_btn = Button.new()
-	cam_debug_btn.text = "📷 카메라 디버그 (F4)"
-	cam_debug_btn.custom_minimum_size = Vector2(170, 36)
-	_apply_btn_styles_g(cam_debug_btn, Color(0.12, 0.16, 0.24, 0.85), Color(0.20, 0.28, 0.40, 0.95), Color.WHITE, 14)
-	cam_debug_btn.pressed.connect(func(): cam_debug_panel.visible = not cam_debug_panel.visible)
-	top_h.add_child(cam_debug_btn)
+		cam_debug_btn = Button.new()
+		cam_debug_btn.text = "📷 카메라 디버그 (F4)"
+		cam_debug_btn.custom_minimum_size = Vector2(170, 36)
+		_apply_btn_styles_g(cam_debug_btn, Color(0.12, 0.16, 0.24, 0.85), Color(0.20, 0.28, 0.40, 0.95), Color.WHITE, 14)
+		cam_debug_btn.pressed.connect(func(): cam_debug_panel.visible = not cam_debug_panel.visible)
+		top_h.add_child(cam_debug_btn)
 
 	# Profile pill
 	profile_pill = PanelContainer.new()
@@ -1968,14 +1968,17 @@ func _build_ingame_hud(canvas: CanvasLayer) -> void:
 	prompt_label.modulate = Color(1.0, 1.0, 1.0)
 	vb.add_child(prompt_label)
 
-	fps_label = _hud_label(15)
-	fps_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	fps_label.visible = false
-	vb.add_child(fps_label)
+	if NetworkManager.debug_enabled:
+		fps_label = _hud_label(15)
+		fps_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		fps_label.visible = false
+		vb.add_child(fps_label)
 
 	help_label = _hud_label(15)
 	help_label.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	help_label.text = "WASD/방향키: 이동  |  Space: 점프  |  Shift: 달리기  |  E: 상호작용/컴퓨터(2D게임)/대화  |  1~7: 섬 빠른이동  |  F4: 카메라 디버거  |  Tab: 가이드 토글"
+	help_label.text = "WASD/방향키: 이동  |  Space: 점프  |  Shift: 달리기  |  E: 상호작용/컴퓨터(2D게임)/대화  |  1~7: 섬 빠른이동  |  Tab: 가이드 토글"
+	if NetworkManager.debug_enabled:
+		help_label.text += "  |  F4: 카메라 디버거  |  F6: 전송 디버그"
 	vb.add_child(help_label)
 
 func _hud_label(size: int) -> Label:
@@ -3809,25 +3812,25 @@ func _process(delta: float) -> void:
 	match z:
 		"MAIN":
 			zone_label.text = "🏰 메인 섬 (Main Hub) — 중앙 수정 비콘 & 마을 광장"
-			prompt_label.text = "[E] 비콘 상호작용  |  [T] 퀴즈  |  [F4] 카메라 디버그 & 시점 고정  |  [1~7] 빠른 이동"
+			prompt_label.text = "[E] 비콘 상호작용  |  [T] 퀴즈  |  [1~7] 빠른 이동"
 		"INTRO":
 			zone_label.text = "📖 입문 섬 (Intro Basics) — 순서도 논리 칠판 & 마법서 제단"
-			prompt_label.text = "[E] 로직 보드 탐색  |  [T] 기초 프로그래밍 퀴즈  |  [F4] 카메라 디버그"
+			prompt_label.text = "[E] 로직 보드 탐색  |  [T] 기초 프로그래밍 퀴즈"
 		"DS":
 			zone_label.text = "📦 자료구조 섬 (Data Structures) — ARRAY · LIST · STACK · QUEUE"
-			prompt_label.text = "[E] 자료구조 조작  |  [Q] Pop/Dequeue  |  [T] 퀴즈  |  [F4] 카메라 디버그"
+			prompt_label.text = "[E] 자료구조 조작  |  [Q] Pop/Dequeue  |  [T] 퀴즈"
 		"SQL":
 			zone_label.text = "🏛️ SQL 섬 (Database & Query) — DB 타워 · 아카이브 · Y형 수로"
-			prompt_label.text = "[E] SELECT/JOIN 쿼리 실행  |  [T] SQL 퀴즈  |  [F4] 카메라 디버그"
+			prompt_label.text = "[E] SELECT/JOIN 쿼리 실행  |  [T] SQL 퀴즈"
 		"ALGO":
 			zone_label.text = "⚡ 알고리즘 섬 (Algorithms) — 정렬 계단 · 5노드 그래프 · 미로 정원"
-			prompt_label.text = "[E] 정렬/BFS/미로 실행  |  [T] 알고리즘 퀴즈  |  [F4] 카메라 디버그"
+			prompt_label.text = "[E] 정렬/BFS/미로 실행  |  [T] 알고리즘 퀴즈"
 		"DATA":
 			zone_label.text = "🔭 데이터 탐험 섬 (Data Exploration) — 수목 전망대 & 탐험 나침반 & 히스토그램"
-			prompt_label.text = "[E] 히스토그램/전망대 관측  |  [T] 데이터 분석 퀴즈  |  [F4] 카메라 디버그"
+			prompt_label.text = "[E] 히스토그램/전망대 관측  |  [T] 데이터 분석 퀴즈"
 		"CHALLENGE":
 			zone_label.text = "👑 종합 도전 섬 (Grand Challenge) — 정상 천체 판테온 & 영예의 회랑"
-			prompt_label.text = "[E] 최종 도전: 로봇 코드 자동화  |  [T] 종합 퀴즈  |  [F4] 카메라 디버그"
+			prompt_label.text = "[E] 최종 도전: 로봇 코드 자동화  |  [T] 종합 퀴즈"
 
 	# NPC & 컴퓨터 터미널 감지
 	var near_npc: Node3D = null
@@ -3907,7 +3910,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif game_state == GameState.PLAYING:
 				if ek.keycode == KEY_TAB:
 					help_label.visible = not help_label.visible
-				elif ek.keycode == KEY_F3:
+				elif ek.keycode == KEY_F3 and fps_label != null:
 					fps_label.visible = not fps_label.visible
 				elif ek.keycode == KEY_E:
 					_on_interact()

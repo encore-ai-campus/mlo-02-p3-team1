@@ -57,10 +57,15 @@ cd game
 
 ### 수집기·서버 주소와 키 설정
 
-코드 기본값은 수집기 `192.168.0.81:8000/v2/events`, Django `192.168.0.29:8000`입니다. 장소가 바뀌면 **코드를 고치지 말고** 다음 중 하나로 바꿉니다.
+코드 기본값은 수집기 `192.168.0.81:8000/v2/events`와 Django `192.168.0.29:8000`입니다.
 
-- 게임 실행 중 `F6` 디버그 패널에서 주소·키 입력 후 저장
-- 또는 설정 파일을 직접 작성: `%APPDATA%\Godot\app_userdata\NODEVERSE 3D Assets\network_config.json`
+- Windows 빌드에서 주소를 바꾸려면 `game/config.ini.example`을 `NODEVERSE.exe`와 같은 폴더에 `config.ini`로 복사합니다. Godot 에디터 실행에서는 `game/project.godot` 옆에 둡니다. `[pipeline]`의 `host`, `port`, `endpoint`와 `[server]`의 `host`, `port`를 수정한 뒤 게임을 재시작합니다. 문자열은 큰따옴표로 감싸고, 필요하면 `host="https://example.org"`처럼 프로토콜을 지정합니다.
+- `[debug]`의 `enabled=true`는 FPS(F3), 카메라 디버그(F4), 테스트 봇(F5), 전송 디버그(F6)를 활성화합니다. `enabled=false`이면 디버그 버튼과 단축키가 꺼집니다. 지정하지 않으면 에디터에서 켜지고 내보낸 빌드에서 꺼집니다.
+- 기존 `network.ini`는 `config.ini`가 없을 때 같은 폴더에서 읽습니다.
+- 시작 시 INI에 지정된 주소 항목이 기존 JSON보다 우선합니다. INI에 없는 항목은 기존 JSON 또는 코드 기본값을 사용합니다. Django 주소는 로그인·저장·업데이트 확인에 공통으로 적용됩니다.
+- 디버그 모드에서 `F6` 패널로 수집기 주소·키를 입력해 저장하거나 아래 JSON 파일을 직접 편집할 수 있습니다.
+
+  Windows JSON 경로는 `%APPDATA%\Godot\app_userdata\NODEVERSE 3D Assets\network_config.json`입니다.
   ```json
   { "host": "<수집기 IP>", "port": 8000, "endpoint": "/v2/events",
     "api_host": "<Django IP>", "api_port": 8000,

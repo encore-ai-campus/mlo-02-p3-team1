@@ -1,0 +1,15 @@
+; Windows: copy this file as config.ini next to NODEVERSE.exe.
+; Godot editor: copy it as config.ini next to project.godot.
+; Restart the game after changing any value.
+
+[pipeline]
+host="192.168.0.81"
+port=8000
+endpoint="/v2/events"
+
+[server]
+host="192.168.0.29"
+port=8000
+
+[debug]
+enabled=false

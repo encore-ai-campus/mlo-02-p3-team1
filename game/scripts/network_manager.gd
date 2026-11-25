@@ -24,6 +24,8 @@ enum NetStatus {
 }
 
 const CONFIG_PATH: String = "user://network_config.json"
+const EXTERNAL_CONFIG_NAME: String = "config.ini"
+const LEGACY_CONFIG_NAME: String = "network.ini"
 const INSTALL_ID_PATH: String = "user://install_id.txt"
 const PENDING_DIR: String = "user://telemetry/pending/"
 const REJECTED_DIR: String = "user://telemetry/rejected/"
@@ -85,6 +87,7 @@ var api_port: int = DEFAULT_API_PORT
 var auth_token: String = DEFAULT_AUTH_TOKEN
 var auto_send_enabled: bool = true
 var request_timeout: float = DEFAULT_TIMEOUT
+var debug_enabled: bool = OS.has_feature("editor")
 
 # G5 Required-Update Mode: when true, learning events are written to disk queue only, while update events still transmit
 var learning_events_paused: bool = false
@@ -137,10 +140,11 @@ func _ready() -> void:
 	_http_request.request_completed.connect(_on_http_request_completed)
 	add_child(_http_request)
 
-	_init_debug_overlay()
+	if debug_enabled:
+		_init_debug_overlay()
 	if auto_send_enabled and DisplayServer.get_name() != "headless":
 		_load_pending_from_disk()
-	log_message("네트워크 매니저 초기화 완료 (v2 대상: %s:%d%s)" % [target_host, target_port, endpoint_path], "info")
+	log_message("네트워크 매니저 초기화 완료 (파이프라인: %s, 서버: %s, 디버그: %s)" % [get_full_url(), get_api_base_url(), str(debug_enabled)], "info")
 
 # ==========================================
 # G3: NORMAL EXIT MARKER
@@ -393,6 +397,10 @@ func toggle_debug_panel() -> void:
 # CONFIGURATION
 # ==========================================
 func load_config() -> void:
+	_load_saved_config()
+	_load_external_config()
+
+func _load_saved_config() -> void:
 	if not FileAccess.file_exists(CONFIG_PATH):
 		return
 	var f := FileAccess.open(CONFIG_PATH, FileAccess.READ)
@@ -419,6 +427,46 @@ func load_config() -> void:
 			auth_token = DEFAULT_AUTH_TOKEN
 		auto_send_enabled = bool(d.get("auto_send", true))
 		request_timeout = float(d.get("timeout", DEFAULT_TIMEOUT))
+
+func _load_external_config() -> void:
+	var directory := "res://"
+	if OS.has_feature("template"):
+		directory = OS.get_executable_path().get_base_dir()
+	var path := directory.path_join(EXTERNAL_CONFIG_NAME)
+	if not FileAccess.file_exists(path):
+		path = directory.path_join(LEGACY_CONFIG_NAME)
+	if not FileAccess.file_exists(path):
+		return
+	var config := ConfigFile.new()
+	var load_error := config.load(path)
+	if load_error != OK:
+		push_warning("%s 설정을 읽을 수 없습니다: %s" % [path.get_file(), error_string(load_error)])
+		return
+	var debug_setting: Variant = config.get_value("debug", "enabled", debug_enabled)
+	if debug_setting is bool:
+		debug_enabled = debug_setting
+	target_host = _ini_string(config, "pipeline", "host", target_host)
+	target_port = _ini_port(config, "pipeline", target_port)
+	api_host = _ini_string(config, "server", "host", api_host)
+	api_port = _ini_port(config, "server", api_port)
+	var endpoint := _ini_string(config, "pipeline", "endpoint", endpoint_path)
+	if not endpoint.begins_with("/"):
+		endpoint = "/" + endpoint
+	endpoint_path = DEFAULT_ENDPOINT if endpoint == "/v1/events" else endpoint
+
+func _ini_string(config: ConfigFile, section: String, key: String, fallback: String) -> String:
+	var value: Variant = config.get_value(section, key, fallback)
+	if value is String and not value.strip_edges().is_empty():
+		return value.strip_edges()
+	return fallback
+
+func _ini_port(config: ConfigFile, section: String, fallback: int) -> int:
+	var value := str(config.get_value(section, "port", fallback)).strip_edges()
+	if value.is_valid_int():
+		var port := int(value)
+		if port >= 1 and port <= 65535:
+			return port
+	return fallback
 
 func save_config() -> bool:
 	var f := FileAccess.open(CONFIG_PATH, FileAccess.WRITE)
@@ -460,7 +508,7 @@ func get_base_url() -> String:
 			or h.begins_with("172.")
 		)
 		h = ("http://" if is_local else "https://") + h
-	if h.begins_with("https://") and (target_port == 443 or target_port == 80):
+	if h.begins_with("https://") and target_port == 443:
 		return h
 	return "%s:%d" % [h, target_port]
 
@@ -477,7 +525,7 @@ func get_api_base_url() -> String:
 			or h.begins_with("172.")
 		)
 		h = ("http://" if is_local else "https://") + h
-	if h.begins_with("https://") and (api_port == 443 or api_port == 80):
+	if h.begins_with("https://") and api_port == 443:
 		return h
 	return "%s:%d" % [h, api_port]
 

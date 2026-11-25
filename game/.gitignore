@@ -2,6 +2,8 @@
 .godot/
 .import/
 export_credentials.cfg
+/config.ini
+/network.ini
 
 # Build outputs and generated preview captures
 /build/
