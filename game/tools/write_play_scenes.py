@@ -223,11 +223,11 @@ label_settings = SubResource("sign_text")
 horizontal_alignment = 1
 [node name="BinSign" type="Label" parent="Field/World"]
 z_index = 4
-offset_left = 856.0
-offset_top = 536.0
-offset_right = 956.0
-offset_bottom = 560.0
-text = "반환 레버"
+offset_left = 839.0
+offset_top = 560.0
+offset_right = 939.0
+offset_bottom = 584.0
+text = "쓰레기통"
 label_settings = SubResource("sign_text")
 horizontal_alignment = 1
 

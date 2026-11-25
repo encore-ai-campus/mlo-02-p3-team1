@@ -1,7 +1,7 @@
 extends Node2D
 ## ST01 배열 - 순서가 있는 보관소 (걸어 다니는 버전)
 ## 배경 속 보관함 0~4번 칸이 배열. 로봇을 WASD 로 움직여 칸 앞에서 E 로 상자를 집고/놓는다.
-## 규칙: 보관함 상자는 바로 옆 칸으로만 옮길 수 있다. 새 상자는 입고 트레이, 지울 상자는 반환 레버로.
+## 규칙: 보관함 상자는 바로 옆 칸으로만 옮길 수 있다. 새 상자는 입고 트레이, 지울 상자는 쓰레기통으로.
 
 const S := 1281.0 / 1672.0
 const CAP := 5
@@ -24,12 +24,12 @@ const INTRO := [
 	"대신 중간에 새 상자를 넣는 건 힘들어. 넣을 자리 뒤에 있는 상자들을 한 칸씩 뒤로 밀어서 자리를 만들어야 하거든. 맨 뒤 상자부터 밀어야 서로 부딪히지 않아.",
 	"빼는 것도 마찬가지야. 상자를 빼면 빈칸이 생기는데, 배열은 빈틈이 있으면 안 되니까 뒤쪽 상자들을 한 칸씩 앞으로 당겨 메워야 해.",
 	"그리고 보관함은 딱 5칸이야. 이렇게 정해진 크기를 '용량', 지금 들어 있는 상자 수를 '길이'라고 해. 꽉 차면 더 넣을 수 없어.",
-	"조작법! WASD로 걷고, 보관함 앞에서 E를 누르면 상자를 집거나 내려놔. 새 상자는 입고 트레이에, 지울 상자는 반환 레버로 보내면 돼. 막히면 노란 화살표를 따라가!",
+	"조작법! WASD로 걷고, 보관함 앞에서 E를 누르면 상자를 집거나 내려놔. 새 상자는 입고 트레이에, 지울 상자는 쓰레기통에 버리면 돼. 막히면 노란 화살표를 따라가!",
 ]
 const LEVEL_TALK := [
 	"몸풀기로 조회부터 해 보자. 2번 칸과 0번 칸 앞에서 E를 눌러 값을 읽어 줘. 번호만 알면 바로 찾아갈 수 있어!",
 	"첫 번째 일이야. 인덱스 1에 새 상자 20을 넣어 줘! 1번 칸을 비우려면 40, 30 순서로 뒤로 밀어야겠지?",
-	"이번엔 삭제야. 0번 칸의 10을 반환 레버로 보내고, 나머지 상자들을 앞으로 당겨서 빈틈을 없애 줘.",
+	"이번엔 삭제야. 0번 칸의 10을 쓰레기통에 버리고, 나머지 상자들을 앞으로 당겨서 빈틈을 없애 줘.",
 	"맨 앞, 인덱스 0에 5를 넣어 볼래? 맨 앞에 넣으려면 상자 4개를 전부 한 칸씩 밀어야 해. 배열 앞쪽 삽입이 왜 느린지 느껴 봐!",
 	"2번 칸의 99는 잘못 들어온 상자야. 지우고 뒤의 21, 28을 앞으로 당겨 줘.",
 	"마지막! 배열이 5칸 다 찼으니 새 상자는 바로 못 넣어. 먼저 35를 지우고, 28부터 뒤로 밀어서 1번 칸을 비운 다음 9를 넣어 줘.",
@@ -60,16 +60,16 @@ var crates := {}               # "slot0".."slot4", "tray", "hand" -> StageCrate
 @onready var bubble_label: Label = $Field/World/Player/Bubble/Label
 
 func _ready() -> void:
-	StageHUD.make_speech_bubble(hint, hint_label)
-	hud.set_title("ST01", "순서가 있는 보관소")
+	var bob := StageHUD.make_speech_bubble(hint, hint_label)
+	hud.set_title(preload("res://scripts/learning_catalog.gd").display_tag("ST01", scene_file_path), "순서가 있는 보관소")   # 메뉴 카드와 같은 태그 (DS-01)
 	hud.set_controls("WASD 이동 · E 상호작용 · Z 되돌리기 · R 초기화 · H 도움말 · Esc 메뉴")
 	hud.next_pressed.connect(_next_level)
 	hud.retry_pressed.connect(_retry_level)
 	player.interacted.connect(_on_interact)
 	player.focus_changed.connect(func(_t): _refresh())
 	var tw := create_tween().set_loops()
-	tw.tween_property(hint, "position:y", -10.0, 0.4).as_relative().set_trans(Tween.TRANS_SINE)
-	tw.tween_property(hint, "position:y", 10.0, 0.4).as_relative().set_trans(Tween.TRANS_SINE)
+	tw.tween_property(bob, "position:y", -10.0, 0.4).set_trans(Tween.TRANS_SINE)   # hint 가 아니라 Bob 을 흔든다
+	tw.tween_property(bob, "position:y", 0.0, 0.4).set_trans(Tween.TRANS_SINE)
 	hud.dialogue_finished.connect(_on_dialogue_done)
 	hud.build_code_panel(Vector2(968, 214), Vector2(296, 494))
 	start_level(0)
@@ -434,7 +434,7 @@ func _next_action() -> Array:
 			var t := target.find(hand.v)
 			return ["slot", t, "%d번 칸에 놓기" % t]
 		if not (hand.v in target):
-			return ["bin", -1, "반환 레버로 삭제"]
+			return ["bin", -1, "쓰레기통에 버려 삭제"]
 		var ti := target.find(hand.v)
 		var j: int = hand.from
 		if ti == j:
@@ -463,11 +463,19 @@ func _refresh() -> void:
 	hud.set_info("레벨 %d / %d" % [level + 1, LEVELS.size()], [["길이", count], ["용량", CAP], ["이동", "%d (최소 %d)" % [moves, opt]], ["들고 있는 상자", "-" if hand == null else str(hand.v)]])
 	# 다음 행동 화살표
 	var a := _next_action()
-	hint.visible = a[0] != "" and not done and not hud.dialogue_open()
+	var at: Node = null
 	match a[0]:
-		"slot": hint.position = slot_pos(a[1]) + Vector2(0, -161)
-		"tray": hint.position = tray_pos() + Vector2(0, -110)
-		"bin": hint.position = world.to_local(world.get_node("Bin").global_position) + Vector2(0, -90)
+		"slot":
+			hint.position = slot_pos(a[1]) + Vector2(0, -161)
+			at = world.get_node("Slot%d" % a[1])
+		"tray":
+			hint.position = tray_pos() + Vector2(0, -110)
+			at = world.get_node("Tray")
+		"bin":
+			hint.position = world.to_local(world.get_node("Bin").global_position) + Vector2(0, -62)   # 쓰레기통 뚜껑 바로 위
+			at = world.get_node("Bin")
+	# 로봇이 이미 그 지점 앞에 서 있으면 "E ..." 말풍선이 같은 안내를 하므로 겹치지 않게 숨긴다.
+	hint.visible = a[0] != "" and not done and not hud.dialogue_open() and player.focus != at
 	hint_label.text = a[2]
 	# E 말풍선
 	var f := player.focus
@@ -488,7 +496,7 @@ func _prompt(t: Interactable) -> String:
 				return "새 상자 %d 집기" % tray if tray != null else "입고 트레이 (비어 있음)"
 			return "트레이에 돌려놓기"
 		"bin":
-			return "반환 레버 (삭제)" if hand != null else "반환 레버"
+			return "쓰레기통에 버리기 (삭제)" if hand != null else "쓰레기통"
 		"npc":
 			return "보관소 관리인과 대화"
 	return t.prompt
