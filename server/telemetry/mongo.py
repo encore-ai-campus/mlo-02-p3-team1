@@ -144,6 +144,19 @@ class Records(list):
         return Records(getattr(record, field) if flat else (getattr(record, field),) for record in self)
 
 
+def run_from_document(doc):
+    """TaskRun from a problem_runs document.
+
+    The pipeline marks a run completed with ended_at but leaves active_ms empty. Until it fills it in,
+    use started_at -> ended_at, the same rule the raw-event path uses (pipeline_events), so both
+    paths report the same solve time. Pauses are not reported by the game, so they are included.
+    """
+    run = from_document(TaskRun, doc)
+    if run.status == 'completed' and run.active_ms is None and run.started_at and run.ended_at and run.ended_at >= run.started_at:
+        run.active_ms = int((run.ended_at - run.started_at).total_seconds() * 1000)
+    return run
+
+
 def load_snapshot(members, start, end, filters):
     """Two time scopes: event window and started-run cohort followed to current outcome."""
     member_map = {str(member.pk): member for member in members}
@@ -164,14 +177,14 @@ def load_snapshot(members, start, end, filters):
     if filters['task_id'] or filters['content_version'] or catalog_filter:
         matching_session_ids = set(db.problem_runs.distinct('session_id', run_query))
     cohort_docs = list(db.problem_runs.find({**run_query, 'started_at': {'$gte': start, '$lt': end}}))
-    runs = {doc['_id']: from_document(TaskRun, doc) for doc in cohort_docs}
+    runs = {doc['_id']: run_from_document(doc) for doc in cohort_docs}
     event_query = {'session_id': {'$in': list(sessions)}, 'occurred_at': {'$gte': start, '$lt': end}}
     if filters['task_id'] or filters['content_version'] or catalog_filter:
         event_query['run_id'] = {'$in': db.problem_runs.distinct('_id', run_query)}
     window_events = list(db.gameplay_events.find(event_query))
     extra_run_ids = {doc.get('run_id') for doc in window_events} - {None} - set(runs)
     for doc in db.problem_runs.find({'_id': {'$in': list(extra_run_ids)}}):
-        runs[doc['_id']] = from_document(TaskRun, doc)
+        runs[doc['_id']] = run_from_document(doc)
     missing_problem_ids = {str(run.task_id) for run in runs.values()} - set(problems)
     for doc in db.game_problems.find({'_id': {'$in': list(missing_problem_ids)}}):
         problems[doc['_id']] = from_document(LearningTask, doc)

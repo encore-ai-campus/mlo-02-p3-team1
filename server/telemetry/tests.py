@@ -358,3 +358,23 @@ class PipelineAlertsTests(TestCase):
         anonymous = Client()
         self.assertEqual(anonymous.get('/api/admin/pipeline-alerts').status_code, 401)
         self.assertRedirects(anonymous.get('/staff/pipeline-alerts/'), '/staff/login/')
+
+
+class ProjectedRunSolveTimeTests(TestCase):
+    """Pipeline-projected runs come without active_ms; the dashboard falls back to start -> end."""
+
+    def doc(self, **extra):
+        start = timezone.now().replace(microsecond=0)
+        return {'_id': str(uuid.uuid4()), 'session_id': str(uuid.uuid4()), 'task_id': str(uuid.uuid4()),
+                'started_at': start, 'ended_at': start + timedelta(minutes=3, seconds=14),
+                'status': 'completed', 'active_ms': None, 'paused_ms': None, **extra}
+
+    def test_completed_run_without_active_ms_uses_elapsed_time(self):
+        from .mongo import run_from_document
+        self.assertEqual(run_from_document(self.doc()).active_ms, 194000)
+
+    def test_recorded_active_ms_and_unfinished_runs_are_left_alone(self):
+        from .mongo import run_from_document
+        self.assertEqual(run_from_document(self.doc(active_ms=120000)).active_ms, 120000)
+        self.assertIsNone(run_from_document(self.doc(status='in_progress', ended_at=None)).active_ms)
+        self.assertIsNone(run_from_document(self.doc(status='abandoned')).active_ms)
