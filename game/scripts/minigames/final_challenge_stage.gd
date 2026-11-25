@@ -1761,8 +1761,9 @@ func _unhandled_input(ev: InputEvent) -> void:
 		return
 	match ev.keycode:
 		KEY_ESCAPE:
-			_exit_to_world()
+			# 씬 전환 뒤에는 get_viewport() 가 null 이 되므로 먼저 처리 표시를 한다.
 			get_viewport().set_input_as_handled()
+			_exit_to_world()
 		KEY_F:
 			if not (get_viewport().gui_get_focus_owner() is LineEdit):
 				_show_next_hint()

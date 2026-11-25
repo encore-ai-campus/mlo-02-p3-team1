@@ -495,6 +495,8 @@ func _prompt(t: Interactable) -> String:
 
 func _unhandled_input(ev: InputEvent) -> void:
 	if hud.dialogue_open():
+		# ESC 로 씬을 바꾸면 이 노드가 바로 트리에서 빠져 get_viewport() 가 null 이 된다. 먼저 처리 표시를 한다.
+		get_viewport().set_input_as_handled()
 		var adv := false
 		if ev is InputEventKey and ev.pressed and not ev.echo:
 			match ev.keycode:
@@ -505,7 +507,6 @@ func _unhandled_input(ev: InputEvent) -> void:
 			adv = true
 		if adv:
 			hud.dialogue_advance()
-		get_viewport().set_input_as_handled()
 		return
 	if not (ev is InputEventKey and ev.pressed and not ev.echo):
 		return
