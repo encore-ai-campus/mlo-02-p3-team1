@@ -131,7 +131,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, select:focus-visib
 .ov { display: flex; flex-direction: column; gap: 14px; }
 .ov-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .ov-head > div { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
-.ov-head h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -.5px; }
+.ov-head h1 { margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -.5px; }
 .ov-head p { margin: 0; color: var(--muted); font-size: 14px; }
 
 .ov-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
@@ -1097,7 +1097,7 @@ button.attention-name:hover span:last-child, button.attention-name:focus-visible
   .topbar { padding: 0 14px; }
   .crumbs > span:not(.crumb-sep), .crumb-sep { display: none; }
   .workspace { padding: 16px 14px 24px; }
-  .ov-head h1 { font-size: 24px; }
+  .ov-head h1 { font-size: 26px; }
   .ov-divider { display: none; }
   .ov-range { flex: 1 1 100%; }
   .ov-range input { flex: 1; min-width: 0; }
