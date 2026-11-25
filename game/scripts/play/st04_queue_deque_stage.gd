@@ -23,6 +23,7 @@ var hand = null
 var hand_from := ""     # "arrive" 또는 "line"
 var front_i := 0        # 원형 큐의 front 칸 번호 (rear 는 front + size - 1 을 CAP 으로 나눈 나머지)
 var mode_label: Label
+var ring: Node2D          # 원형 큐 레벨: 칸 번호, front / rear 표시, 3번 → 0번 되돌아가는 화살표
 
 func _init() -> void:
 	stage_id = "ST04"
@@ -50,6 +51,8 @@ func _init() -> void:
 
 func build_stage() -> void:
 	mode_label = text_at("", mark("Mode"), 28, Color.WHITE, 5)
+	ring = Node2D.new()
+	overlay.add_child(ring)
 
 func setup_level(n: int) -> void:
 	var L: Dictionary = LEVELS[n]
@@ -90,6 +93,39 @@ func rebuild() -> void:
 	if hand != null:
 		want[hand] = _tok(hand, hold_pos(), 0.9)
 	sync_items(want, hand)
+	_draw_ring()
+
+## 원형 큐는 칸 4개를 고리처럼 쓴다. 칸 번호와 front / rear 위치, 3번 다음이 0번이라는 것을 그림으로 보여 준다.
+func _draw_ring() -> void:
+	clear_children(ring)
+	clear_children(links)
+	if mode != "circular":
+		return
+	# 칸마다 번호표. front 칸은 노란색, rear 칸은 하늘색으로 칠하고 이름을 함께 쓴다.
+	for c in CAP:
+		var p := mark("Line%d" % c)
+		var roles := []
+		if c == front_i:
+			roles.append("front")
+		if not line.is_empty() and c == _rear_i():
+			roles.append("rear")
+		var fill := Color("1d1b2a")
+		var edge := Color("5fd6ff")
+		if "front" in roles:
+			fill = Color("5a4410")
+			edge = StageHUD.GOLD
+		elif "rear" in roles:
+			fill = Color("0f3a4a")
+		var h := 26.0 if roles.is_empty() else 46.0
+		panel_at(Rect2(p.x - 40, p.y + 30, 80, h), fill, edge, 2, ring)
+		text_at("%d번" % c, p + Vector2(0, 43), 16, Color("bfefff"), 0, ring)
+		if not roles.is_empty():
+			text_at(" · ".join(roles), p + Vector2(0, 63), 15, StageHUD.GOLD if "front" in roles else Color("6fd3ff"), 0, ring)
+	# 3번 칸 다음은 다시 0번 칸: 컨베이어 아래로 되돌아가는 화살표
+	var a := mark("Line%d" % (CAP - 1)) + Vector2(0, 84)
+	var b := mark("Line0") + Vector2(0, 84)
+	link(a, b, Color("6fd3ff"), -40.0)
+	text_at("3번 다음은 다시 0번", (a + b) / 2 + Vector2(0, 50), 17, Color("bfefff"), 5, ring)
 
 func _rear_i() -> int:
 	return (front_i + line.size() - 1 + CAP) % CAP

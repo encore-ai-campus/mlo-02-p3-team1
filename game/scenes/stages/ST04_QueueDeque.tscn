@@ -89,11 +89,11 @@ bubble_offset = Vector2(0, -130)
 shape = SubResource("r62")
 
 [node name="Front" type="Area2D" parent="Field/World"]
-position = Vector2(239.0, 375.4)
+position = Vector2(285.0, 383.1)
 script = ExtResource("3")
 kind = "front"
 index = -1
-bubble_offset = Vector2(0, -110)
+bubble_offset = Vector2(0, -64)
 
 [node name="Shape" type="CollisionShape2D" parent="Field/World/Front"]
 shape = SubResource("r58")
@@ -103,17 +103,17 @@ position = Vector2(933.2, 383.1)
 script = ExtResource("3")
 kind = "rear"
 index = -1
-bubble_offset = Vector2(0, -120)
+bubble_offset = Vector2(0, -64)
 
 [node name="Shape" type="CollisionShape2D" parent="Field/World/Rear"]
 shape = SubResource("r62")
 
 [node name="Arrive" type="Area2D" parent="Field/World"]
-position = Vector2(842.8, 452.0)
+position = Vector2(842.8, 459.7)
 script = ExtResource("3")
 kind = "arrive"
 index = -1
-bubble_offset = Vector2(0, -100)
+bubble_offset = Vector2(0, -80)
 
 [node name="Shape" type="CollisionShape2D" parent="Field/World/Arrive"]
 shape = SubResource("r62")
@@ -155,7 +155,7 @@ position = Vector2(222.2, 229.8)
 position = Vector2(609.1, 292.7)
 
 [node name="Npc" type="StaticBody2D" parent="Field/World"]
-position = Vector2(269.7, 490.3)
+position = Vector2(505.7, 246.7)
 
 [node name="Shadow" type="Polygon2D" parent="Field/World/Npc"]
 color = Color(0, 0, 0, 0.28)
