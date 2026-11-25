@@ -1,0 +1,9 @@
+ARG SPARK_RUNTIME_IMAGE=nodeverse-spark-runtime:3.5.3
+FROM ${SPARK_RUNTIME_IMAGE}
+USER root
+RUN pip install --no-cache-dir --upgrade pip==24.3.1 \
+ && pip install --no-cache-dir --only-binary=:all: confluent-kafka==2.4.0
+COPY common /opt/nodeverse/common
+COPY remote /opt/nodeverse/remote
+COPY offline /opt/nodeverse/offline
+USER spark

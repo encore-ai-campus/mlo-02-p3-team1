@@ -1,0 +1,29 @@
+{
+  "offline_events": 230,
+  "live_events": 5,
+  "remote_events": 235,
+  "remote_archives": 235,
+  "uploads_complete": 2,
+  "chunks": 3,
+  "registry_entries": 230,
+  "offline_daily": [
+    {
+      "attempts": 1,
+      "events": 5,
+      "play_date": "2026-10-11",
+      "successes": 1
+    },
+    {
+      "attempts": 1,
+      "events": 225,
+      "play_date": "2026-10-26",
+      "successes": 1
+    }
+  ],
+  "distinct_play_dates": [
+    "2026-10-11",
+    "2026-10-26",
+    "2026-11-25"
+  ],
+  "lost_response_and_collector_restart_resumed": true
+}

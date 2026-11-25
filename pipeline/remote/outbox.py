@@ -22,7 +22,7 @@ def plain(value):
     return value
 
 
-def stage(records, db=None, chunk=500, queued_at=None):
+def stage(records, db=None, chunk=500, queued_at=None, lane='live'):
     """Insert-once outbox rows for validated events, in bulk (BN-8: was 2 round trips per event).
 
     Existing rows are never reset. A different payload for a known event_id is recorded as a conflict."""
@@ -36,13 +36,13 @@ def stage(records, db=None, chunk=500, queued_at=None):
     for record in records:
         buf.append(plain(record))
         if len(buf) >= chunk:
-            _stage_chunk(db, buf, UpdateOne, now)
+            _stage_chunk(db, buf, UpdateOne, now, lane)
             buf = []
     if buf:
-        _stage_chunk(db, buf, UpdateOne, now)
+        _stage_chunk(db, buf, UpdateOne, now, lane)
 
 
-def _stage_chunk(db, bodies, UpdateOne, now=None):
+def _stage_chunk(db, bodies, UpdateOne, now=None, lane='live'):
     seen = {}
     for body in bodies:
         seen.setdefault(body["event_id"], body)  # first copy wins inside one batch
@@ -57,7 +57,7 @@ def _stage_chunk(db, bodies, UpdateOne, now=None):
                 "event_id": ident, "reason": "event_id_conflict", "detected_at": now}}, upsert=True))
             continue
         ops.append(UpdateOne({"_id": ident}, {"$setOnInsert": {
-            "payload_hash": payload_hash, "event": body, "state": "pending", "attempts": 0,
+            "payload_hash": payload_hash, "event": body, "state": "pending", "attempts": 0, "delivery_lane": lane,
             "queued_at": now, "next_attempt_at": now, "sequence": body.get("sequence", 0),
             "source_session_id": body.get("session_id"), "occurred_at": body["occurred_at"]}}, upsert=True))
     if ops:

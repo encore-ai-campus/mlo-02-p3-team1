@@ -33,7 +33,7 @@ def test_outbox_consumes_one_bounded_chunk_and_retries_same_content(monkeypatch)
 def test_outbox_stage_keeps_shared_timestamp_across_chunks(monkeypatch):
     from pymongo import UpdateOne
     stamp=datetime(2026,11,23,tzinfo=timezone.utc);seen=[]
-    monkeypatch.setattr(outbox,'_stage_chunk',lambda db,rows,operation,now:seen.append((list(rows),now)))
+    monkeypatch.setattr(outbox,'_stage_chunk',lambda db,rows,operation,now,lane:seen.append((list(rows),now)))
     outbox.stage(({'event_id':str(i)} for i in range(5)),db=object(),chunk=2,queued_at=stamp)
     assert [len(rows) for rows,_ in seen]==[2,2,1]
     assert all(time==stamp for _,time in seen)

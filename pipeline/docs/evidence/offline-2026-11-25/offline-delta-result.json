@@ -1,0 +1,41 @@
+{
+  "bronze.game_events": {
+    "rows": 10,
+    "unique_ids": 5,
+    "partitions": [
+      "ingest_date"
+    ]
+  },
+  "silver.learning_events": {
+    "rows": 5,
+    "unique_ids": 5,
+    "partitions": [
+      "event_date"
+    ]
+  },
+  "offline.bronze_learning": {
+    "rows": 735,
+    "unique_ids": 735,
+    "partitions": [
+      "event_date"
+    ]
+  },
+  "offline.silver_learning": {
+    "rows": 735,
+    "unique_ids": 735,
+    "partitions": [
+      "event_date"
+    ]
+  },
+  "live_gold_totals": {
+    "attempts": 1,
+    "successes": 1
+  },
+  "historical_play_dates": [
+    "2026-09-11",
+    "2026-09-26",
+    "2026-10-11",
+    "2026-10-26"
+  ],
+  "verification_passed": true
+}

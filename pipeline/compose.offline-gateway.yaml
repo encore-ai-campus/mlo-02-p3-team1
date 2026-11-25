@@ -1,0 +1,6 @@
+# Legacy gateway adapter; use with its existing base/LAN/v2-bridge Compose files.
+services:
+  gateway:
+    image: ${OFFLINE_GATEWAY_IMAGE:-nodeverse-gateway-offline:latest}
+    environment:
+      OFFLINE_ENABLED: ${OFFLINE_ENABLED:-0}

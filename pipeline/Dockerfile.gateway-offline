@@ -1,0 +1,4 @@
+ARG LEGACY_GATEWAY_IMAGE=pipeline-gateway:latest
+FROM ${LEGACY_GATEWAY_IMAGE}
+COPY offline_gateway.py /app/offline_gateway.py
+RUN python -c "from pathlib import Path;p=Path('/app/gateway.py');s=p.read_text();line='from offline_gateway import router as offline_gateway_router\napp.include_router(offline_gateway_router)\n';p.write_text(s+'\n'+line if 'offline_gateway_router' not in s else s)"

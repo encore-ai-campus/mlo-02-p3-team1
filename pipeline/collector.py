@@ -31,6 +31,12 @@ MAX_BODY_BYTES = 16 * 1024
 DLQ_RAW_BYTES = 4096
 
 app = FastAPI(title="NODEVERSE ingestion API")
+from offline.api import router as offline_router
+app.include_router(offline_router)
+from pymongo.errors import PyMongoError
+@app.exception_handler(PyMongoError)
+async def unavailable_store(request,exc):
+    return JSONResponse(status_code=503,content={'detail':'receipt store unavailable; retain local data and retry'},headers={'Retry-After':'5'})
 _producer = None
 _lock = threading.Lock()
 

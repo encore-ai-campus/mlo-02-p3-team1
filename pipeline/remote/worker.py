@@ -67,9 +67,14 @@ def claim_batch(local, limit):
     read back only the rows that carry the token. A row changed in between (an operator `park`, another
     worker) is not returned, so its projection never runs (reliability review P1-1)."""
     cutoff = now()
-    ids = [r["_id"] for r in local.remote_event_outbox.find(
-        {"state": {"$in": DUE_STATES}, "next_attempt_at": {"$lte": cutoff}}, {"_id": 1},
-        sort=[("next_attempt_at", 1), ("queued_at", 1), ("sequence", 1), ("_id", 1)], limit=limit)]
+    eligible={"state": {"$in": DUE_STATES}, "next_attempt_at": {"$lte": cutoff}}
+    order=[("next_attempt_at",1),("queued_at",1),("sequence",1),("_id",1)]
+    # Legacy rows without a lane are live too. Offline admission is independently bounded/rate-limited.
+    ids=[r['_id'] for r in local.remote_event_outbox.find(
+        {**eligible,'delivery_lane':{'$ne':'offline'}},{'_id':1},sort=order,limit=limit)]
+    if len(ids)<limit:
+        ids += [r['_id'] for r in local.remote_event_outbox.find(
+            {**eligible,'delivery_lane':'offline'},{'_id':1},sort=order,limit=limit-len(ids))]
     if not ids:
         return []
     token = uuid.uuid4().hex
@@ -363,6 +368,7 @@ class Worker:
     def _ensure_indexes(self):
         self.local.remote_event_outbox.create_index([("state", 1), ("next_attempt_at", 1)])
         self.local.remote_event_outbox.create_index([("state", 1), ("reason", 1)])
+        self.local.remote_event_outbox.create_index([('delivery_lane',1),('state',1),('next_attempt_at',1)])
         # wake_successor looks up later rows of one session after every stored event
         self.local.remote_event_outbox.create_index([("source_session_id", 1), ("sequence", 1)])
         days = settings.get().remote_done_ttl_days

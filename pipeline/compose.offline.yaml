@@ -1,0 +1,48 @@
+# Add to the existing Compose files; enable only after bootstrap and acceptance testing.
+services:
+  collector:
+    environment:
+      OFFLINE_ENABLED: ${OFFLINE_ENABLED:-0}
+  offline-bootstrap:
+    profiles: [offline]
+    image: ${OFFLINE_APP_IMAGE:-nodeverse-pipeline-offline:latest}
+    command: [python, -m, offline.bootstrap]
+    environment:
+      KAFKA_BOOTSTRAP: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: ${OFFLINE_LOCAL_DB:-nodeverse_logs}
+    depends_on:
+      mongo: {condition: service_healthy}
+      topic-init: {condition: service_completed_successfully}
+  offline-processor:
+    profiles: [offline]
+    image: ${OFFLINE_SPARK_IMAGE:-nodeverse-offline-spark:latest}
+    restart: unless-stopped
+    user: '0:0'
+    entrypoint: [/opt/spark/bin/spark-submit]
+    command:
+      - --master
+      - local[2]
+      - --driver-memory
+      - 1g
+      - --conf
+      - spark.jars.ivy=/ivy
+      - --packages
+      - io.delta:delta-spark_2.12:3.2.1
+      - --py-files
+      - /app/tables.py
+      - /opt/nodeverse/offline/processor.py
+    environment:
+      KAFKA_BOOTSTRAP: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      MONGO_URI: mongodb://mongo:27017
+      MONGO_DB: ${OFFLINE_LOCAL_DB:-nodeverse_logs}
+      LAKE_ROOT: /data/delta
+      SHUFFLE_PARTITIONS: '2'
+      OFFLINE_STAGE_RATE: ${OFFLINE_STAGE_RATE:-20}
+      OFFLINE_QUEUE_LIMIT: ${OFFLINE_QUEUE_LIMIT:-200}
+    volumes:
+      - ${PIPELINE_SOURCE_ROOT:?Set PIPELINE_SOURCE_ROOT}/spark:/app:ro
+      - lake:/data
+      - ivy:/ivy
+    depends_on:
+      offline-bootstrap: {condition: service_completed_successfully}

@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "reserved": [0],
+  "event_types": {
+    "1": "problem_started",
+    "2": "attempt_started",
+    "3": "operation_succeeded",
+    "4": "operation_failed",
+    "5": "hint_used",
+    "6": "attempt_succeeded",
+    "7": "attempt_failed",
+    "8": "problem_completed"
+  },
+  "operations": {
+    "1": "push",
+    "2": "pop",
+    "3": "move_up",
+    "4": "move_down",
+    "5": "move_left",
+    "6": "move_right"
+  }
+}
