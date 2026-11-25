@@ -1,0 +1,165 @@
+{
+  "stages": [
+    {
+      "stage": "warmup",
+      "events": 100,
+      "target_rate": 20,
+      "started_at": "2026-11-25T02:44:40.711Z",
+      "ended_at": "2026-11-25T02:44:57.758Z",
+      "send_seconds": 5.032638942999256,
+      "actual_ack_rate": 19.870290941317542,
+      "http_statuses": {
+        "202": 100
+      },
+      "http_ms": {
+        "n": 100,
+        "p50": 14.658011999927112,
+        "p95": 315.9392149991618,
+        "max": 553.9899639989017
+      },
+      "drained": true,
+      "drain_after_send_s": 12.014340745001391,
+      "wall_seconds": 17.046979688000647,
+      "completion_rate_wall": 5.866141793457401,
+      "states": {
+        "stored": 100
+      },
+      "remote_events": 100,
+      "remote_archives": 100,
+      "received_to_stored_ms": {
+        "n": 100,
+        "p50": 8421.0,
+        "p95": 12341.0,
+        "max": 12539.0
+      },
+      "queue_to_stored_ms": {
+        "n": 100,
+        "p50": 1046.0,
+        "p95": 1593.0,
+        "max": 1661.0
+      },
+      "retries": 0
+    },
+    {
+      "stage": "low",
+      "events": 500,
+      "target_rate": 25,
+      "started_at": "2026-11-25T02:44:57.773Z",
+      "ended_at": "2026-11-25T02:45:29.786Z",
+      "send_seconds": 19.99778973699904,
+      "actual_ack_rate": 25.002763134113856,
+      "http_statuses": {
+        "202": 500
+      },
+      "http_ms": {
+        "n": 500,
+        "p50": 16.584257000431535,
+        "p95": 25.424112000109744,
+        "max": 63.02684500042233
+      },
+      "drained": true,
+      "drain_after_send_s": 12.020444303001568,
+      "wall_seconds": 32.01823404000061,
+      "completion_rate_wall": 15.61610173051226,
+      "states": {
+        "stored": 500
+      },
+      "remote_events": 500,
+      "remote_archives": 500,
+      "received_to_stored_ms": {
+        "n": 500,
+        "p50": 11003.0,
+        "p95": 13670.0,
+        "max": 14433.0
+      },
+      "queue_to_stored_ms": {
+        "n": 500,
+        "p50": 925.0,
+        "p95": 1946.0,
+        "max": 2120.0
+      },
+      "retries": 0
+    },
+    {
+      "stage": "medium",
+      "events": 2000,
+      "target_rate": 100,
+      "started_at": "2026-11-25T02:45:29.812Z",
+      "ended_at": "2026-11-25T02:46:11.879Z",
+      "send_seconds": 20.03137714500008,
+      "actual_ack_rate": 99.84336002076667,
+      "http_statuses": {
+        "202": 2000
+      },
+      "http_ms": {
+        "n": 2000,
+        "p50": 18.05948099899979,
+        "p95": 43.61772300035227,
+        "max": 112.42534600023646
+      },
+      "drained": true,
+      "drain_after_send_s": 22.039519940999526,
+      "wall_seconds": 42.070897085999604,
+      "completion_rate_wall": 47.53880089392156,
+      "states": {
+        "stored": 2000
+      },
+      "remote_events": 2000,
+      "remote_archives": 2000,
+      "received_to_stored_ms": {
+        "n": 2000,
+        "p50": 19391.0,
+        "p95": 25123.0,
+        "max": 27901.0
+      },
+      "queue_to_stored_ms": {
+        "n": 2000,
+        "p50": 5581.0,
+        "p95": 11815.0,
+        "max": 12710.0
+      },
+      "retries": 0
+    },
+    {
+      "stage": "high",
+      "events": 8000,
+      "target_rate": 400,
+      "started_at": "2026-11-25T02:46:11.951Z",
+      "ended_at": "2026-11-25T02:47:47.039Z",
+      "send_seconds": 32.955019739998534,
+      "actual_ack_rate": 242.7551269310924,
+      "http_statuses": {
+        "202": 8000
+      },
+      "http_ms": {
+        "n": 8000,
+        "p50": 60.37137100065593,
+        "p95": 82.53912799955287,
+        "max": 163.4589879995474
+      },
+      "drained": true,
+      "drain_after_send_s": 62.13962742000149,
+      "wall_seconds": 95.09464716000002,
+      "completion_rate_wall": 84.12671205919429,
+      "states": {
+        "stored": 8000
+      },
+      "remote_events": 8000,
+      "remote_archives": 8000,
+      "received_to_stored_ms": {
+        "n": 8000,
+        "p50": 45261.0,
+        "p95": 64311.00000000001,
+        "max": 69372.0
+      },
+      "queue_to_stored_ms": {
+        "n": 8000,
+        "p50": 25224.0,
+        "p95": 47002.0,
+        "max": 50063.0
+      },
+      "retries": 0
+    }
+  ],
+  "sampling_errors": []
+}

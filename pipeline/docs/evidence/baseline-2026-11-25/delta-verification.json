@@ -1,0 +1,34 @@
+{
+  "bronze.game_events": {
+    "rows": 10600,
+    "optimize_commits": 0,
+    "merge_commits": 0
+  },
+  "silver.learning_events": {
+    "rows": 10600,
+    "optimize_commits": 0,
+    "merge_commits": 16,
+    "unique_event_ids": 10600
+  },
+  "silver.quarantine": {
+    "rows": 0,
+    "optimize_commits": 0,
+    "merge_commits": 0
+  },
+  "gold.minigame_1m": {
+    "rows": 3,
+    "optimize_commits": 0,
+    "merge_commits": 16,
+    "totals": {
+      "attempts": 2120,
+      "successes": 2120,
+      "failures": 0
+    }
+  },
+  "gold.failure_alerts": {
+    "rows": 7,
+    "optimize_commits": 0,
+    "merge_commits": 15
+  },
+  "expected_events": 10600
+}

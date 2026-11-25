@@ -1,0 +1,549 @@
+{
+  "stages": [
+    {
+      "stage": "warmup",
+      "events": 100,
+      "target_rate": 20,
+      "started_at": "2026-11-25T02:44:40.711Z",
+      "ended_at": "2026-11-25T02:44:57.758Z",
+      "send_seconds": 5.032638942999256,
+      "actual_ack_rate": 19.870290941317542,
+      "http_statuses": {
+        "202": 100
+      },
+      "http_ms": {
+        "n": 100,
+        "p50": 14.658011999927112,
+        "p95": 315.9392149991618,
+        "max": 553.9899639989017
+      },
+      "drained": true,
+      "drain_after_send_s": 12.014340745001391,
+      "wall_seconds": 17.046979688000647,
+      "completion_rate_wall": 5.866141793457401,
+      "states": {
+        "stored": 100
+      },
+      "remote_events": 100,
+      "remote_archives": 100,
+      "received_to_stored_ms": {
+        "n": 100,
+        "p50": 8421.0,
+        "p95": 12341.0,
+        "max": 12539.0
+      },
+      "queue_to_stored_ms": {
+        "n": 100,
+        "p50": 1046.0,
+        "p95": 1593.0,
+        "max": 1661.0
+      },
+      "retries": 0,
+      "peak_sampled_outbox_nonstored": 55,
+      "query_observations": {
+        "bronze": {
+          "observed_nonempty_batches": 1,
+          "max_trigger_ms": 1787,
+          "max_input_rows": 85
+        }
+      },
+      "stage_observations": [],
+      "resources": {
+        "nv-baseline-20261125-driver-1": {
+          "peak_cpu_percent": 2.67,
+          "peak_memory_mib": 44.65,
+          "samples": 2
+        },
+        "nv-baseline-20261125-remote-writer-1": {
+          "peak_cpu_percent": 33.24,
+          "peak_memory_mib": 28.51,
+          "samples": 2
+        },
+        "nv-baseline-20261125-spark-1": {
+          "peak_cpu_percent": 545.55,
+          "peak_memory_mib": 2050.048,
+          "samples": 2
+        },
+        "nv-baseline-20261125-collector-1": {
+          "peak_cpu_percent": 4.5,
+          "peak_memory_mib": 104.2,
+          "samples": 2
+        },
+        "nv-baseline-20261125-mongo-1": {
+          "peak_cpu_percent": 20.74,
+          "peak_memory_mib": 77.39,
+          "samples": 2
+        },
+        "nv-baseline-20261125-kafka-1-1": {
+          "peak_cpu_percent": 8.81,
+          "peak_memory_mib": 381.1,
+          "samples": 2
+        },
+        "nv-baseline-20261125-target-mongo-1": {
+          "peak_cpu_percent": 19.49,
+          "peak_memory_mib": 116.8,
+          "samples": 2
+        },
+        "nv-baseline-20261125-target-mysql-1": {
+          "peak_cpu_percent": 6.57,
+          "peak_memory_mib": 490.8,
+          "samples": 2
+        },
+        "nv-baseline-20261125-kafka-2-1": {
+          "peak_cpu_percent": 10.79,
+          "peak_memory_mib": 374.8,
+          "samples": 2
+        },
+        "nv-baseline-20261125-kafka-3-1": {
+          "peak_cpu_percent": 13.47,
+          "peak_memory_mib": 384.8,
+          "samples": 2
+        }
+      },
+      "query_restarts": {},
+      "sink_failures": 0
+    },
+    {
+      "stage": "low",
+      "events": 500,
+      "target_rate": 25,
+      "started_at": "2026-11-25T02:44:57.773Z",
+      "ended_at": "2026-11-25T02:45:29.786Z",
+      "send_seconds": 19.99778973699904,
+      "actual_ack_rate": 25.002763134113856,
+      "http_statuses": {
+        "202": 500
+      },
+      "http_ms": {
+        "n": 500,
+        "p50": 16.584257000431535,
+        "p95": 25.424112000109744,
+        "max": 63.02684500042233
+      },
+      "drained": true,
+      "drain_after_send_s": 12.020444303001568,
+      "wall_seconds": 32.01823404000061,
+      "completion_rate_wall": 15.61610173051226,
+      "states": {
+        "stored": 500
+      },
+      "remote_events": 500,
+      "remote_archives": 500,
+      "received_to_stored_ms": {
+        "n": 500,
+        "p50": 11003.0,
+        "p95": 13670.0,
+        "max": 14433.0
+      },
+      "queue_to_stored_ms": {
+        "n": 500,
+        "p50": 925.0,
+        "p95": 1946.0,
+        "max": 2120.0
+      },
+      "retries": 0,
+      "peak_sampled_outbox_nonstored": 121,
+      "query_observations": {
+        "silver_audit": {
+          "observed_nonempty_batches": 1,
+          "max_trigger_ms": 2891,
+          "max_input_rows": 100
+        },
+        "bronze": {
+          "observed_nonempty_batches": 2,
+          "max_trigger_ms": 2459,
+          "max_input_rows": 125
+        },
+        "gold_1m": {
+          "observed_nonempty_batches": 1,
+          "max_trigger_ms": 3644,
+          "max_input_rows": 125
+        },
+        "gold_alert": {
+          "observed_nonempty_batches": 1,
+          "max_trigger_ms": 7186,
+          "max_input_rows": 56
+        },
+        "silver_learning_events": {
+          "observed_nonempty_batches": 1,
+          "max_trigger_ms": 5216,
+          "max_input_rows": 125
+        }
+      },
+      "stage_observations": [
+        {
+          "batch_id": 7,
+          "merge_ms": 4295,
+          "plan_ms": 1463,
+          "merge_groups": 1,
+          "input_rows": 125,
+          "outbox_ms": 337,
+          "maintenance_ms": 2,
+          "completed_at": "2026-11-25T02:45:17.759405+00:00"
+        }
+      ],
+      "resources": {
+        "nv-baseline-20261125-driver-1": {
+          "peak_cpu_percent": 27.25,
+          "peak_memory_mib": 55.98,
+          "samples": 5
+        },
+        "nv-baseline-20261125-remote-writer-1": {
+          "peak_cpu_percent": 86.53,
+          "peak_memory_mib": 27.58,
+          "samples": 5
+        },
+        "nv-baseline-20261125-spark-1": {
+          "peak_cpu_percent": 597.6,
+          "peak_memory_mib": 2530.304,
+          "samples": 5
+        },
+        "nv-baseline-20261125-collector-1": {
+          "peak_cpu_percent": 28.48,
+          "peak_memory_mib": 105.5,
+          "samples": 5
+        },
+        "nv-baseline-20261125-mongo-1": {
+          "peak_cpu_percent": 46.95,
+          "peak_memory_mib": 83.2,
+          "samples": 5
+        },
+        "nv-baseline-20261125-kafka-1-1": {
+          "peak_cpu_percent": 24.67,
+          "peak_memory_mib": 383.4,
+          "samples": 5
+        },
+        "nv-baseline-20261125-target-mongo-1": {
+          "peak_cpu_percent": 30.67,
+          "peak_memory_mib": 129.3,
+          "samples": 5
+        },
+        "nv-baseline-20261125-target-mysql-1": {
+          "peak_cpu_percent": 13.84,
+          "peak_memory_mib": 490.0,
+          "samples": 5
+        },
+        "nv-baseline-20261125-kafka-2-1": {
+          "peak_cpu_percent": 50.55,
+          "peak_memory_mib": 408.6,
+          "samples": 5
+        },
+        "nv-baseline-20261125-kafka-3-1": {
+          "peak_cpu_percent": 38.9,
+          "peak_memory_mib": 391.7,
+          "samples": 5
+        }
+      },
+      "query_restarts": {},
+      "sink_failures": 0
+    },
+    {
+      "stage": "medium",
+      "events": 2000,
+      "target_rate": 100,
+      "started_at": "2026-11-25T02:45:29.812Z",
+      "ended_at": "2026-11-25T02:46:11.879Z",
+      "send_seconds": 20.03137714500008,
+      "actual_ack_rate": 99.84336002076667,
+      "http_statuses": {
+        "202": 2000
+      },
+      "http_ms": {
+        "n": 2000,
+        "p50": 18.05948099899979,
+        "p95": 43.61772300035227,
+        "max": 112.42534600023646
+      },
+      "drained": true,
+      "drain_after_send_s": 22.039519940999526,
+      "wall_seconds": 42.070897085999604,
+      "completion_rate_wall": 47.53880089392156,
+      "states": {
+        "stored": 2000
+      },
+      "remote_events": 2000,
+      "remote_archives": 2000,
+      "received_to_stored_ms": {
+        "n": 2000,
+        "p50": 19391.0,
+        "p95": 25123.0,
+        "max": 27901.0
+      },
+      "queue_to_stored_ms": {
+        "n": 2000,
+        "p50": 5581.0,
+        "p95": 11815.0,
+        "max": 12710.0
+      },
+      "retries": 0,
+      "peak_sampled_outbox_nonstored": 995,
+      "query_observations": {
+        "gold_1m": {
+          "observed_nonempty_batches": 2,
+          "max_trigger_ms": 6377,
+          "max_input_rows": 547
+        },
+        "silver_audit": {
+          "observed_nonempty_batches": 1,
+          "max_trigger_ms": 4976,
+          "max_input_rows": 500
+        },
+        "bronze": {
+          "observed_nonempty_batches": 2,
+          "max_trigger_ms": 3923,
+          "max_input_rows": 547
+        },
+        "gold_alert": {
+          "observed_nonempty_batches": 2,
+          "max_trigger_ms": 7758,
+          "max_input_rows": 593
+        },
+        "silver_learning_events": {
+          "observed_nonempty_batches": 1,
+          "max_trigger_ms": 5161,
+          "max_input_rows": 593
+        }
+      },
+      "stage_observations": [
+        {
+          "batch_id": 12,
+          "merge_ms": 4148,
+          "plan_ms": 1443,
+          "merge_groups": 1,
+          "input_rows": 593,
+          "outbox_ms": 636,
+          "maintenance_ms": 3,
+          "completed_at": "2026-11-25T02:45:45.610589+00:00"
+        },
+        {
+          "batch_id": 14,
+          "merge_ms": 2984,
+          "plan_ms": 876,
+          "merge_groups": 1,
+          "input_rows": 840,
+          "outbox_ms": 469,
+          "maintenance_ms": 2,
+          "completed_at": "2026-11-25T02:45:58.420842+00:00"
+        }
+      ],
+      "resources": {
+        "nv-baseline-20261125-driver-1": {
+          "peak_cpu_percent": 34.71,
+          "peak_memory_mib": 58.37,
+          "samples": 5
+        },
+        "nv-baseline-20261125-remote-writer-1": {
+          "peak_cpu_percent": 94.36,
+          "peak_memory_mib": 28.18,
+          "samples": 5
+        },
+        "nv-baseline-20261125-spark-1": {
+          "peak_cpu_percent": 672.74,
+          "peak_memory_mib": 3009.536,
+          "samples": 5
+        },
+        "nv-baseline-20261125-collector-1": {
+          "peak_cpu_percent": 61.69,
+          "peak_memory_mib": 116.3,
+          "samples": 5
+        },
+        "nv-baseline-20261125-mongo-1": {
+          "peak_cpu_percent": 49.09,
+          "peak_memory_mib": 96.47,
+          "samples": 5
+        },
+        "nv-baseline-20261125-kafka-1-1": {
+          "peak_cpu_percent": 115.59,
+          "peak_memory_mib": 410.0,
+          "samples": 5
+        },
+        "nv-baseline-20261125-target-mongo-1": {
+          "peak_cpu_percent": 39.75,
+          "peak_memory_mib": 163.1,
+          "samples": 5
+        },
+        "nv-baseline-20261125-target-mysql-1": {
+          "peak_cpu_percent": 21.45,
+          "peak_memory_mib": 493.4,
+          "samples": 5
+        },
+        "nv-baseline-20261125-kafka-2-1": {
+          "peak_cpu_percent": 38.78,
+          "peak_memory_mib": 435.3,
+          "samples": 5
+        },
+        "nv-baseline-20261125-kafka-3-1": {
+          "peak_cpu_percent": 100.4,
+          "peak_memory_mib": 403.3,
+          "samples": 5
+        }
+      },
+      "query_restarts": {},
+      "sink_failures": 0
+    },
+    {
+      "stage": "high",
+      "events": 8000,
+      "target_rate": 400,
+      "started_at": "2026-11-25T02:46:11.951Z",
+      "ended_at": "2026-11-25T02:47:47.039Z",
+      "send_seconds": 32.955019739998534,
+      "actual_ack_rate": 242.7551269310924,
+      "http_statuses": {
+        "202": 8000
+      },
+      "http_ms": {
+        "n": 8000,
+        "p50": 60.37137100065593,
+        "p95": 82.53912799955287,
+        "max": 163.4589879995474
+      },
+      "drained": true,
+      "drain_after_send_s": 62.13962742000149,
+      "wall_seconds": 95.09464716000002,
+      "completion_rate_wall": 84.12671205919429,
+      "states": {
+        "stored": 8000
+      },
+      "remote_events": 8000,
+      "remote_archives": 8000,
+      "received_to_stored_ms": {
+        "n": 8000,
+        "p50": 45261.0,
+        "p95": 64311.00000000001,
+        "max": 69372.0
+      },
+      "queue_to_stored_ms": {
+        "n": 8000,
+        "p50": 25224.0,
+        "p95": 47002.0,
+        "max": 50063.0
+      },
+      "retries": 0,
+      "peak_sampled_outbox_nonstored": 5598,
+      "query_observations": {
+        "bronze": {
+          "observed_nonempty_batches": 3,
+          "max_trigger_ms": 3405,
+          "max_input_rows": 1175
+        },
+        "gold_alert": {
+          "observed_nonempty_batches": 3,
+          "max_trigger_ms": 18589,
+          "max_input_rows": 1335
+        },
+        "silver_learning_events": {
+          "observed_nonempty_batches": 2,
+          "max_trigger_ms": 6227,
+          "max_input_rows": 1335
+        },
+        "gold_1m": {
+          "observed_nonempty_batches": 1,
+          "max_trigger_ms": 5682,
+          "max_input_rows": 1175
+        },
+        "silver_audit": {
+          "observed_nonempty_batches": 2,
+          "max_trigger_ms": 12113,
+          "max_input_rows": 4639
+        }
+      },
+      "stage_observations": [
+        {
+          "batch_id": 16,
+          "merge_ms": 2293,
+          "plan_ms": 1066,
+          "merge_groups": 1,
+          "input_rows": 851,
+          "outbox_ms": 202,
+          "maintenance_ms": 1,
+          "completed_at": "2026-11-25T02:46:19.825205+00:00"
+        },
+        {
+          "batch_id": 18,
+          "merge_ms": 4959,
+          "plan_ms": 2581,
+          "merge_groups": 1,
+          "input_rows": 1335,
+          "outbox_ms": 730,
+          "maintenance_ms": 13,
+          "completed_at": "2026-11-25T02:46:29.148782+00:00"
+        },
+        {
+          "batch_id": 20,
+          "merge_ms": 4446,
+          "plan_ms": 2094,
+          "merge_groups": 1,
+          "input_rows": 1165,
+          "outbox_ms": 557,
+          "maintenance_ms": 8,
+          "completed_at": "2026-11-25T02:46:50.329905+00:00"
+        },
+        {
+          "batch_id": 21,
+          "merge_ms": 3720,
+          "plan_ms": 1270,
+          "merge_groups": 1,
+          "input_rows": 3474,
+          "outbox_ms": 1091,
+          "maintenance_ms": 4,
+          "completed_at": "2026-11-25T02:46:55.480390+00:00"
+        }
+      ],
+      "resources": {
+        "nv-baseline-20261125-driver-1": {
+          "peak_cpu_percent": 70.74,
+          "peak_memory_mib": 74.37,
+          "samples": 12
+        },
+        "nv-baseline-20261125-remote-writer-1": {
+          "peak_cpu_percent": 94.11,
+          "peak_memory_mib": 28.5,
+          "samples": 12
+        },
+        "nv-baseline-20261125-spark-1": {
+          "peak_cpu_percent": 506.38,
+          "peak_memory_mib": 3472.384,
+          "samples": 12
+        },
+        "nv-baseline-20261125-collector-1": {
+          "peak_cpu_percent": 95.82,
+          "peak_memory_mib": 108.1,
+          "samples": 12
+        },
+        "nv-baseline-20261125-mongo-1": {
+          "peak_cpu_percent": 51.85,
+          "peak_memory_mib": 147.4,
+          "samples": 12
+        },
+        "nv-baseline-20261125-kafka-1-1": {
+          "peak_cpu_percent": 99.38,
+          "peak_memory_mib": 417.2,
+          "samples": 12
+        },
+        "nv-baseline-20261125-target-mongo-1": {
+          "peak_cpu_percent": 50.49,
+          "peak_memory_mib": 195.4,
+          "samples": 12
+        },
+        "nv-baseline-20261125-target-mysql-1": {
+          "peak_cpu_percent": 17.93,
+          "peak_memory_mib": 491.2,
+          "samples": 12
+        },
+        "nv-baseline-20261125-kafka-2-1": {
+          "peak_cpu_percent": 102.4,
+          "peak_memory_mib": 451.9,
+          "samples": 12
+        },
+        "nv-baseline-20261125-kafka-3-1": {
+          "peak_cpu_percent": 118.52,
+          "peak_memory_mib": 414.3,
+          "samples": 12
+        }
+      },
+      "query_restarts": {},
+      "sink_failures": 0
+    }
+  ]
+}

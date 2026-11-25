@@ -1,0 +1,49 @@
+{
+  "latency": {
+    "warmup": {
+      "rows": 100,
+      "received_to_queued_ms": {
+        "n": 100,
+        "p50": 7243.0,
+        "p95": 12106.0,
+        "max": 12356.0
+      }
+    },
+    "low": {
+      "rows": 500,
+      "received_to_queued_ms": {
+        "n": 500,
+        "p50": 10030.0,
+        "p95": 12311.0,
+        "max": 12730.0
+      }
+    },
+    "medium": {
+      "rows": 2000,
+      "received_to_queued_ms": {
+        "n": 2000,
+        "p50": 13668.0,
+        "p95": 17650.0,
+        "max": 18649.0
+      }
+    },
+    "high": {
+      "rows": 8000,
+      "received_to_queued_ms": {
+        "n": 8000,
+        "p50": 17693.0,
+        "p95": 24312.0,
+        "max": 25085.0
+      }
+    }
+  },
+  "integrity": {
+    "events": 10600,
+    "archives": 10600,
+    "members": 50,
+    "sessions": 2120,
+    "completed_runs": 2120,
+    "successful_attempts": 2120,
+    "reference_errors": 0
+  }
+}
