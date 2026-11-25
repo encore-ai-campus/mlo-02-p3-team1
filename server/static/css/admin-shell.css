@@ -131,7 +131,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, select:focus-visib
 .ov { display: flex; flex-direction: column; gap: 14px; }
 .ov-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .ov-head > div { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
-.ov-head h1 { margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -.5px; }
+.ov-head h1 { margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -.5px; white-space: nowrap; }
 .ov-head p { margin: 0; color: var(--muted); font-size: 14px; }
 
 .ov-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
