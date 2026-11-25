@@ -26,8 +26,14 @@ var current_content_version: String = "base"
 var _ui_layer: CanvasLayer = null
 var _modal_root: Control = null
 
+## 게임 창 제목. project.godot 의 config/name 은 저장 폴더(app_userdata/<이름>) 이름도 정하므로 바꾸지 않고, 창 제목만 여기서 정한다.
+const WINDOW_TITLE := "코딱지"
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# 가장 먼저 뜨는 오토로드라 여기서 창 제목을 바꾼다 (헤드리스 실행은 창이 없어 건너뜀)
+	if DisplayServer.get_name() != "headless":
+		get_window().title = WINDOW_TITLE
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(PACK_DIR))
 	update_required.connect(_show_required_update_dialog)
 	update_available.connect(_show_optional_update_dialog)
