@@ -48,6 +48,13 @@ func _init() -> void:
 func build_stage() -> void:
 	panel_root = Node2D.new()
 	overlay.add_child(panel_root)
+	# 어디에 서서 E 를 누르는지 보이도록 모든 상호작용 지점에 바닥 발판을 깐다
+	var pads := make_floor_layer()
+	for b in M:
+		floor_pad(pads, spot("bucket", b).position, "%d번" % b, Color("5fd6ff"), 30.0)
+	floor_pad(pads, spot("intake").position, "", Color("f2c14e"))   # 이름은 바닥 간판(입고대)에 이미 있다
+	floor_pad(pads, spot("hash").position, "계산기", Color("9fd8a8"))
+	floor_pad(pads, spot("dup").position, "", Color("e05252"))      # 이름은 바닥 간판(중복 거절함)에 이미 있다
 
 func setup_level(n: int) -> void:
 	var L: Dictionary = LEVELS[n]
