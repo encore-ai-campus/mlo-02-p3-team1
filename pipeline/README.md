@@ -4,6 +4,8 @@
 
 기준 문서는 「NODEVERSE 파이프라인 파트 구현 지시서」(공통 계약 포함)이고, 지시서와 다르게 정한 부분은 [docs/DECISIONS.md](docs/DECISIONS.md)에 있습니다.
 
+압축·사전 코드화는 **향후 데이터 규모 확대 시 적용 여부를 재검토할 확장 설계**로 남깁니다. 기존 실시간 JSON 전송은 유지하며, 오프라인 gzip·사전 수신은 참조 구현·격리 시험 단계입니다. 운영 활성화·EXE 자동 연결·전체 로그 자동 코드화가 완료된 상태는 아닙니다. 현재 범위와 실측 근거는 [압축·사전 확장 설계](docs/COMPRESSION_EXTENSION.md)를 참고하세요.
+
 ![파이프라인 개요](docs/architecture.png)
 
 쿼리·상태·보완 차수까지 담은 상세 그림은 [docs/architecture/pipeline-architecture-2026-11-25.png](../docs/architecture/pipeline-architecture-2026-11-25.png)입니다. 개요 그림은 `python docs/render_architecture.py`, 상세 그림은 저장소 루트의 `python docs/architecture/pipeline_architecture.py`로 SVG를 다시 만들고 헤드리스 브라우저로 PNG를 렌더링합니다.
@@ -163,6 +165,8 @@ PySpark가 없는 환경에서는 Spark가 필요한 시험(경고 기준선 등
 
 ## 추후 예정
 
+- 데이터 볼륨 증가 시 선택 압축·사전 코드화의 효과와 수신 CPU 비용을 재측정한 뒤 적용 여부 결정 ([확장 설계](docs/COMPRESSION_EXTENSION.md)). 현재는 문서화만 하고 운영 적용·추가 최적화는 보류합니다.
+
 - 압축을 같은 배치 밖의 별도 작업으로 분리 (게시 지연·다음 배치 지연을 나눠 측정한 뒤 설계)
 - 대량 부하 시험, 중복 제거 상태 48시간 비교, Silver MERGE 범위 최적화 측정 후 적용
 - 게임이 최초 실행 시 guest UUID를 프로필에 보관하고 플레이마다 새 session UUID를 만들도록 맞추기
@@ -175,6 +179,7 @@ PySpark가 없는 환경에서는 Spark가 필요한 시험(경고 기준선 등
 
 | 문서 | 내용 |
 |---|---|
+| [docs/COMPRESSION_EXTENSION.md](docs/COMPRESSION_EXTENSION.md) | 대용량에 대비한 압축·사전 확장 지점, 현재 미적용 범위와 측정 근거 |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | 지시서와 다르게 정한 설계 결정 |
 | [docs/INTEGRATION_STATUS.md](docs/INTEGRATION_STATUS.md) | 게임·서버 연동 기준과 남은 작업 |
 | [docs/LIVE_REMOTE_SINK.md](docs/LIVE_REMOTE_SINK.md) | 실제 수집 경로와 원격 적재 운영 |

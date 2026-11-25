@@ -4,6 +4,7 @@
 - [LOCAL_RUN_WINDOWS_ARM.md](LOCAL_RUN_WINDOWS_ARM.md) — 개발 PC 한 대(Windows ARM + WSL2)에서 세 파트 모두 실행하기
 - [DATA_FLOW_AND_GAPS.md](DATA_FLOW_AND_GAPS.md) — 합친 코드 기준 데이터 흐름과 보완·추가 구현 목록 (우선순위별)
 - [INTEGRATION_REVIEW_2026-11-20.md](INTEGRATION_REVIEW_2026-11-20.md) — 게임·파이프라인·서버 연동 종합 검토
+- [압축·사전 확장 설계](../pipeline/docs/COMPRESSION_EXTENSION.md) — 향후 볼륨 증가에 대비한 설계 기록. 현재 운영 추가 적용·최적화는 보류
 
 ## architecture/ — 아키텍처 그림
 
