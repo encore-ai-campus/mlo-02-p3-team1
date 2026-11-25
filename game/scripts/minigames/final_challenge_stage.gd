@@ -717,7 +717,7 @@ func _build_ui() -> void:
 	code_tag.add_theme_stylebox_override("panel", _tex_box("btn_blue", 12, 12, 8, 2))
 	code_tag.add_child(_mk_label("</>", 14, Color.WHITE, true, 2, NAVY))
 	sh_h.add_child(code_tag)
-	var st_title := _mk_label("NODEVERSE · Python Code Studio", 17, INK)
+	var st_title := _mk_label("코딱지 · Python Code Studio", 17, INK)
 	st_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	sh_h.add_child(st_title)
 	studio_hdr.add_child(sh_h)

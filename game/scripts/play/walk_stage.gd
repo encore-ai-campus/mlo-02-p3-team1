@@ -71,6 +71,7 @@ func _ready() -> void:
 		for g in c.get_children():
 			if g is Interactable:
 				_spots[_spot_key(g.kind, g.index)] = g
+	StageHUD.make_speech_bubble(hint, hint_label)
 	hud.set_title(stage_id, stage_title)
 	hud.set_controls("WASD 이동 · E 상호작용 · Z 되돌리기 · R 초기화 · H 도움말 · Esc 메뉴")
 	hud.next_pressed.connect(_next_level)

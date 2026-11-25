@@ -169,6 +169,7 @@ func _fetch_json(url: String, timeout_sec: float = DEFAULT_TIMEOUT_SEC):
 	if url.is_empty():
 		return null
 	var req := HTTPRequest.new()
+	req.use_threads = true
 	req.timeout = timeout_sec
 	add_child(req)
 	var err := req.request(url)
@@ -206,6 +207,7 @@ func _ensure_pack(p: Dictionary, content_ver: String = "") -> void:
 	var t0 := Time.get_ticks_msec()
 	var part_path := path + ".part"
 	var req := HTTPRequest.new()
+	req.use_threads = true
 	req.timeout = 15.0
 	add_child(req)
 	req.download_file = part_path

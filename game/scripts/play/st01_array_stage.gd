@@ -60,6 +60,7 @@ var crates := {}               # "slot0".."slot4", "tray", "hand" -> StageCrate
 @onready var bubble_label: Label = $Field/World/Player/Bubble/Label
 
 func _ready() -> void:
+	StageHUD.make_speech_bubble(hint, hint_label)
 	hud.set_title("ST01", "순서가 있는 보관소")
 	hud.set_controls("WASD 이동 · E 상호작용 · Z 되돌리기 · R 초기화 · H 도움말 · Esc 메뉴")
 	hud.next_pressed.connect(_next_level)

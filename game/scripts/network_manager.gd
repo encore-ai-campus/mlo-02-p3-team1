@@ -128,17 +128,27 @@ var _logs: Array = []
 var _debug_panel_scene: PackedScene = null
 var _debug_panel_instance: CanvasLayer = null
 
+# 디스크 큐 기록(쓰기·삭제·rejected 이동)은 게임(메인) 스레드가 아닌 전용 I/O 스레드에서 처리한다.
+# HTTP 전송도 HTTPRequest.use_threads 로 별도 스레드에서 돈다. 게임 화면이 파일·네트워크 대기로 멈추지 않게 하기 위함.
+var _io_thread: Thread = null
+var _io_mutex := Mutex.new()
+var _io_sem := Semaphore.new()
+var _io_jobs: Array[Callable] = []
+var _io_quit := false
+var _shutting_down := false
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_ensure_queue_dirs()
 	load_config()
 	_init_session()
 
-	_http_request = HTTPRequest.new()
-	_http_request.name = "TelemetryHTTP"
-	_http_request.timeout = request_timeout
+	_http_request = _new_http("TelemetryHTTP")
 	_http_request.request_completed.connect(_on_http_request_completed)
 	add_child(_http_request)
+	if DisplayServer.get_name() != "headless":
+		_io_thread = Thread.new()
+		_io_thread.start(_io_loop)
 
 	if debug_enabled:
 		_init_debug_overlay()
@@ -151,7 +161,75 @@ func _ready() -> void:
 # ==========================================
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_save_world_left_outside_tree()
 		write_exit_marker()
+		_shutdown_io()
+	elif what == NOTIFICATION_PREDELETE:
+		_shutdown_io()
+
+## 미니게임(2D) 중에는 3D 월드가 씬 트리 밖에 보관되어 있어 종료 알림을 받지 못한다.
+## 그대로 두면 진행 상황이 저장되지 않고, 종료 때 수천 개의 리소스 누수 오류가 로그에 기록되며 창이 멈춘다.
+## 종료 요청 시 월드를 대신 저장하고 해제한다.
+func _save_world_left_outside_tree() -> void:
+	var world_script: Script = load("res://scripts/nodeverse_world.gd")
+	if world_script == null:
+		return
+	var w = world_script.get("cached_world")
+	if w is Node and is_instance_valid(w) and not w.is_inside_tree():
+		if w.has_method("_save_current_state"):
+			w.call("_save_current_state")
+		world_script.set("cached_world", null)
+		w.free()
+
+## 종료 시: 진행 중인 HTTP 요청을 끊고(이벤트는 pending/ 에 남아 다음 실행 때 재전송), 남은 디스크 기록을 마친 뒤 I/O 스레드를 닫는다.
+func _shutdown_io() -> void:
+	if _shutting_down:
+		return
+	_shutting_down = true
+	if _http_request != null and is_instance_valid(_http_request):
+		_http_request.cancel_request()
+	if _io_thread != null:
+		_io_mutex.lock()
+		_io_quit = true
+		_io_mutex.unlock()
+		_io_sem.post()
+		if _io_thread.is_started():
+			_io_thread.wait_to_finish()
+		_io_thread = null
+
+func _new_http(node_name: String = "") -> HTTPRequest:
+	var req := HTTPRequest.new()
+	if not node_name.is_empty():
+		req.name = node_name
+	req.timeout = request_timeout
+	req.use_threads = true
+	return req
+
+## 디스크 작업을 I/O 스레드에 넘긴다. 스레드가 없으면(헤드리스 테스트) 바로 실행한다. 작업은 넣은 순서대로 처리된다.
+func _io_post(job: Callable) -> void:
+	if _io_thread == null or _shutting_down:
+		job.call()
+		return
+	_io_mutex.lock()
+	_io_jobs.append(job)
+	_io_mutex.unlock()
+	_io_sem.post()
+
+func _io_loop() -> void:
+	while true:
+		_io_sem.wait()
+		_io_mutex.lock()
+		var job: Callable = Callable()
+		if not _io_jobs.is_empty():
+			job = _io_jobs.pop_front()
+		var quit := _io_quit and _io_jobs.is_empty() and not job.is_valid()
+		_io_mutex.unlock()
+		if job.is_valid():
+			job.call()
+			if _io_quit:
+				_io_sem.post()  # 종료 중이면 남은 작업을 계속 비운다
+		if quit:
+			break
 
 static func write_exit_marker() -> void:
 	var path := OS.get_environment("NODEVERSE_EXIT_MARKER").strip_edges()
@@ -263,8 +341,7 @@ func sync_player_login(member_id: String, display_name: String) -> void:
 		return
 	if not auto_send_enabled or DisplayServer.get_name() == "headless":
 		return
-	var req := HTTPRequest.new()
-	req.timeout = request_timeout
+	var req := _new_http()
 	add_child(req)
 	var url := get_api_base_url() + "/api/game/player-login"
 	var headers := PackedStringArray([
@@ -296,8 +373,7 @@ func sync_player_login(member_id: String, display_name: String) -> void:
 func game_auth_request(action: String, payload: Dictionary) -> Dictionary:
 	if DisplayServer.get_name() == "headless":
 		return {"online": false, "code": 0, "data": {}}
-	var req := HTTPRequest.new()
-	req.timeout = request_timeout
+	var req := _new_http()
 	add_child(req)
 	var url := get_api_base_url() + "/api/game/auth/" + action
 	var headers := PackedStringArray(["Content-Type: application/json; charset=utf-8"])
@@ -325,8 +401,7 @@ func sync_cloud_save(username: String, save_data: Dictionary) -> void:
 	var u := username.strip_edges()
 	if u.is_empty() or u == "Guest" or DisplayServer.get_name() == "headless":
 		return
-	var req := HTTPRequest.new()
-	req.timeout = request_timeout
+	var req := _new_http()
 	add_child(req)
 	var url := get_api_base_url() + "/api/game/auth/save"
 	var headers := PackedStringArray(["Content-Type: application/json; charset=utf-8"])
@@ -710,6 +785,9 @@ func _atomic_write(path: String, text: String) -> bool:
 	return true
 
 func _note_disk_failure(path: String, reason: String) -> void:
+	if OS.get_thread_caller_id() != OS.get_main_thread_id():
+		call_deferred("_note_disk_failure", path, reason)
+		return
 	disk_write_failures += 1
 	last_disk_error = "%s (%s)" % [reason, path.get_file()]
 	log_message("디스크 큐 기록 실패: %s — 이벤트는 메모리 큐에 남아 전송을 계속 시도합니다" % last_disk_error, "error")
@@ -843,7 +921,7 @@ func _load_pending_from_disk() -> void:
 func _dispatch_event(event_dict: Dictionary) -> void:
 	if not auto_send_enabled or event_dict.is_empty():
 		return
-	_save_event_to_disk(event_dict)
+	_io_post(_save_event_to_disk.bind(event_dict.duplicate(true)))
 	var ev_type := str(event_dict.get("event_type", ""))
 	if learning_events_paused and not is_update_event(ev_type):
 		# G5 Required Update: keep learning events on disk queue only until updated
@@ -852,7 +930,7 @@ func _dispatch_event(event_dict: Dictionary) -> void:
 	_pending_queue.append(event_dict)
 	while _pending_queue.size() > MAX_QUEUE_SIZE:
 		var dropped: Dictionary = _pending_queue.pop_front()
-		_move_pending_to_rejected(str(dropped.get("event_id", "")), dropped)
+		_io_post(_move_pending_to_rejected.bind(str(dropped.get("event_id", "")), dropped))
 	_try_flush_queue()
 
 func _pick_next_sendable_index() -> int:
@@ -875,7 +953,7 @@ func _try_flush_queue() -> void:
 	# The collector refuses events older than 6 days (too_old): expire them locally instead of sending.
 	if _is_expired(current_event):
 		_pending_queue.remove_at(next_idx)
-		_move_pending_to_rejected(str(current_event.get("event_id", "")), current_event)
+		_io_post(_move_pending_to_rejected.bind(str(current_event.get("event_id", "")), current_event))
 		log_message("6일 지난 이벤트 만료 처리: %s" % str(current_event.get("event_type", "")), "warn")
 		if get_tree():
 			get_tree().create_timer(0.05).timeout.connect(_try_flush_queue)
@@ -899,9 +977,7 @@ func _try_flush_queue() -> void:
 	_set_status(NetStatus.SENDING, "전송 중: %s" % _active_request_type)
 
 	if _http_request == null:
-		_http_request = HTTPRequest.new()
-		_http_request.name = "TelemetryHTTP"
-		_http_request.timeout = request_timeout
+		_http_request = _new_http("TelemetryHTTP")
 		_http_request.request_completed.connect(_on_http_request_completed)
 		add_child(_http_request)
 	var url := get_full_url()
@@ -922,9 +998,9 @@ func _on_http_request_completed(result: int, response_code: int, _headers: Packe
 		_set_status(NetStatus.CONNECTED, "전송 성공 (%d OK, %dms)" % [response_code, last_latency_ms])
 		if not _pending_queue.is_empty():
 			var sent_item: Dictionary = _pending_queue.pop_front()
-			_delete_pending_file(str(sent_item.get("event_id", _active_event_id)))
+			_io_post(_delete_pending_file.bind(str(sent_item.get("event_id", _active_event_id))))
 		else:
-			_delete_pending_file(_active_event_id)
+			_io_post(_delete_pending_file.bind(_active_event_id))
 		log_message("[%s] 전송 성공 (%d OK, %dms)" % [_active_request_type, response_code, last_latency_ms], "success")
 		event_transmitted.emit(_active_request_type, true, response_code, body_str.substr(0, 80))
 
@@ -968,9 +1044,9 @@ func _handle_network_failure(reason: String, code: int, _body_str: String = "") 
 	elif code >= 400 and code < 500 and code != 408 and code != 429:
 		if not _pending_queue.is_empty():
 			var rejected_item: Dictionary = _pending_queue.pop_front()
-			_move_pending_to_rejected(str(rejected_item.get("event_id", _active_event_id)), rejected_item)
+			_io_post(_move_pending_to_rejected.bind(str(rejected_item.get("event_id", _active_event_id)), rejected_item))
 		else:
-			_move_pending_to_rejected(_active_event_id)
+			_io_post(_move_pending_to_rejected.bind(_active_event_id))
 		log_message("[%s] 전송 거부(%d) -> rejected 이동: %s" % [_active_request_type, code, reason], "error")
 		event_transmitted.emit(_active_request_type, false, code, reason)
 		if not _pending_queue.is_empty() and get_tree():

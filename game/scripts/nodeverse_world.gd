@@ -65,7 +65,7 @@ const NPC_DEFS := [
 		"name": "중앙 광장 안내원",
 		"pos": Vector3(-2.2, TOP, 4.0),
 		"rot": -45.0,
-		"dialog": "안내원: 안녕하세요! 7개의 섬으로 확장된 NODEVERSE에 오신 것을 환영합니다.\n남서쪽은 입문 섬, 서쪽은 자료구조, 북쪽은 알고리즘, 동쪽은 SQL, 북동쪽은 데이터 탐험, 최북단은 종합 도전 섬입니다."
+		"dialog": "안내원: 안녕하세요! 7개의 섬으로 이루어진 코딱지에 오신 것을 환영합니다.\n남서쪽은 입문 섬, 서쪽은 자료구조, 북쪽은 알고리즘, 동쪽은 SQL, 북동쪽은 데이터 탐험, 최북단은 종합 도전 섬입니다."
 	},
 	{
 		"id": "NPC01_array_keeper",
@@ -2563,7 +2563,11 @@ func _notification(what: int) -> void:
 func _save_current_state() -> void:
 	if current_user.is_empty():
 		return
-	var pp: Vector3 = player.global_position if player != null else Vector3(0.0, 1.08, 12.15)
+	var pp: Vector3 = Vector3(0.0, 1.08, 12.15)
+	if player != null and player.is_inside_tree():
+		pp = player.global_position
+	elif saved_player_pos != Vector3.ZERO:
+		pp = saved_player_pos  # 미니게임 중(월드가 트리 밖)에는 컴퓨터 앞 위치를 저장
 	user_save_data["difficulty"] = current_difficulty
 	user_save_data["score"] = quiz_score
 	user_save_data["player_pos"] = [pp.x, pp.y, pp.z]
@@ -2571,7 +2575,7 @@ func _save_current_state() -> void:
 	user_save_data["minigame_cleared"] = MiniGameBase.get_account_progress()
 	user_save_data["has_saved_game"] = true
 	AuthManager.save_user_progress(current_user, user_save_data)
-	var nm = get_node_or_null("/root/NetworkManager")
+	var nm = (Engine.get_main_loop() as SceneTree).root.get_node_or_null("NetworkManager")
 	if nm and nm.has_method("sync_cloud_save"):
 		nm.call("sync_cloud_save", current_user, user_save_data)
 
@@ -2601,40 +2605,93 @@ func _next_quiz() -> void:
 	quiz_index[q_key] = quiz_index.get(q_key, 0) + 1
 	_open_quiz_for_zone(_zone_name)
 
+## 타이틀 로고: 글자마다 색이 다른 굵은 외곽선 "코딱지" + 리본 부제. 글자가 살짝 위아래로 흔들린다.
+func _build_game_logo() -> Control:
+	var header := VBoxContainer.new()
+	header.name = "GameLogo"
+	header.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	header.offset_top = 10.0
+	header.offset_bottom = 170.0
+	header.add_theme_constant_override("separation", 0)
+	header.alignment = BoxContainer.ALIGNMENT_CENTER
+	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bold: Font = load("res://fonts/NotoSansKR_Bold.tres")
+	var ink := Color("2a1f4a")
+	var letters := HBoxContainer.new()
+	letters.alignment = BoxContainer.ALIGNMENT_CENTER
+	letters.add_theme_constant_override("separation", 2)
+	letters.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_child(letters)
+	var cols := [Color("ffd23f"), Color("ff86a8"), Color("b99cff")]
+	var word := "코딱지"
+	for i in word.length():
+		# 흔들림 애니메이션은 컨테이너가 위치를 덮어쓰지 않도록 안쪽 Label 에 준다
+		var slot := Control.new()
+		slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var glyph_w := bold.get_string_size(word[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 88).x
+		slot.custom_minimum_size = Vector2(glyph_w + 8, 118)
+		letters.add_child(slot)
+		var ch := Label.new()
+		ch.text = word[i]
+		ch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ch.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		ch.size = Vector2(glyph_w + 8, 118)
+		var ls := LabelSettings.new()
+		ls.font = bold
+		ls.font_size = 88
+		ls.font_color = cols[i]
+		ls.outline_size = 18
+		ls.outline_color = ink
+		ls.shadow_color = Color(0.08, 0.04, 0.18, 0.75)
+		ls.shadow_size = 18
+		ls.shadow_offset = Vector2(0, 7)
+		ch.label_settings = ls
+		slot.add_child(ch)
+		var tw := ch.create_tween().set_loops()
+		tw.tween_interval(0.18 * i + 0.01)
+		tw.tween_property(ch, "position:y", -7.0, 0.55).as_relative().set_trans(Tween.TRANS_SINE)
+		tw.tween_property(ch, "position:y", 7.0, 0.55).as_relative().set_trans(Tween.TRANS_SINE)
+		tw.tween_interval(0.37 - 0.18 * i)
+	var ribbon_row := CenterContainer.new()
+	ribbon_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_child(ribbon_row)
+	var ribbon := PanelContainer.new()
+	ribbon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("fff3dc")
+	sb.border_color = ink
+	sb.set_border_width_all(4)
+	sb.set_corner_radius_all(10)
+	sb.content_margin_left = 26
+	sb.content_margin_right = 26
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 6
+	sb.shadow_color = Color(0.08, 0.04, 0.18, 0.55)
+	sb.shadow_size = 6
+	sb.shadow_offset = Vector2(0, 4)
+	ribbon.add_theme_stylebox_override("panel", sb)
+	ribbon_row.add_child(ribbon)
+	var sub := RichTextLabel.new()
+	sub.bbcode_enabled = true
+	sub.fit_content = true
+	sub.autowrap_mode = TextServer.AUTOWRAP_OFF
+	sub.scroll_active = false
+	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sub.add_theme_font_override("normal_font", bold)
+	sub.add_theme_font_size_override("normal_font_size", 22)
+	sub.add_theme_color_override("default_color", ink)
+	sub.text = "[color=#e0a400]코[/color]딩을 [color=#e8517e]딱[/color] 깨우치는 [color=#7b5cff]지[/color]름길"
+	ribbon.add_child(sub)
+	return header
+
 func _build_title_modal(canvas: CanvasLayer) -> void:
 	title_modal = Control.new()
 	title_modal.name = "TitleModal"
 	title_modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	canvas.add_child(title_modal)
 
-	# [1. 상단 중앙 타이틀: NODEVERSE / 연결된 배움의 세계]
-	var top_header := VBoxContainer.new()
-	top_header.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	top_header.offset_top = 28.0
-	top_header.offset_bottom = 125.0
-	top_header.add_theme_constant_override("separation", 6)
-	top_header.alignment = BoxContainer.ALIGNMENT_CENTER
-	top_header.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title_modal.add_child(top_header)
-
-	var title_lbl := Label.new()
-	title_lbl.text = "NODEVERSE"
-	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title_lbl.add_theme_font_size_override("font_size", 54)
-	title_lbl.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
-	title_lbl.add_theme_color_override("font_shadow_color", Color(0.04, 0.16, 0.22, 0.92))
-	title_lbl.add_theme_constant_override("shadow_offset_y", 4)
-	title_lbl.add_theme_constant_override("shadow_outline_size", 5)
-	top_header.add_child(title_lbl)
-
-	var sub_lbl := Label.new()
-	sub_lbl.text = "연결된 배움의 세계"
-	sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub_lbl.add_theme_font_size_override("font_size", 19)
-	sub_lbl.add_theme_color_override("font_color", Color(0.88, 0.96, 0.98))
-	sub_lbl.add_theme_color_override("font_shadow_color", Color(0.04, 0.16, 0.22, 0.80))
-	sub_lbl.add_theme_constant_override("shadow_offset_y", 2)
-	top_header.add_child(sub_lbl)
+	# [1. 상단 중앙 타이틀: 코딱지 / 코딩을 딱 깨우치는 지름길]
+	title_modal.add_child(_build_game_logo())
 
 	# [2. 우측 아이보리 로그인/회원가입 폼 카드 (사이즈 세로 축소: 높이 430px)]
 	var right_card := PanelContainer.new()
@@ -3215,7 +3272,9 @@ func _on_login_success(username: String, save_data: Dictionary, server_pid: Stri
 				nm.call("set_active_player_id", resolved_pid)
 			else:
 				nm.call("_update_player_id")
-	if bool(user_save_data.get("has_saved_game", false)):
+	# 게스트는 이어하기 없이 항상 새로 시작한다.
+	var is_guest := username == "Guest" or username.is_empty()
+	if not is_guest and bool(user_save_data.get("has_saved_game", false)):
 		_set_game_state(GameState.DIFFICULTY_SELECT)
 	else:
 		_on_start_new_game("NOVICE")
@@ -3237,7 +3296,7 @@ func _build_lobby_modal(canvas: CanvasLayer) -> void:
 	lobby_modal.add_child(center)
 
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(620, 250)
+	panel.custom_minimum_size = Vector2(620, 0)
 	panel.add_theme_stylebox_override("panel", _style_panel_flat(
 		Color(0.985, 0.973, 0.941, 0.98),
 		Color(0.86, 0.82, 0.75),
@@ -3249,7 +3308,7 @@ func _build_lobby_modal(canvas: CanvasLayer) -> void:
 	vb.add_theme_constant_override("separation", 18)
 	panel.add_child(vb)
 
-	# 1. 상단 헤더 행 (좌: 브레드크럼 + 환영 타이틀 / 우: 로그아웃 버튼)
+	# 1. 상단 헤더 (브레드크럼 + 환영 타이틀)
 	var top_row := HBoxContainer.new()
 	vb.add_child(top_row)
 
@@ -3258,7 +3317,7 @@ func _build_lobby_modal(canvas: CanvasLayer) -> void:
 	top_row.add_child(title_v)
 
 	var breadcrumb := Label.new()
-	breadcrumb.text = "NODEVERSE / 여정 시작"
+	breadcrumb.text = "코딱지 / 여정 시작"
 	breadcrumb.add_theme_font_size_override("font_size", 12.5)
 	breadcrumb.add_theme_color_override("font_color", Color(0.098, 0.482, 0.533))
 	title_v.add_child(breadcrumb)
@@ -3268,23 +3327,6 @@ func _build_lobby_modal(canvas: CanvasLayer) -> void:
 	welcome_lbl.add_theme_font_size_override("font_size", 24)
 	welcome_lbl.add_theme_color_override("font_color", Color(0.106, 0.188, 0.204))
 	title_v.add_child(welcome_lbl)
-
-	var top_spacer := Control.new()
-	top_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top_row.add_child(top_spacer)
-
-	var logout_btn := Button.new()
-	logout_btn.text = "로그아웃"
-	logout_btn.custom_minimum_size = Vector2(96, 36)
-	logout_btn.add_theme_font_size_override("font_size", 13.5)
-	_apply_btn_styles(logout_btn,
-		Color(0.929, 0.906, 0.843),
-		Color(0.894, 0.867, 0.796),
-		Color(0.227, 0.259, 0.267),
-		Color(0.816, 0.776, 0.698), 10, 1.5
-	)
-	logout_btn.pressed.connect(func(): _on_logout())
-	top_row.add_child(logout_btn)
 
 	# 2. [이전 여정 이어하기 / 처음부터 시작] 배너
 	var continue_panel := PanelContainer.new()
@@ -3349,7 +3391,7 @@ func _on_select_difficulty(diff_key: String = "NOVICE") -> void:
 	user_save_data["difficulty"] = current_difficulty
 	_save_current_state()
 	_set_game_state(GameState.PLAYING)
-	_show_msg("✨ NODEVERSE 탐험을 시작합니다!", 3.0)
+	_show_msg("✨ 코딱지 탐험을 시작합니다!", 3.0)
 
 func _on_start_new_game(diff_key: String = "NOVICE") -> void:
 	current_difficulty = diff_key
@@ -3404,7 +3446,7 @@ func _build_pause_modal(canvas: CanvasLayer) -> void:
 	panel.add_child(vb)
 
 	var title := Label.new()
-	title.text = "⚙️ NODEVERSE SYSTEM MENU"
+	title.text = "⚙️ 코딱지 메뉴"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 22)
 	title.modulate = Color(0.25, 0.95, 1.0)
