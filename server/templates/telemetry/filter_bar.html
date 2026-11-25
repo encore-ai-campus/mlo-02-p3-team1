@@ -12,5 +12,5 @@
     <div class="ov-more-grid">{% for field in filter %}{% if field.name == 'game_id' or field.name == 'player_id' or field.name == 'q' or field.name == 'topic' or field.name == 'task_id' or field.name == 'content_version' %}<div class="field">{{ field.label_tag }}{{ field }}</div>{% endif %}{% endfor %}</div>
   </details>
   <button type="submit" class="ov-apply">조회</button>
-  <a class="ov-reset" href="{{ request.path }}">{% include 'accounts/nav_icon.html' with icon='reset' %}필터 초기화</a>
+  <a class="ov-reset" href="{{ request.path }}" title="필터 초기화">{% include 'accounts/nav_icon.html' with icon='reset' %}<span class="sr-only">필터 초기화</span></a>
 </form>

@@ -35,7 +35,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible, select:focus-visib
 
 /* ---------- 2. 바탕 틀 ---------- */
 .app-shell.has-sidebar { grid-template-columns: 232px minmax(0, 1fr); }
-.workspace { padding: 22px 28px 28px; max-width: 1480px; }
+.workspace { padding: 22px 28px 28px; max-width: 1760px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
 .card:hover, .stat:hover, .viz-card:hover { transform: none; }
 
@@ -134,14 +134,14 @@ a:focus-visible, button:focus-visible, summary:focus-visible, select:focus-visib
 .ov-head h1 { margin: 0; font-size: 32px; font-weight: 800; letter-spacing: -.5px; white-space: nowrap; }
 .ov-head p { margin: 0; color: var(--muted); font-size: 14px; }
 
-.ov-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+.ov-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
 .ov-filters input, .ov-filters select { height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); font-size: 13px; width: auto; }
 .ov-range { display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; height: 38px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); }
 .ov-range .nav-icon { width: 17px; height: 17px; }
 .ov-range input { border: 0; height: 34px; padding: 0 2px; background: transparent; }
 .ov-divider { width: 1px; height: 24px; background: var(--line); }
-.ov-select { display: inline-flex; }
-.ov-select select { min-width: 150px; }
+.ov-select { display: inline-flex; flex: 1 1 130px; min-width: 0; }
+.ov-select select { width: 100%; min-width: 0; padding-right: 28px; }
 .ov-more { position: relative; }
 .ov-more summary { list-style: none; cursor: pointer; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; font-size: 13px; color: var(--ink); }
 .ov-more summary::-webkit-details-marker { display: none; }
@@ -151,9 +151,11 @@ a:focus-visible, button:focus-visible, summary:focus-visible, select:focus-visib
 .ov-more-grid label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
 .ov-more-grid input, .ov-more-grid select { width: 100%; }
 .ov-apply { height: 36px; padding: 0 16px !important; font-size: 13px !important; }
-.ov-reset { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 8px 6px; color: var(--muted); font-size: 13px; }
+.ov-reset { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 8px 6px; white-space: nowrap; color: var(--muted); font-size: 13px; }
 .ov-reset:hover { color: var(--ink); }
 .ov-reset .nav-icon { width: 16px; height: 16px; }
+.ov-filters .ov-reset { justify-content: center; width: 34px; height: 34px; padding: 0; border-radius: 9px; }
+.ov-filters .ov-reset:hover { background: var(--input); }
 .ov-errors { flex-basis: 100%; color: var(--bad); font-size: 13px; }
 .ov-errors p, .ov-errors ul { margin: 0; }
 
@@ -788,38 +790,39 @@ button.attention-name:hover span:last-child, button.attention-name:focus-visible
 @keyframes value-changed-dark { 0%, 25% { background: #4a3b1f; box-shadow: 0 0 0 4px #4a3b1f; } 100% { background: transparent; box-shadow: 0 0 0 4px transparent; } }
 
 /* 오른쪽 상세 패널 */
-.ov-drawer { position: fixed; z-index: 60; top: 0; right: 0; bottom: 0; width: min(440px, 100vw); display: flex; flex-direction: column; background: var(--panel); border-left: 1px solid var(--line); box-shadow: -18px 0 40px rgba(16, 38, 42, .16); transform: translateX(104%); transition: transform .22s cubic-bezier(.22, 1, .36, 1); }
+.ov-drawer { position: fixed; z-index: 60; top: 68px; right: 14px; bottom: auto; width: min(392px, calc(100vw - 28px)); max-height: calc(100dvh - 82px); display: flex; flex-direction: column; overflow: hidden; background: var(--panel); border: 1px solid var(--line); border-radius: 20px; box-shadow: 0 18px 44px rgba(16, 38, 42, .18), 0 2px 8px rgba(16, 38, 42, .08); transform: translateX(calc(100% + 28px)); transition: transform .22s cubic-bezier(.22, 1, .36, 1); }
 .ov-drawer[hidden] { display: none; }
 .ov-drawer.is-open { transform: none; }
-.drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px 12px 20px; border-bottom: 1px solid var(--line); }
-.drawer-head h2 { margin: 0; font-size: 15px; color: var(--muted); font-weight: 600; }
-.drawer-close { width: 34px; height: 34px; padding: 0 !important; display: grid !important; place-items: center; }
+.drawer-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 10px 8px 18px; border-bottom: 1px solid var(--line); }
+.drawer-head h2 { margin: 0; font-size: 14px; color: var(--muted); font-weight: 600; }
+.drawer-close { width: 32px; height: 32px; padding: 0 !important; display: grid !important; place-items: center; border-radius: 10px !important; }
 .drawer-close .nav-icon { width: 18px; height: 18px; }
-.drawer-body { flex: 1; overflow: auto; padding: 16px 20px 24px; outline: none; }
-.drawer-kicker { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0 0 6px; font-size: 12.5px; color: var(--muted); }
-.drawer-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 14px; font-size: 20px; font-weight: 800; letter-spacing: -.3px; }
-.drawer-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0 0 10px; }
-.drawer-stats > div { padding: 10px 12px; border-radius: 10px; background: var(--input); }
-.drawer-stats dt { font-size: 12px; color: var(--muted); }
+.drawer-body { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 12px 16px 16px; outline: none; overscroll-behavior: contain; }
+.drawer-kicker { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0 0 4px; font-size: 12px; color: var(--muted); }
+.drawer-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; font-size: 18px; font-weight: 800; letter-spacing: -.3px; }
+.drawer-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0 0 8px; }
+.drawer-stats > div { min-width: 0; padding: 8px 10px; border-radius: 12px; background: var(--input); }
+.drawer-stats dt { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .drawer-stats dd { margin: 2px 0 0; display: flex; flex-direction: column; }
-.drawer-stats dd b { font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.drawer-stats dd b { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .drawer-stats dd b.is-empty { font-size: 15px; color: var(--muted); font-weight: 700; }
-.drawer-stats dd small { font-size: 11.5px; color: var(--muted); }
-.drawer-sub { display: flex; align-items: baseline; gap: 8px; margin: 18px 0 8px; font-size: 14px; }
+.drawer-stats dd small { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.drawer-sub { display: flex; align-items: baseline; gap: 8px; margin: 12px 0 6px; font-size: 13.5px; }
 .drawer-sub small { color: var(--muted); font-weight: 500; font-size: 12px; }
-.drawer-causes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.drawer-causes li { display: grid; grid-template-columns: minmax(0, 1fr) 90px auto; align-items: center; gap: 10px; font-size: 13px; }
+.drawer-causes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.drawer-causes li { display: grid; grid-template-columns: minmax(0, 1fr) 64px auto; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 10px; background: var(--input); font-size: 12.5px; }
 .drawer-causes li > span:first-child { display: flex; flex-direction: column; min-width: 0; }
 .drawer-causes li > span:first-child b, .drawer-causes li > span:first-child small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .drawer-causes small { color: var(--muted); font-size: 11.5px; }
 .drawer-causes .bar i { background: var(--bad); }
 .drawer-causes .numeric { font-size: 12px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .drawer-fields { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 0; margin: 0; font-size: 13.5px; }
-.drawer-fields dt, .drawer-fields dd { margin: 0; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.drawer-fields dt, .drawer-fields dd { margin: 0; padding: 7px 0; border-bottom: 1px solid var(--line); }
 .drawer-fields dt { color: var(--muted); }
 .drawer-fields dd { overflow-wrap: anywhere; }
 .drawer-fields dd small { margin-left: 6px; color: var(--muted); }
-.drawer-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+.drawer-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.drawer-actions a { border-radius: 10px; height: 34px; padding: 0 12px; font-size: 13px; }
 .drawer-actions a { gap: 6px; }
 .drawer-actions .nav-icon { width: 16px; height: 16px; }
 
@@ -855,7 +858,9 @@ button.attention-name:hover span:last-child, button.attention-name:focus-visible
   .trend-zoom { margin-left: 0; }
   .trend-help { text-align: left; }
   .ov-trend-chart { height: 210px; }
-  .drawer-stats { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .drawer-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+  .drawer-stats > div { padding: 7px 8px; }
+  .drawer-stats dd b { font-size: 15.5px; }
   .drawer-causes li { grid-template-columns: minmax(0, 1fr) auto; }
   .drawer-causes .bar { grid-column: 1 / -1; grid-row: 2; }
 }
@@ -1418,3 +1423,6 @@ body:has(> .app-shell.has-sidebar) { overflow: hidden; }
 .app-shell.has-sidebar .app-main { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; }
 .app-shell.has-sidebar .topbar { flex: none; }
 .workspace-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+@media (max-width: 720px) {
+  .ov-drawer { top: 64px; right: 8px; bottom: auto; width: calc(100vw - 16px); max-height: calc(100dvh - 72px); border-radius: 18px; }
+}

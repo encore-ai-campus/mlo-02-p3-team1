@@ -4,8 +4,8 @@
 ::view-transition-new(root) { animation: ui-page-in 160ms ease both; }
 @keyframes ui-page-in { from { opacity:0; } to { opacity:1; } }
 @keyframes ui-page-out { to { opacity:0; } }
-.workspace > .ov { animation: ui-content-in 200ms ease-out both; }
-@keyframes ui-content-in { from { opacity:.4; transform:translateY(5px); } to { opacity:1; transform:none; } }
+.workspace > .ov { animation: ui-content-in 200ms ease-out backwards; }
+@keyframes ui-content-in { from { opacity:.4; } to { opacity:1; } }
 .sidebar-nav a, .area-tabs a, .live-tabs a, .pager a, .btn-ghost, .btn-outline, .btn-solid, .chip, .switch, summary {
   transition:background-color 150ms ease,border-color 150ms ease,color 150ms ease,box-shadow 150ms ease;
 }
