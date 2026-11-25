@@ -64,6 +64,28 @@ def oldest_due_age(collection, now):
     return age(min(due_dates), now) if due_dates else 0
 
 
+def queue_wait_metrics(collection, now):
+    """Separate time since enqueue from scheduler lateness; use explicit covered prefixes."""
+    if 'observatory_queue_age_v1' not in collection.index_information():
+        return {'oldest_queued_age_s': None, 'next_retry_in_s': None,
+                'wait_metrics_state': 'index_required'}
+    queued, future = [], []
+    for state in ('pending', 'processing', 'retrying', 'waiting_context'):
+        row = collection.find_one({'state': state}, {'queued_at': 1}, sort=[('queued_at', 1)],
+                                  hint='observatory_queue_age_v1', max_time_ms=1000)
+        if row and date(row.get('queued_at')):
+            queued.append(date(row['queued_at']))
+    for state in ('pending', 'retrying', 'waiting_context'):
+        row = collection.find_one({'state': state, 'next_attempt_at': {'$gt': now}},
+                {'next_attempt_at': 1}, sort=[('next_attempt_at', 1)],
+                hint='state_1_next_attempt_at_1', max_time_ms=1000)
+        if row and date(row.get('next_attempt_at')):
+            future.append(date(row['next_attempt_at']))
+    return {'oldest_queued_age_s': age(min(queued), now) if queued else 0,
+            'next_retry_in_s': max(0, (min(future)-now).total_seconds()) if future else None,
+            'wait_metrics_state': 'ok'}
+
+
 def summarize_progress(report, now):
     """Expose an allowlist, never Spark source descriptions, hostnames, or raw payloads."""
     queries = []
@@ -259,6 +281,7 @@ class Sampler:
                 counts = {s: db.remote_event_outbox.count_documents({'state': s}, maxTimeMS=1000) for s in STATES}
                 out['queue'] = {'counts': counts, 'oldest_due_age_s': None, 'source': 'indexed_fallback'}
             out['queue']['oldest_due_age_s'] = oldest_due_age(db.remote_event_outbox, now)
+            out['queue'].update(queue_wait_metrics(db.remote_event_outbox, now))
             stale = db.remote_event_outbox.find_one({'state': 'processing', 'updated_at': {'$lte': now-timedelta(minutes=5)}},
                 {'_id': 1}, hint='state_1_next_attempt_at_1', max_time_ms=1000)
             out['queue']['stale_processing'] = bool(stale)

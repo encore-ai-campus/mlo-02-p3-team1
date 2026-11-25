@@ -48,6 +48,25 @@ MEMBER_CACHE_MAX = 50_000  # entries; ~100 bytes each
 _member_lock = threading.Lock()
 
 
+def member_binding(player, contexts):
+    """Only explicit guest IDs or operator-approved guest aliases can provision guests."""
+    binding = contexts.get('members', {}).get(player)
+    if binding is not None:
+        return binding
+    from common import settings
+    if not settings.get().remote_allow_guests or not player.startswith('guest:'):
+        return None
+    try:
+        ident = uuid.UUID(player[6:])
+    except (ValueError, TypeError, AttributeError):
+        raise Conflict('invalid_guest_id')
+    if ident.int == 0 or str(ident) != player[6:]:
+        raise Conflict('invalid_guest_id')
+    return {'external_member_key': 'game:member:guest:' + str(ident),
+            'nickname': '게스트-' + ident.hex[:8], 'verified': True,
+            'create_if_missing': True, 'identity_kind': 'guest'}
+
+
 def resolve_member(sql, player, contexts):
     """Cached front of _resolve_member (8th round). Only a member that exists and is 'live' is cached, so a missing
     mapping or a non-live member is checked again on every attempt; a changed row is picked up within the TTL."""
@@ -55,7 +74,7 @@ def resolve_member(sql, player, contexts):
     ttl = settings.get().remote_member_cache_seconds  # REMOTE_MEMBER_CACHE_SECONDS, default 300
     if ttl <= 0:
         return _resolve_member(sql, player, contexts)
-    binding = contexts.get("members", {}).get(player)
+    binding = member_binding(player, contexts)
     key = (player, binding["external_member_key"] if binding else None)
     now_m = time.monotonic()
     with _member_lock:
@@ -79,13 +98,21 @@ def _resolve_member(sql, player, contexts):
         member_hex = uuid.UUID(player).hex
     except (ValueError, TypeError, AttributeError):
         member_hex = ""
-    binding = contexts.get("members", {}).get(player)
+    binding = member_binding(player, contexts)
     external = binding["external_member_key"] if binding else "game:member:" + player
     if not external.startswith("game:member:") or len(external) > 150:
         raise Conflict("invalid_external_member_key")
     with sql.cursor() as cur:
         cur.execute("SELECT member_id, external_member_key, data_source FROM game_members WHERE member_id=%s OR external_member_key=%s FOR UPDATE", (member_hex, external))
         found = cur.fetchall()
+        # Opt-in compatibility for deployed clients that already generate an anonymous
+        # UUID but have no guest: prefix. Real member and configured bindings take priority.
+        from common import settings
+        if not found and binding is None and member_hex and int(member_hex, 16) and settings.get().remote_allow_guests:
+            binding = member_binding('guest:' + str(uuid.UUID(player)), {})
+            external = binding['external_member_key']
+            cur.execute('SELECT member_id, external_member_key, data_source FROM game_members WHERE external_member_key=%s FOR UPDATE', (external,))
+            found = cur.fetchall()
         if len(found) > 1:
             raise Conflict("ambiguous_member_mapping")
         if found:

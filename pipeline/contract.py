@@ -94,6 +94,16 @@ class LearningDetails(BaseModel):
     state_before: Optional[str] = Field(default=None, max_length=512)
     state_after: Optional[str] = Field(default=None, max_length=512)
 
+    @field_validator('state_before', 'state_after', mode='before')
+    @classmethod
+    def normalize_state_object(cls, value):
+        # Deployed clients send small state objects. Store one canonical string;
+        # existing 512-character and overall details size limits still apply.
+        if isinstance(value, dict):
+            return json.dumps(value, ensure_ascii=False, sort_keys=True,
+                              separators=(',', ':'), allow_nan=False)
+        return value
+
 
 class LearningEventV2(BaseModel):
     model_config = ConfigDict(extra="forbid")
