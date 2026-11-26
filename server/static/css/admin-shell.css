@@ -1079,6 +1079,23 @@ button.attention-name:hover span:last-child, button.attention-name:focus-visible
   .progress-areas { grid-template-columns: minmax(0, 1fr); }
 }
 
+/* 미니게임 진행도 칸: 왼쪽 게임 썸네일 + 오른쪽 글. 기록 없는 게임은 흑백으로 흐리게 */
+.person-page .game-grid:has(.has-thumb) { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.person-page .game-tile.has-thumb { flex-direction: row; align-items: center; gap: 10px; padding: 7px 9px 7px 7px; }
+.person-page .tile-thumb { position: relative; flex: none; display: grid; place-items: center; width: 92px; height: 52px; overflow: hidden; border-radius: 8px; background: var(--input); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .06); }
+.person-page .tile-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .3s cubic-bezier(.34, 1.56, .64, 1), filter .2s; }
+.person-page .tile-emoji { font-size: 26px; line-height: 1; }
+.person-page .tile-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.person-page .tile-body strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.person-page .tile-check { position: absolute; right: 4px; top: 4px; display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--area-color, var(--accent)); color: #fff; font-size: 11px; font-weight: 800; box-shadow: 0 0 0 2px #fff; }
+.person-page .game-tile.has-thumb:not(.done) .tile-thumb img { filter: grayscale(.9) contrast(.9); opacity: .78; }
+.person-page .game-tile.has-thumb:not(.done) .tile-emoji { filter: grayscale(1); opacity: .45; }
+.person-page .game-tile.has-thumb.done .tile-thumb { box-shadow: 0 0 0 2px var(--area-color, var(--accent)); }
+.person-page .game-tile.has-thumb:hover .tile-thumb img { transform: scale(1.08); }
+.person-page .game-tile.has-thumb:not(.done):hover .tile-thumb img { filter: grayscale(.2); opacity: 1; }
+[data-theme=dark] .person-page .tile-check { color: #1a1a1a; box-shadow: 0 0 0 2px var(--panel); }
+@media (prefers-reduced-motion: reduce) { .person-page .tile-thumb img { transition: none; } .person-page .game-tile.has-thumb:hover .tile-thumb img { transform: none; } }
+
 /* ---------- 9. 화면 크기 ---------- */
 @media (max-width: 1280px) {
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }

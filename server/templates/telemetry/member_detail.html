@@ -1,4 +1,4 @@
-{% extends 'accounts/base.html' %}{% block content %}
+{% extends 'accounts/base.html' %}{% load static %}{% block content %}
 <div class="ov person-page member-detail-page">
 <div class="ov-head">
   <div class="person-head"><span class="person-avatar">{{ account.username|slice:':1' }}</span><div class="ov-head-stack"><h1>{{ account.username }}</h1><p>가입 {{ account.created_at|date:'Y.m.d H:i' }} · 마지막 로그인 {{ account.last_login|date:'Y.m.d H:i'|default:'기록 없음' }} · 복구 키 {% if account.recovery_key %}등록됨{% else %}없음{% endif %}</p></div></div>
@@ -51,7 +51,7 @@
   <div class="progress-areas">{% for area in areas %}
     <div class="progress-area" data-learning-area="{{ area.key }}">
       <div class="progress-area-head"><strong>{{ area.label }}</strong><span class="cell-progress"><b>{{ area.done }} / {{ area.games|length }}</b><span class="bar"><i style="width:{% widthratio area.done area.games|length 100 %}%"></i></span></span></div>
-      <div class="game-grid">{% for g in area.games %}<div class="game-tile{% if g.stars %} done{% endif %}"><span class="code-chip" title="실행 ID {{ g.code }}">{{ g.tag }}</span><strong>{{ g.title }}</strong><small>{% if g.stars %}<span class="tile-state">✓ 클리어</span> <span class="tile-stars" aria-label="별 {{ g.stars }}개">★ {{ g.stars }}</span>{% else %}기록 없음{% endif %}</small></div>{% endfor %}</div>
+      <div class="game-grid">{% for g in area.games %}<div class="game-tile has-thumb{% if g.stars %} done{% endif %}"><span class="tile-thumb">{% if g.thumb %}<img src="{% static g.thumb %}" alt="" width="320" height="180" loading="lazy" decoding="async">{% else %}<span class="tile-emoji" aria-hidden="true">{{ g.emoji }}</span>{% endif %}{% if g.stars %}<span class="tile-check" aria-hidden="true">✓</span>{% endif %}</span><span class="tile-body"><span class="code-chip" title="실행 ID {{ g.code }}">{{ g.tag }}</span><strong>{{ g.title }}</strong><small>{% if g.stars %}<span class="tile-state">✓ 클리어</span> <span class="tile-stars" aria-label="별 {{ g.stars }}개">★ {{ g.stars }}</span>{% else %}기록 없음{% endif %}</small></span></div>{% endfor %}</div>
     </div>
   {% endfor %}</div>
   {% if progress.other %}<h3 class="ov-subhead">다른 이름으로 저장된 클리어 기록</h3><p class="ov-note">게임의 minigame_cleared 키가 24개 실행 ID(ST01 등)와 다릅니다.</p>

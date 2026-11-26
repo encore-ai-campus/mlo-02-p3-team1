@@ -292,6 +292,17 @@ def play_history(player, install_ids, limit=60):
             'total': len(docs), 'last': docs[0].get('occurred_at') if docs else None}
 
 
+# 미니게임 썸네일: game/textures/stages/<코드>/bg_game.png를 320x180으로 줄인 static/img/minigames/<코드>.jpg.
+# DS09·DS10은 게임에서처럼 ST06·ST09 배경을 쓴다. 이미지가 없는 게임은 분야별 이모지로 대신한다.
+AREA_EMOJI = {'structures': '🧱', 'algorithms': '🧭', 'sql': '🗄️', 'data': '📊'}
+
+
+def _game_visual(code, area):
+    from django.contrib.staticfiles import finders
+    path = f'img/minigames/{code}.jpg'
+    return {'thumb': path if finders.find(path) else None, 'emoji': AREA_EMOJI.get(area, '🎮')}
+
+
 @require_GET
 @admin_page
 def member_detail_page(request, player_id):
@@ -302,7 +313,8 @@ def member_detail_page(request, player_id):
     play = play_history(account.player, history.values_list('install_id', flat=True).distinct())
     areas = []
     for key, label in AREAS:
-        items = [{'code': code, **g, 'stars': progress['games'].get(code)} for code, g in CATALOG.items() if g['area'] == key]
+        items = [{'code': code, **g, 'stars': progress['games'].get(code), **_game_visual(code, key)}
+                 for code, g in CATALOG.items() if g['area'] == key]
         areas.append({'key': key, 'label': label, 'games': items, 'done': sum(1 for i in items if i['stars'])})
     return render(request, 'telemetry/member_detail.html', {
         'account': account, 'player': account.player, 'history': history[:50], 'areas': areas,
