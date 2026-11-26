@@ -185,6 +185,25 @@ class MongoAnalyticsTests(TestCase):
         for marker in ('data-ov-trend', 'data-drawer', 'data-board', 'data-live-part="recent"', 'js/overview.js', 'empty_stack'):
             self.assertContains(response, marker)
 
+    def level_attempt(self, number, level, seq, seconds, outcome):
+        attempt = self.attempt if number == 1 else create_record(SolveAttempt(run=self.run, number=number,
+            started_at=self.now + timedelta(seconds=seconds), outcome='in_progress'))[0]
+        record_event(id=uuid.uuid4(), session=self.session, run=self.run, attempt=attempt, sequence=seq, event_type='attempt_started',
+                     occurred_at=self.now + timedelta(seconds=seconds), payload={'details': {'level': level}})
+        finish_record(SolveAttempt, attempt.pk, outcome, self.now + timedelta(seconds=seconds + 1))
+        return attempt
+
+    def test_level_change_is_not_a_retry_but_same_level_reset_is(self):
+        self.event('task_started', 1, 0)
+        self.level_attempt(1, 1, 2, 1, 'success')
+        self.level_attempt(2, 2, 3, 5, 'success')
+        self.level_attempt(3, 3, 4, 9, 'success')
+        learning = self.client.get('/staff/').context['learning']
+        self.assertEqual((learning['retry_runs'], learning['tasks'][0]['attempts']), (0, 3))
+        # R at level 3: the same level starts again, which is a retry
+        self.level_attempt(4, 3, 5, 13, 'success')
+        self.assertEqual(self.client.get('/staff/').context['learning']['retry_runs'], 1)
+
     def test_idempotency_conflict_and_reference_validation(self):
         record_id=uuid.uuid4()
         fields=dict(id=record_id,session=self.session,run=self.run,sequence=1,event_type='paused',occurred_at=self.now)

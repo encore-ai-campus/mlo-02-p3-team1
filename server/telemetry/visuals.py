@@ -3,7 +3,7 @@ from collections import Counter, defaultdict
 from datetime import timedelta
 from math import ceil
 from django.utils import timezone
-from .learning import selected_runs
+from .learning import selected_runs, retry_count, hinted_attempt
 from .models import PlaySession
 from .catalog import AREAS, area_for
 
@@ -29,15 +29,15 @@ def visual_report(form, players, events):
         if run.status=='completed' and run.active_ms is not None:
             sec=run.active_ms/1000;time_values.append(sec)
             histogram[0 if sec<30 else 1 if sec<60 else 2 if sec<120 else 3 if sec<240 else 4]+=1
-        run_events=list(run.events.all())
+        run_events=list(run.events.all());retries=retry_count(attempts,run_events)
         for event in run_events:
             if event.event_type=='operation_failed':failures[(event.operation,event.failure_reason)]+=1
         hints=sorted([e for e in run_events if e.event_type=='hint'],key=lambda e:(e.occurred_at,e.sequence))
         if hints:
-            after=next((a for a in attempts if a.started_at>hints[0].occurred_at),None)
+            after=hinted_attempt(attempts,hints[0])
             hint_results['success' if after and after.outcome=='success' else 'failure' if after and after.outcome=='failure' else 'unknown']+=1
         if run.active_ms is not None:
-            scatter.append({'x':round(run.active_ms/1000,1),'y':len(attempts),'status':run.status,
+            scatter.append({'x':round(run.active_ms/1000,1),'y':retries,'status':run.status,
                             'run_id':str(run.pk),'label':run.session.player.display_name,'task':run.task.task_id,'version':run.task.content_version})
     heat=Counter()
     for stamp in events.values_list('occurred_at',flat=True).iterator():

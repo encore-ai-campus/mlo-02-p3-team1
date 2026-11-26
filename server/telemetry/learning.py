@@ -1,4 +1,4 @@
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime, time, timedelta
 from django.utils import timezone
 from .mongo import Records
@@ -6,6 +6,45 @@ from .mongo import Records
 
 def selected_runs(form, players):
     return getattr(form, 'mongo_runs', Records())
+
+
+def attempt_levels(attempts, events):
+    """Level of each attempt, read from its attempt_started event (details.level); None when unknown.
+
+    The game opens a new attempt for every level of a multi-level minigame, and also when the player resets
+    the same level (R). Only the second kind is a retry, so attempts are compared within the same level.
+    Pipeline-projected events keep details under payload['details']; pipeline_learning_events keep them flat.
+    """
+    levels = {}
+    for event in events:
+        if event.event_type != 'attempt_started' or not event.attempt_id:
+            continue
+        payload = event.payload if isinstance(event.payload, dict) else {}
+        details = payload.get('details') if isinstance(payload.get('details'), dict) else payload
+        levels.setdefault(str(event.attempt_id), details.get('level'))
+    return {str(a.pk): levels.get(str(a.pk)) for a in attempts}
+
+
+def retry_count(attempts, events):
+    """Restarts of a level already started in this run (attempts minus distinct levels).
+
+    Attempts of unknown level (legacy) form one group, so old records keep the old meaning (attempts - 1)."""
+    levels = attempt_levels(attempts, events)
+    return sum(n - 1 for n in Counter(levels.get(str(a.pk)) for a in attempts).values())
+
+
+def is_retry_run(attempts, events):
+    """A run is a retry when one level was started more than once."""
+    return retry_count(attempts, events) > 0
+
+
+def hinted_attempt(attempts, hint):
+    """The attempt (level) the hint was used in; a hint without an attempt link falls back to the next attempt."""
+    if hint.attempt_id:
+        own = next((a for a in attempts if str(a.pk) == str(hint.attempt_id)), None)
+        if own:
+            return own
+    return next((a for a in attempts if a.started_at > hint.occurred_at), None)
 
 
 def learning_report(form, players):
@@ -28,7 +67,7 @@ def learning_report(form, players):
         attempts = sorted(run.attempts.all(), key=lambda a: (a.started_at, a.number))
         row['runs'] += 1
         row['attempts'] += len(attempts)
-        if len(attempts) > 1:
+        if is_retry_run(attempts, list(run.events.all())):
             row['retry_runs'] += 1
             retry_runs += 1
         if run.status == 'completed':
@@ -46,8 +85,8 @@ def learning_report(form, players):
         hints = sorted((e for e in run.events.all() if e.event_type == 'hint'), key=lambda e: (e.occurred_at, e.sequence))
         if hints:
             row['hint_runs'] += 1
-            # One observation per run: first hint -> next attempt that started after it.
-            following = next((a for a in attempts if a.started_at > hints[0].occurred_at), None)
+            # One observation per run: the outcome of the attempt the first hint was used in (same level).
+            following = hinted_attempt(attempts, hints[0])
             if following and following.outcome in ('success', 'failure'):
                 evaluable += 1
                 helped += int(following.outcome == 'success')

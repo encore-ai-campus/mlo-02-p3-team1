@@ -32,8 +32,8 @@
       </article>
       <article class="card guide-card" data-tag="time">
         <header><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='retry' %}</span><h2>재시도한 문제</h2><span class="tag-chip">시간과 재시도</span></header>
-        <p class="guide-def"><b>정의</b>시도 횟수가 2회 이상인 문제 실행 수</p>
-        <div class="formula"><b>산식</b><span>시도 횟수 ≥ 2 인 문제 실행 수</span></div>
+        <p class="guide-def"><b>정의</b>같은 레벨을 2번 이상 시작한 문제 실행 수 (다음 레벨 진입은 재시도가 아님)</p>
+        <div class="formula"><b>산식</b><span>어느 한 레벨의 시도 횟수 ≥ 2 인 문제 실행 수</span></div>
         <a class="text-link" href="{% url 'events' %}">{% include 'accounts/nav_icon.html' with icon='list' %}관련 화면 · 행동 로그 ›</a>
       </article>
       <article class="card guide-card" data-tag="activity">

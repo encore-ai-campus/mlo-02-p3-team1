@@ -4,6 +4,7 @@ Only exact execution IDs (case insensitive) classify records. Never infer an ID
 from a title, legacy topic, or an operation. No ingestion/storage contract changes.
 """
 from collections import Counter
+from .learning import is_retry_run
 
 AREAS = [('structures', '자료구조'), ('algorithms', '알고리즘'), ('sql', 'SQL'), ('data', '데이터 탐색')]
 GAMES = [
@@ -83,7 +84,7 @@ def report(runs, events):
                     in_progress=states['in_progress'], players=len({r.session.player_id for r in items}),
                     completion_rate=round(100 * states['completed'] / len(items), 1) if items else None,
                     avg_seconds=round(sum(times) / len(times), 1) if times else None,
-                    timed_completed=len(times), retries=sum(r.attempts.count() > 1 for r in items),
+                    timed_completed=len(times), retries=sum(is_retry_run(list(r.attempts.all()), list(r.events.all())) for r in items),
                     hints=kinds['hint'], failures=kinds['operation_failed'],
                     operation_rate=round(100 * kinds['operation_succeeded'] / operations, 1) if operations else None)
 

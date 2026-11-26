@@ -81,6 +81,7 @@ var level_count := 1
 var moves := 0
 var mistakes := 0
 var level_done := false
+var _task_started := false
 var all_done := false
 var font: Font
 var bg: Texture2D
@@ -119,7 +120,8 @@ func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	start_level(0)
 
-func start_level(n: int) -> void:
+## new_attempt=false: 같은 레벨을 아무 조작 없이 다시 시작할 때는 열린 attempt를 그대로 이어 쓴다.
+func start_level(n: int, new_attempt := true) -> void:
 	level = n
 	moves = 0
 	mistakes = 0
@@ -135,9 +137,22 @@ func start_level(n: int) -> void:
 	# Telemetry: Task and Attempt Start
 	var nm = get_node_or_null("/root/NetworkManager")
 	if nm:
-		if n == 0:
+		# 문제 실행(run)은 미니게임에 들어올 때 한 번만 연다. 1레벨에서 R을 눌러도 같은 run 안의 재시도로 남는다.
+		if not _task_started:
+			_task_started = true
 			nm.call("start_task", stage_id, {"title": stage_title, "goal": goal, "total_levels": level_count})
-		nm.call("start_attempt", stage_id, n + 1, {"goal": goal})
+		if new_attempt:
+			nm.call("start_attempt", stage_id, n + 1, {"goal": goal})
+
+## 같은 레벨 다시 시작(R·다시 버튼·목숨 소진). 진행 중이던 attempt는 실패(reason)로 닫고 새 attempt를 연다.
+## 아무 조작도 없었다면 attempt를 새로 만들지 않는다(재시도로 세지 않음).
+func restart_level(reason := "reset") -> void:
+	var touched := moves > 0 or mistakes > 0
+	if not level_done and touched:
+		var nm = get_node_or_null("/root/NetworkManager")
+		if nm:
+			nm.call("complete_attempt", stage_id, false, reason, {"level": level + 1, "moves": moves, "mistakes": mistakes})
+	start_level(level, level_done or touched)
 
 func _process(delta: float) -> void:
 	time += delta
@@ -241,7 +256,7 @@ func _unhandled_input(ev: InputEvent) -> void:
 			KEY_ESCAPE:
 				get_tree().change_scene_to_file("res://scenes/Main.tscn")
 			KEY_R:
-				start_level(level)
+				restart_level()
 			KEY_Z:
 				undo()
 			KEY_N, KEY_ENTER, KEY_KP_ENTER:
@@ -255,10 +270,10 @@ func _click(id) -> void:
 	Sfx.play("click")
 	match str(id):
 		"__next": next_level()
-		"__retry": start_level(level)
+		"__retry": restart_level()
 		"__menu": get_tree().change_scene_to_file("res://scenes/Main.tscn")
 		"__undo": undo()
-		"__reset": start_level(level)
+		"__reset": restart_level()
 		_: on_button(id)
 
 # ---------- 그리기 ----------

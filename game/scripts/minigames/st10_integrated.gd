@@ -98,7 +98,7 @@ func _answer(choice: String) -> void:
 	qi += 1
 	timer = PER if level == 0 else 7.0
 	if lives <= 0:
-		start_level(level)
+		restart_level("out_of_lives")
 		say("목숨을 모두 잃어 처음부터 다시 시작합니다!", C_RED, 4.0)
 		return
 	if qi >= order.size():

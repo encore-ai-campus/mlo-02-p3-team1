@@ -161,7 +161,7 @@ func _answer(choice: String) -> void:
 	bar.size.x = 640.0
 	if lives <= 0:
 		hud.toast("목숨을 모두 잃어 처음부터 다시 시작합니다!", StageHUD.RED, 3.5)
-		start_level(level)
+		_retry_level("out_of_lives")
 		return
 	if qi >= order.size():
 		card_text.text = "모든 요청 처리 완료!"

@@ -47,6 +47,7 @@ var opt := 0
 var moves := 0
 var mistakes := 0
 var done := false
+var _task_started := false
 var _undo: Array = []
 var code_lines: Array = []     # [코드, 주석]
 var crates := {}               # "slot0".."slot4", "tray", "hand" -> StageCrate
@@ -86,7 +87,8 @@ func _on_dialogue_done() -> void:
 	player.active = not done
 	_refresh()
 # ---------- 레벨 ----------
-func start_level(n: int) -> void:
+## new_attempt=false: 같은 레벨을 아무 조작 없이 다시 시작할 때는 열린 attempt를 그대로 이어 쓴다.
+func start_level(n: int, new_attempt := true) -> void:
 	level = n
 	var L: Dictionary = LEVELS[n]
 	slots = []
@@ -110,9 +112,12 @@ func start_level(n: int) -> void:
 	hud.toast("레벨 %d / %d : %s" % [n + 1, LEVELS.size(), L.goal], StageHUD.GOLD)
 	var nm = get_node_or_null("/root/NetworkManager")
 	if nm:
-		if n == 0:
+		# 문제 실행(run)은 스테이지에 들어올 때 한 번만 연다. 1레벨에서 R을 눌러도 같은 run 안의 재시도로 남는다.
+		if not _task_started:
+			_task_started = true
 			nm.call("start_task", "ST01", {"level": 1})
-		nm.call("start_attempt", "ST01", n + 1, {"level": n + 1})
+		if new_attempt:
+			nm.call("start_attempt", "ST01", n + 1, {"level": n + 1})
 	if n != _talked_level:
 		_talked_level = n
 		if n == 0 and not intro_seen:
@@ -128,12 +133,14 @@ func _next_level() -> void:
 	else:
 		get_tree().change_scene_to_file("res://scenes/Main.tscn")
 
+## 같은 레벨 다시 시작. 아무 조작도 없었다면 attempt를 새로 만들지 않는다(재시도로 세지 않음).
 func _retry_level() -> void:
-	if not done and (moves > 0 or mistakes > 0):
+	var touched := moves > 0 or mistakes > 0
+	if not done and touched:
 		var nm = get_node_or_null("/root/NetworkManager")
 		if nm:
 			nm.call("complete_attempt", "ST01", false, "retry", {"level": level + 1, "moves": moves, "mistakes": mistakes})
-	start_level(level)
+	start_level(level, done or touched)
 
 func slot_pos(i: int) -> Vector2:
 	var slot := world.get_node("Slot%d" % i) as Node2D

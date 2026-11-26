@@ -29,6 +29,7 @@ var level := 0
 var moves := 0
 var mistakes := 0
 var done := false
+var _task_started := false
 var code_lines: Array = []
 var goal_text := ""
 var items := {}             # 아이디 -> StageCrate (sync_items 로 관리)
@@ -98,7 +99,8 @@ func mark(n: String) -> Vector2:
 	return (world.get_node(n) as Node2D).position
 
 # ---------- 레벨 ----------
-func start_level(n: int) -> void:
+## new_attempt=false: 같은 레벨을 아무 조작 없이 다시 시작할 때는 열린 attempt를 그대로 이어 쓴다.
+func start_level(n: int, new_attempt := true) -> void:
 	level = n
 	moves = 0
 	mistakes = 0
@@ -120,9 +122,12 @@ func start_level(n: int) -> void:
 	hud.toast("레벨 %d / %d : %s" % [n + 1, level_count, goal_text], StageHUD.GOLD)
 	var nm = get_node_or_null("/root/NetworkManager")
 	if nm:
-		if n == 0:
+		# 문제 실행(run)은 스테이지에 들어올 때 한 번만 연다. 1레벨에서 R을 눌러도 같은 run 안의 재시도로 남는다.
+		if not _task_started:
+			_task_started = true
 			nm.call("start_task", stage_id, {"title": stage_title, "goal": goal_text, "total_levels": level_count})
-		nm.call("start_attempt", stage_id, n + 1, {"goal": goal_text})
+		if new_attempt:
+			nm.call("start_attempt", stage_id, n + 1, {"goal": goal_text})
 	if n != _talked_level:
 		_talked_level = n
 		if n == 0 and not intro_seen.get(stage_id, false):
@@ -149,12 +154,14 @@ func _next_level() -> void:
 	else:
 		get_tree().change_scene_to_file(MENU)
 
-func _retry_level() -> void:
-	if not done and (moves > 0 or mistakes > 0):
+## 같은 레벨 다시 시작. 아무 조작도 없었다면 attempt를 새로 만들지 않는다(재시도로 세지 않음).
+func _retry_level(reason := "retry") -> void:
+	var touched := moves > 0 or mistakes > 0
+	if not done and touched:
 		var nm = get_node_or_null("/root/NetworkManager")
 		if nm:
-			nm.call("complete_attempt", stage_id, false, "retry", {"level": level + 1, "moves": moves, "mistakes": mistakes})
-	start_level(level)
+			nm.call("complete_attempt", stage_id, false, reason, {"level": level + 1, "moves": moves, "mistakes": mistakes})
+	start_level(level, done or touched)
 
 func set_goal(t: String) -> void:
 	goal_text = t
