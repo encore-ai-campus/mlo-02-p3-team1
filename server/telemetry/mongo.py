@@ -218,14 +218,61 @@ def load_snapshot(members, start, end, filters):
         if event.attempt_id and str(event.attempt_id) in attempts:
             event.attempt = attempts[str(event.attempt_id)]
     # Real game play arrives only in pipeline_learning_events; add it to the same analytics.
-    from .pipeline_events import analytics_snapshot
+    from .pipeline_events import analytics_snapshot, completion_times
     p_sessions, _, p_events, p_cohort = analytics_snapshot(members, start, end, filters)
+    cohort = [runs[doc['_id']] for doc in cohort_docs]
+    mark_replays([*cohort, *p_cohort], sessions, problems, end, completion_times)
     return (
         Records([*(session for key, session in sessions.items() if start <= session.started_at < end
                    and (matching_session_ids is None or key in matching_session_ids)), *p_sessions.values()]),
         Records([*(events[doc['_id']] for doc in window_events), *p_events]),
-        Records([*(runs[doc['_id']] for doc in cohort_docs), *p_cohort]),
+        Records([*cohort, *p_cohort]),
     )
+
+
+def game_key(task_id):
+    """Catalog code of a task ID (any content version), or the upper-cased ID when it is not in the catalog."""
+    from .catalog import game_for
+    game = game_for(task_id)
+    return game['code'] if game else str(task_id or '').upper()
+
+
+def mark_replays(runs, sessions, problems, end, pipeline_completions):
+    """Set run.is_replay: the same player had already completed the same game in an earlier run.
+
+    Earlier means a completed run whose end is at or before this run's start; it may be before the
+    selected window, so completions are looked up up to `end` regardless of the start date. Both stores
+    are read once per page: problem_runs (legacy and projected runs) and pipeline problem_completed events.
+    """
+    for run in runs:
+        run.is_replay = False
+    if not runs:
+        return
+    players = {str(run.session.player.pk) for run in runs}
+    codes = {game_key(run.task.task_id) for run in runs}
+    first = {}
+
+    def seen(player, code, at):  # keep the earliest completion per (player, game)
+        key = (player, code)
+        if at is not None and code in codes and (key not in first or at < first[key]):
+            first[key] = at
+
+    db = database()
+    owner = {key: str(s.player_id) for key, s in sessions.items() if str(s.player_id) in players}
+    if owner:
+        done = list(db.problem_runs.find({'status': 'completed', 'session_id': {'$in': list(owner)}, 'ended_at': {'$lt': end}},
+                                         {'session_id': 1, 'task_id': 1, 'ended_at': 1}))
+        missing = {doc['task_id'] for doc in done} - set(problems)
+        task_ids = {key: task.task_id for key, task in problems.items()}
+        if missing:
+            task_ids.update({doc['_id']: doc.get('task_id') for doc in db.game_problems.find({'_id': {'$in': list(missing)}}, {'task_id': 1})})
+        for doc in done:
+            seen(owner[doc['session_id']], game_key(task_ids.get(doc['task_id'])), doc.get('ended_at'))
+    for player, code, at in pipeline_completions(players, codes, end):
+        seen(player, code, at)
+    for run in runs:
+        at = first.get((str(run.session.player.pk), game_key(run.task.task_id)))
+        run.is_replay = at is not None and at <= run.started_at
 
 
 class MongoAvailabilityMiddleware:

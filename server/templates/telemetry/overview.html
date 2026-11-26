@@ -55,12 +55,12 @@
     </div>
   </article>
   <article class="kpi is-linkable" data-kpi="retry">
-    <button type="button" class="kpi-link" data-kpi-link="retry" aria-pressed="false" aria-label="재시도한 문제와 연결된 카드·로그 보기"></button>
+    <button type="button" class="kpi-link" data-kpi-link="retry" aria-pressed="false" aria-label="재시작한 문제와 연결된 카드·로그 보기"></button>
     <span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='retry' %}</span>
     <div class="kpi-body">
-      <span class="kpi-label">재시도한 문제<span class="kpi-info" role="button" tabindex="0" aria-label="재시도한 문제 기준 보기" data-tip="선택 기간에 시작한 문제 중 같은 레벨을 2번 이상 시작한(다시 시작한) 문제 수입니다. 다음 레벨로 넘어간 것은 재시도가 아닙니다. 카드를 누르면 확인이 필요한 문제를 강조하고 로그에 실패 기록만 남깁니다.">i</span></span>
+      <span class="kpi-label">재시작한 문제<span class="kpi-info" role="button" tabindex="0" aria-label="재시작한 문제 기준 보기" data-tip="게임을 완료하기 전에 같은 레벨을 다시 시작한 실행 수입니다. 선택 기간에 시작한 문제 중 같은 레벨을 2번 이상 시작한 실행을 셉니다. 다음 레벨로 넘어간 것은 재시작이 아닙니다. 이미 완료한 게임을 다시 푼 것(다시 하기)은 따로 셉니다. 카드를 누르면 확인이 필요한 문제를 강조하고 로그에 실패 기록만 남깁니다.">i</span></span>
       {% if kpi.has_runs %}<strong class="kpi-value" data-watch="retry">{{ learning.retry_runs }}<small>건</small></strong>{% else %}<strong class="kpi-value is-empty" data-watch="retry">기록 없음</strong>{% endif %}
-      <span class="kpi-basis">시도 2회 이상 · 시작 {{ learning.runs|default:0 }}건 중</span>
+      <span class="kpi-basis">같은 레벨 2회 이상 · 시작 {{ learning.runs|default:0 }}건 중 · 다시 하기 {{ learning.replay_runs|default:0 }}건</span>
     </div>
   </article>
 </section>
@@ -96,7 +96,7 @@
 
   <article class="card ov-card ov-attention board-card" data-card="attention" data-span="4" aria-labelledby="attention-title">
     <div class="ov-card-head" data-card-handle>
-      <h2 id="attention-title">확인이 필요한 문제<span class="kpi-info" role="button" tabindex="0" aria-label="재시도율 기준 보기" data-tip="재시도율 = 같은 레벨을 2번 이상 시작한 문제 실행 ÷ 그 문제의 전체 실행. 다음 레벨로 넘어간 것은 재시도가 아닙니다. 재시도율이 높은 순서이며, 같으면 실행이 많은 문제가 먼저입니다. 실패 원인은 그 문제에서 기록된 연산 실패만 셉니다. 문제를 누르면 오른쪽에 자세히 표시합니다.">i</span></h2>
+      <h2 id="attention-title">확인이 필요한 문제<span class="kpi-info" role="button" tabindex="0" aria-label="재시작률 기준 보기" data-tip="재시작률 = 게임을 완료하기 전에 같은 레벨을 다시 시작한 실행 ÷ 그 문제의 전체 실행. 다음 레벨로 넘어간 것은 재시작이 아닙니다. 다시 하기 = 이미 완료한 게임을 다시 푼 실행 (별 개수 무관). 오답률 = 잘못된 조작 ÷ 전체 조작. 다시 시작(R)은 포함하지 않습니다. 재시작률이 높은 순서이며, 같으면 실행이 많은 문제가 먼저입니다. 실패 원인은 그 문제에서 기록된 연산 실패만 셉니다. 문제를 누르면 오른쪽에 자세히 표시합니다.">i</span></h2>
       <a class="text-link" data-qs-link="games" href="{% url 'games' %}?{{ querystring }}">게임 분석 {% include 'accounts/nav_icon.html' with icon='arrow' %}</a>
       {% include 'telemetry/overview_card_tools.html' %}
     </div>
@@ -108,27 +108,29 @@
         <button type="button" class="attention-name" data-detail="task-{{ forloop.counter }}" aria-haspopup="dialog"><span class="code-chip" title="실행 ID {{ row.code }}">{{ row.code|game_tag }}</span><span>{{ row.title }}</span></button>
         <small class="attention-cause">{% if row.failure_top %}{% with top=row.failure_top.0 %}주요 실패 <b>{{ top.reason }}</b> · {{ top.count }}건{% if top.share != None %} ({{ top.share }}%){% endif %}{% endwith %}{% else %}연산 실패 기록 없음{% endif %}</small>
       </span>
-      <span class="attention-rate"><span>재시도율 <b data-watch="rate-{{ row.task_id }}-{{ row.version }}">{{ row.rate }}%</b></span><span class="bar" role="img" aria-label="실행 {{ row.runs }}건 중 {{ row.retry_runs }}건 재시도"><i style="width:{{ row.rate }}%"></i></span><small>표본 {{ row.retry_runs }} / {{ row.runs }}회{% if row.small %} · <em class="small-sample">표본 적음</em>{% endif %}</small></span>
+      <span class="attention-rate"><span>재시작률 <b data-watch="rate-{{ row.task_id }}-{{ row.version }}">{{ row.rate }}%</b></span><span class="bar" role="img" aria-label="실행 {{ row.runs }}건 중 {{ row.retry_runs }}건 재시작"><i style="width:{{ row.rate }}%"></i></span><small>표본 {{ row.retry_runs }} / {{ row.runs }}회{% if row.small %} · <em class="small-sample">표본 적음</em>{% endif %}</small><small>다시 하기 {{ row.replay_runs }}건 · 오답률 {% if row.wrong_rate != None %}{{ row.wrong_rate }}%{% else %}—{% endif %}</small></span>
       <template id="detail-task-{{ forloop.counter }}">
         <p class="drawer-kicker"><span class="code-chip" title="실행 ID {{ row.code }}">{{ row.code|game_tag }}</span> {{ row.task_id }} · 버전 {{ row.version }}</p>
         <h3 class="drawer-title">{{ row.title }}</h3>
         <dl class="drawer-stats">
-          <div><dt>재시도율</dt><dd><b>{{ row.rate }}%</b><small>{{ row.retry_runs }} / {{ row.runs }}회</small></dd></div>
+          <div><dt>재시작률</dt><dd><b>{{ row.rate }}%</b><small>{{ row.retry_runs }} / {{ row.runs }}회</small></dd></div>
+          <div><dt>다시 하기</dt><dd><b>{{ row.replay_runs }}</b><small>이미 완료한 게임을 다시 푼 실행</small></dd></div>
+          <div><dt>오답률</dt><dd>{% if row.wrong_rate != None %}<b>{{ row.wrong_rate }}%</b><small>오답 {{ row.wrong_ops }} / 조작 {{ row.ops }}</small>{% else %}<b class="is-empty">—</b><small>조작 기록 없음</small>{% endif %}</dd></div>
           <div><dt>표본 수</dt><dd><b>{{ row.runs }}</b><small>문제 실행{% if row.small %} · 표본 적음{% endif %}</small></dd></div>
           <div><dt>문제 해결률</dt><dd><b>{{ row.completion_rate }}%</b><small>해결 {{ row.completed }}건</small></dd></div>
           <div><dt>실행당 시도</dt><dd><b>{{ row.attempts_per_run }}</b><small>시도 {{ row.attempts }}회</small></dd></div>
           <div><dt>평균 풀이 시간</dt><dd>{% if row.avg_time %}<b>{{ row.avg_time }}</b><small>해결한 실행 기준</small>{% elif row.completed %}<b class="is-empty">미수집</b><small>해결 기록에 시간 없음</small>{% else %}<b class="is-empty">기록 없음</b><small>해결한 실행 없음</small>{% endif %}</dd></div>
           <div><dt>힌트 사용</dt><dd><b>{{ row.hint_runs }}</b><small>실행</small></dd></div>
         </dl>
-        {% if row.small %}<p class="ov-note">실행이 5건 미만이라 한두 번의 재시도로도 비율이 크게 바뀝니다.</p>{% endif %}
+        {% if row.small %}<p class="ov-note">실행이 5건 미만이라 한두 번의 재시작으로도 비율이 크게 바뀝니다.</p>{% endif %}
         <h4 class="drawer-sub">실패 원인 <small>연산 실패 {{ row.failure_total }}건</small></h4>
         {% if row.failure_top %}<ol class="drawer-causes">{% for item in row.failure_top %}<li><span><b>{{ item.reason }}</b><small>{{ item.operation }}</small></span><span class="bar" role="img" aria-label="연산 실패 중 {{ item.share }}%"><i style="width:{{ item.share }}%"></i></span><span class="numeric">{{ item.count }}건 · {{ item.share }}%</span></li>{% endfor %}</ol>
-        {% else %}<p class="ov-empty">이 문제에서 기록된 연산 실패가 없습니다.<small>재시도는 있었지만 실패 원인이 남지 않았습니다.</small></p>{% endif %}
+        {% else %}<p class="ov-empty">이 문제에서 기록된 연산 실패가 없습니다.<small>재시작은 있었지만 실패 원인이 남지 않았습니다.</small></p>{% endif %}
         <div class="drawer-actions">{% if row.url %}<a class="btn-solid" href="{{ row.url }}">{% include 'accounts/nav_icon.html' with icon='gamepad' %}게임 분석</a>{% endif %}<a class="btn-ghost" href="{{ row.failures_url }}">{% include 'accounts/nav_icon.html' with icon='x' %}실패 로그</a><a class="btn-ghost" href="{{ row.events_url }}">{% include 'accounts/nav_icon.html' with icon='list' %}전체 행동 로그</a></div>
       </template>
     </li>{% endfor %}</ol>
-    {% if attention_small %}<p class="ov-note">실행이 5건 미만인 문제는 한두 번의 재시도로도 비율이 크게 바뀝니다. 표본 수를 함께 보세요.</p>{% endif %}
-    {% elif kpi.has_runs %}<p class="ov-empty">재시도한 문제가 없습니다. <small>시작한 문제 {{ learning.runs }}건 모두 한 번에 끝났거나 아직 시도가 1회입니다.</small></p>
+    {% if attention_small %}<p class="ov-note">실행이 5건 미만인 문제는 한두 번의 재시작으로도 비율이 크게 바뀝니다. 표본 수를 함께 보세요.</p>{% endif %}
+    {% elif kpi.has_runs %}<p class="ov-empty">재시작한 문제가 없습니다. <small>시작한 문제 {{ learning.runs }}건 모두 같은 레벨을 다시 시작하지 않았습니다.</small></p>
     {% else %}<p class="ov-empty">선택한 기간에 시작한 문제가 없습니다.</p>{% endif %}
     </div>
   </article>
@@ -198,4 +200,4 @@
 <dialog class="ov-zoom" data-zoom-dialog aria-label="크게 보기"><div class="ov-zoom-bar"><button type="button" class="btn-ghost" data-zoom-close>{% include 'accounts/nav_icon.html' with icon='x' %}닫기</button></div><div data-zoom-slot></div></dialog>
 </div>
 {% if visuals %}{{ visuals|json_script:'visualization-data' }}{% endif %}
-{% endblock %}{% block scripts %}<script src="{% static 'js/overview.js' %}?v=4" defer></script>{% endblock %}
+{% endblock %}{% block scripts %}<script src="{% static 'js/overview.js' %}?v=5" defer></script>{% endblock %}

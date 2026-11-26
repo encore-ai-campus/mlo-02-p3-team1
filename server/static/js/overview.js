@@ -354,7 +354,7 @@
     players: { label: '활성 플레이어', series: 'started', log: 'all', column: 'player', text: '그래프는 문제 시작을, 로그는 플레이어 열을 강조합니다' },
     completion: { label: '문제 해결률', series: 'completed', log: 'solved', text: '그래프는 문제 해결을 강조하고, 로그는 문제 해결 기록만 보여 줍니다' },
     time: { label: '평균 풀이 시간', series: 'completed', log: 'solved', text: '풀이 시간이 계산되는 해결 기록만 로그에 남깁니다' },
-    retry: { label: '재시도한 문제', series: null, log: 'failure', card: 'attention', text: '확인이 필요한 문제를 강조하고, 로그는 실패 기록만 보여 줍니다' },
+    retry: { label: '재시작한 문제', series: null, log: 'failure', card: 'attention', text: '확인이 필요한 문제를 강조하고, 로그는 실패 기록만 보여 줍니다' },
   };
   const LOG_LABELS = { all: '전체', success: '성공', failure: '실패', solved: '문제 해결', hint: '힌트' };
   let logFilter = 'all';
@@ -474,18 +474,18 @@
         h('h3', { class: 'drawer-title', text: player.display_name || name }),
         h('dl', { class: 'drawer-stats' },
           stat('문제 해결률', ln.runs ? `${ln.completion_rate}%` : '기록 없음', ln.runs ? `해결 ${ln.completed} / 시작 ${ln.runs}건` : '시작한 문제 없음', !ln.runs),
-          stat('재시도한 문제', ln.runs ? `${ln.retry_runs}건` : '기록 없음', '시도 2회 이상', !ln.runs),
+          stat('재시작한 문제', ln.runs ? `${ln.retry_runs}건` : '기록 없음', '같은 레벨 2회 이상', !ln.runs),
           stat('평균 풀이 시간', ln.avg_active_seconds != null ? `${Math.round(ln.avg_active_seconds)}초` : (ln.completed ? '미수집' : '기록 없음'), ln.avg_active_seconds != null ? '해결한 문제 기준' : null, ln.avg_active_seconds == null),
           stat('행동 기록', `${sm.total || 0}건`, `연산·시도 성공 ${sm.successes || 0} · 실패 ${sm.failures || 0}`, !sm.total),
           stat('힌트', `${sm.hints || 0}회`, null, false),
           stat('시도', `${sm.attempts || 0}회`, null, false),
         ),
         h('p', { class: 'ov-note', text: '문제 해결률은 문제 완료 기준이고, 행동 기록의 성공·실패는 연산 하나하나의 결과입니다.' }),
-        h('h4', { class: 'drawer-sub', text: '재시도가 많은 문제' }),
+        h('h4', { class: 'drawer-sub', text: '재시작이 많은 문제' }),
         tasks.length ? h('ol', { class: 'drawer-causes' }, tasks.map((t) => {
           const rate = Math.round((100 * t.retry_runs) / t.runs);
           return h('li', {}, h('span', {}, h('b', { text: t.title || t.task_id }), h('small', { text: `${t.task_id} · 버전 ${t.version}` })),
-            h('span', { class: 'bar', role: 'img', 'aria-label': `재시도율 ${rate}%` }, h('i', { style: `width:${rate}%` })),
+            h('span', { class: 'bar', role: 'img', 'aria-label': `재시작률 ${rate}%` }, h('i', { style: `width:${rate}%` })),
             h('span', { class: 'numeric', text: `${t.retry_runs}/${t.runs}회 · ${rate}%` }));
         })) : h('p', { class: 'ov-empty', text: '선택한 기간에 시작한 문제가 없습니다.' }),
         h('div', { class: 'drawer-actions' }, h('a', { class: 'btn-solid', href: playerHref, text: '플레이어 상세' }), h('a', { class: 'btn-ghost', href: `/staff/events/?${logs}`, text: '이 플레이어 로그' })),

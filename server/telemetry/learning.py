@@ -54,22 +54,30 @@ def learning_report(form, players):
     """
     if not form.is_valid():
         return {'runs': 0, 'tasks': [], 'failures': [], 'hint_evaluable': 0, 'hint_next_success': 0}
+    # 재시작 (retry_runs / restart_runs): the same level was started again in a run (is_retry_run).
+    # 다시 하기 (replay_runs): the player had already completed this game in an earlier run (run.is_replay).
+    # 오답률 (wrong_rate): operation_failed / (operation_succeeded + operation_failed). A reset (R) is a new
+    # attempt, not an operation, so it is not counted.
     runs = selected_runs(form, players)
     runs = list(runs.select_related('task').prefetch_related('attempts', 'events'))
     groups = {}
-    evaluable, helped, completed, abandoned, retry_runs = 0, 0, 0, 0, 0
+    evaluable, helped, completed, abandoned, retry_runs, replay_runs, wrong_ops, ops = 0, 0, 0, 0, 0, 0, 0, 0
     active_times = []
     for run in runs:
         task = run.task
         row = groups.setdefault(task.pk, {'task_id': task.task_id, 'version': task.content_version, 'title': task.title,
             'topic': task.get_topic_display(), 'runs': 0, 'completed': 0, 'abandoned': 0, 'attempts': 0,
-            'retry_runs': 0, 'hint_runs': 0, 'active_times': [], 'failure_counts': defaultdict(int)})
+            'retry_runs': 0, 'replay_runs': 0, 'wrong_ops': 0, 'ops': 0, 'hint_runs': 0, 'active_times': [],
+            'failure_counts': defaultdict(int)})
         attempts = sorted(run.attempts.all(), key=lambda a: (a.started_at, a.number))
         row['runs'] += 1
         row['attempts'] += len(attempts)
         if is_retry_run(attempts, list(run.events.all())):
             row['retry_runs'] += 1
             retry_runs += 1
+        if getattr(run, 'is_replay', False):
+            row['replay_runs'] += 1
+            replay_runs += 1
         if run.status == 'completed':
             completed += 1
             row['completed'] += 1
@@ -80,7 +88,12 @@ def learning_report(form, players):
             abandoned += 1
             row['abandoned'] += 1
         for event in run.events.all():
+            if event.event_type in ('operation_succeeded', 'operation_failed'):
+                row['ops'] += 1
+                ops += 1
             if event.event_type == 'operation_failed':
+                row['wrong_ops'] += 1
+                wrong_ops += 1
                 row['failure_counts'][(event.operation or 'unknown', event.failure_reason or 'unknown')] += 1
         hints = sorted((e for e in run.events.all() if e.event_type == 'hint'), key=lambda e: (e.occurred_at, e.sequence))
         if hints:
@@ -93,6 +106,8 @@ def learning_report(form, players):
     for row in groups.values():
         row['completion_rate'] = round(100 * row['completed'] / row['runs'], 1)
         row['abandon_rate'] = round(100 * row['abandoned'] / row['runs'], 1)
+        row['restart_runs'] = row['retry_runs']
+        row['wrong_rate'] = round(100 * row['wrong_ops'] / row['ops'], 1) if row['ops'] else None
         times = row.pop('active_times')
         row['avg_active_seconds'] = round(sum(times) / len(times) / 1000, 1) if times else None
         counts = row.pop('failure_counts')
@@ -105,6 +120,8 @@ def learning_report(form, players):
     for operation, reason in failure_rows:
         failures[(operation or 'unknown', reason or 'unknown')] += 1
     return {'runs': len(runs), 'completed': completed, 'abandoned': abandoned, 'in_progress': sum(r.status == 'in_progress' for r in runs), 'retry_runs': retry_runs,
+            'restart_runs': retry_runs, 'replay_runs': replay_runs, 'wrong_ops': wrong_ops, 'ops': ops,
+            'wrong_rate': round(100 * wrong_ops / ops, 1) if ops else None,
             'completion_rate': round(100 * completed / len(runs), 1) if runs else None,
             'avg_active_seconds': round(sum(active_times)/len(active_times)/1000, 1) if active_times else None,
             'hint_evaluable': evaluable, 'hint_next_success': helped,

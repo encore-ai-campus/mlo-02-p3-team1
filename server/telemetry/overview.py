@@ -88,7 +88,7 @@ def _scoped_params(request_get, *drop):
 
 
 def attention_tasks(learning, request_get, limit=5):
-    """재시도율(재시도한 실행 ÷ 문제 실행)이 높은 문제. 같은 비율이면 실행 수가 많은 순.
+    """재시작률(같은 레벨을 다시 시작한 실행 ÷ 문제 실행)이 높은 문제. 같은 비율이면 실행 수가 많은 순.
 
     실패 원인은 그 문제 실행에 기록된 연산 실패(operation_failed)만 센다. 문제 완료와 섞지 않는다.
     """
@@ -112,6 +112,8 @@ def attention_tasks(learning, request_get, limit=5):
         rate = round(100 * task['retry_runs'] / task['runs'])
         rows.append({'code': game['code'] if game else task['task_id'], 'title': game['title'] if game else (task['title'] or '미분류 문제'),
                      'task_id': task['task_id'], 'version': task['version'], 'runs': task['runs'], 'retry_runs': task['retry_runs'],
+                     'replay_runs': task.get('replay_runs', 0), 'wrong_rate': task.get('wrong_rate'),
+                     'wrong_ops': task.get('wrong_ops', 0), 'ops': task.get('ops', 0),
                      'rate': rate, 'small': task['runs'] < SMALL_SAMPLE, 'url': url,
                      'completed': task['completed'], 'completion_rate': task['completion_rate'],
                      'attempts': task['attempts'], 'attempts_per_run': round(task['attempts'] / task['runs'], 1),

@@ -96,6 +96,19 @@ def _uuid(value, namespace):
         return uuid5(NAMESPACE_URL, f'nodeverse:{namespace}:{value}')
 
 
+def completion_times(players, codes, end):
+    """(member pk str, game code, completed at) of every pipeline problem_completed before `end`.
+
+    Not limited to the selected window: a replay is judged against any earlier completion. One query."""
+    keys = {key: str(info['pk']) for key, info in identity_map().items() if str(info['pk']) in players}
+    if not keys or not codes:
+        return []
+    docs = database().pipeline_learning_events.find(
+        {'event_type': 'problem_completed', 'player_id': {'$in': sorted(keys)}, 'minigame_id': {'$in': sorted(codes)},
+         'occurred_at': {'$lt': end}}, {'player_id': 1, 'minigame_id': 1, 'occurred_at': 1})
+    return [(keys[d['player_id']], str(d.get('minigame_id') or '').upper(), d.get('occurred_at')) for d in docs]
+
+
 def analytics_snapshot(members, start, end, filters):
     """Build sessions, runs, attempts and events (unsaved model objects) from pipeline_learning_events.
 

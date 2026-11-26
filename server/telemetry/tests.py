@@ -204,6 +204,66 @@ class MongoAnalyticsTests(TestCase):
         self.level_attempt(4, 3, 5, 13, 'success')
         self.assertEqual(self.client.get('/staff/').context['learning']['retry_runs'], 1)
 
+    def completed_run(self, player, started):
+        """A finished run of the same problem (stack-01) by `player`, started at `started`."""
+        session = create_record(PlaySession(player=player, topic='stack', started_at=started, status='in_progress'))[0]
+        run = create_record(TaskRun(session=session, task=self.problem, started_at=started, status='in_progress'))[0]
+        attempt = create_record(SolveAttempt(run=run, number=1, started_at=started, outcome='in_progress'))[0]
+        finish_record(SolveAttempt, attempt.pk, 'success', started + timedelta(seconds=20))
+        finalize_run(run, 'completed', started + timedelta(seconds=30))
+        return run
+
+    def test_wrong_rate_counts_operations_and_not_resets(self):
+        collection(LearningTask).update_one({'_id': str(self.problem.pk)}, {'$set': {'task_id': 'ST03'}})
+        self.event('task_started', 1, 0)
+        record_event(id=uuid.uuid4(), session=self.session, run=self.run, attempt=self.attempt, sequence=2, event_type='attempt_started',
+                     occurred_at=self.now + timedelta(seconds=1), payload={'details': {'level': 1}})
+        self.event('operation_succeeded', 3, 2, operation='push')
+        self.event('operation_succeeded', 4, 2, operation='push')
+        self.event('operation_succeeded', 5, 2, operation='push')
+        self.event('operation_failed', 6, 3, operation='pop', failure_reason='empty_stack')
+        finish_record(SolveAttempt, self.attempt.pk, 'failure', self.now + timedelta(seconds=4))  # R reset: attempt fails
+        self.level_attempt(2, 1, 7, 5, 'success')  # same level again: 재시작
+        response = self.client.get('/staff/')
+        learning = response.context['learning']
+        task = learning['tasks'][0]
+        # 1 wrong of 4 operations; the failed attempt (R) is not an operation
+        self.assertEqual((task['wrong_ops'], task['ops'], task['wrong_rate']), (1, 4, 25.0))
+        self.assertEqual((learning['wrong_ops'], learning['ops'], learning['wrong_rate']), (1, 4, 25.0))
+        # a same-level restart is 재시작, not 다시 하기
+        self.assertEqual((learning['retry_runs'], learning['restart_runs'], learning['replay_runs']), (1, 1, 0))
+        row = response.context['attention'][0]
+        self.assertEqual((row['replay_runs'], row['wrong_rate'], row['wrong_ops'], row['ops']), (0, 25.0, 1, 4))
+        game = next(g for g in response.context['catalog']['games'] if g['code'] == 'ST03')
+        self.assertEqual((game['wrong_rate'], game['retries'], game['replays']), (25.0, 1, 0))
+        # per game only: no per-area wrong-answer rate
+        self.assertNotIn('wrong_rate', response.context['catalog']['areas'][0])
+        self.assertIsNone(next(g for g in response.context['catalog']['games'] if g['code'] == 'ST01')['wrong_rate'])
+
+    def test_replay_counts_runs_after_the_players_own_earlier_completion(self):
+        self.solve()  # first run, completed
+        second = self.completed_run(self.member, self.now + timedelta(minutes=1))
+        learning = self.client.get('/staff/').context['learning']
+        self.assertEqual((learning['runs'], learning['replay_runs'], learning['retry_runs']), (2, 1, 0))
+        runs = {str(r.pk): r for r in self.client.get('/staff/').context['filter'].mongo_runs}
+        self.assertTrue(runs[str(second.pk)].is_replay)
+        self.assertFalse(runs[str(self.run.pk)].is_replay)
+
+    def test_replay_finds_completion_before_the_window_and_ignores_other_players(self):
+        self.completed_run(self.member, self.now - timedelta(days=60))  # outside the default 28-day window
+        self.solve()
+        learning = self.client.get('/staff/').context['learning']
+        self.assertEqual((learning['runs'], learning['replay_runs']), (1, 1))
+        response = self.client.get('/staff/?start=' + (self.now - timedelta(days=1)).date().isoformat())
+        self.assertEqual(response.context['learning']['replay_runs'], 1)
+
+    def test_other_players_completion_is_not_a_replay(self):
+        other = Player.objects.create(external_id='test:other', display_name='Other', source='live')
+        self.completed_run(other, self.now - timedelta(days=2))
+        self.solve()
+        learning = self.client.get('/staff/').context['learning']
+        self.assertEqual((learning['runs'], learning['replay_runs']), (2, 0))
+
     def test_idempotency_conflict_and_reference_validation(self):
         record_id=uuid.uuid4()
         fields=dict(id=record_id,session=self.session,run=self.run,sequence=1,event_type='paused',occurred_at=self.now)

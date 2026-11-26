@@ -17,7 +17,7 @@
   <article class="kpi"><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='target' %}</span><div class="kpi-body">
     <span class="kpi-label">문제 시작<span class="kpi-info" role="button" tabindex="0" aria-label="문제 시작 기준 보기" data-tip="선택한 기간·분야·게임에서 시작한 문제 실행 수입니다.">i</span></span>
     {% if kpi.has_runs %}<strong class="kpi-value">{{ learning.runs }}<small>건</small></strong>{% else %}<strong class="kpi-value is-empty">기록 없음</strong>{% endif %}
-    <span class="kpi-basis">플레이어 {{ stats.active_players }}명 · 재시도 {{ learning.retry_runs|default:0 }}건</span></div></article>
+    <span class="kpi-basis">플레이어 {{ stats.active_players }}명 · 재시작 {{ learning.retry_runs|default:0 }}건 · 다시 하기 {{ learning.replay_runs|default:0 }}건</span></div></article>
   <article class="kpi"><span class="kpi-icon">{% include 'accounts/nav_icon.html' with icon='check' %}</span><div class="kpi-body">
     <span class="kpi-label">해결률<span class="kpi-info" role="button" tabindex="0" aria-label="해결률 기준 보기" data-tip="시작한 문제 중 문제 완료 기록이 있는 비율입니다. 연산 성공은 포함하지 않습니다. 포기는 아직 집계하지 않아 미완료에 들어갑니다.">i</span></span>
     {% if kpi.has_runs %}<strong class="kpi-value">{{ learning.completion_rate }}<small>%</small></strong>{% else %}<strong class="kpi-value is-empty">기록 없음</strong>{% endif %}
@@ -57,7 +57,7 @@
       <span><small>문제 해결률</small><b>{% if game.completion_rate != None %}{{ game.completion_rate }}<em>%</em>{% else %}—{% endif %}</b></span>
     </span>
     <span class="area-progress"><span class="bar{% if not game.runs %} is-empty{% endif %}" role="img" aria-label="{% if game.completion_rate != None %}해결률 {{ game.completion_rate }}%{% else %}선택 조건에서 기록 없음{% endif %}">{% if game.completion_rate != None %}<i style="width:{{ game.completion_rate }}%"></i>{% endif %}</span></span>
-    <span class="game-card-bottom"><small>{% if game.runs %}완료 {{ game.completed }}건 · 재시도 {{ game.retries }}건{% else %}선택 조건에서 기록 없음{% endif %}</small><span class="game-card-link">분석 보기 {% include 'accounts/nav_icon.html' with icon='arrow' %}</span></span>
+    <span class="game-card-bottom"><small>{% if game.runs %}완료 {{ game.completed }}건 · <span title="게임을 완료하기 전에 같은 레벨을 다시 시작한 실행">재시작 {{ game.retries }}건</span> · <span title="이미 완료한 게임을 다시 푼 실행 (별 개수 무관)">다시 하기 {{ game.replays }}건</span> · <span title="잘못된 조작 ÷ 전체 조작. 다시 시작(R)은 포함하지 않습니다">오답률 {% if game.wrong_rate != None %}{{ game.wrong_rate }}% ({{ game.wrong_ops }}/{{ game.ops }}){% else %}—{% endif %}</span>{% else %}선택 조건에서 기록 없음{% endif %}</small><span class="game-card-link">분석 보기 {% include 'accounts/nav_icon.html' with icon='arrow' %}</span></span>
   </a>
   {% endfor %}
 </section>

@@ -88,7 +88,14 @@ def report(runs, events):
                     hints=kinds['hint'], failures=kinds['operation_failed'],
                     operation_rate=round(100 * kinds['operation_succeeded'] / operations, 1) if operations else None)
 
-    games = [{**game, **metrics(buckets[code])} for code, game in CATALOG.items()]
+    def game_metrics(items):
+        # Per game only (not per area): 오답률 from operation events, 다시 하기 runs. retries stays = 재시작.
+        actions = [e.event_type for r in items for e in r.events.all()]
+        wrong, ops = actions.count('operation_failed'), actions.count('operation_failed') + actions.count('operation_succeeded')
+        return dict(wrong_ops=wrong, ops=ops, wrong_rate=round(100 * wrong / ops, 1) if ops else None,
+                    replays=sum(bool(getattr(r, 'is_replay', False)) for r in items))
+
+    games = [{**game, **metrics(buckets[code]), **game_metrics(buckets[code])} for code, game in CATALOG.items()]
     areas = []
     for key, label in AREAS:
         group = [g for g in games if g['area'] == key]

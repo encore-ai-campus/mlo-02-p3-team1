@@ -15,9 +15,9 @@
   {% else %}<strong class="kpi-empty">—</strong><div class="kpi-foot"><span>해결한 문제가 생기면 표시됩니다</span></div>{% endif %}
 </article>
 <article class="card stat">
-  <div class="stat-top"><span class="kpi-label">재시도한 문제<span class="kpi-info" role="button" tabindex="0" aria-label="설명 보기" data-tip="같은 레벨을 2번 이상 시작한 문제 실행 수입니다. 다음 레벨로 넘어간 것은 재시도가 아닙니다.">i</span></span><span class="stat-icon">{% include 'accounts/nav_icon.html' with icon='dashboard' %}</span></div>
+  <div class="stat-top"><span class="kpi-label">재시작한 문제<span class="kpi-info" role="button" tabindex="0" aria-label="설명 보기" data-tip="게임을 완료하기 전에 같은 레벨을 다시 시작한 실행 수입니다. 다음 레벨로 넘어간 것은 재시작이 아닙니다.">i</span></span><span class="stat-icon">{% include 'accounts/nav_icon.html' with icon='dashboard' %}</span></div>
   <strong>{{ learning.retry_runs|default:0 }}<small>건</small></strong>
-  <div class="kpi-bar" role="img" aria-label="시작 {{ learning.runs|default:0 }}건 중 재시도 {{ learning.retry_runs|default:0 }}건"><i class="kpi-fill kpi-retry" style="width:{% if learning.runs %}{% widthratio learning.retry_runs learning.runs 100 %}{% else %}0{% endif %}%"></i></div>
-  <div class="kpi-foot"><span>시작한 문제 {{ learning.runs|default:0 }}건 중</span></div>
+  <div class="kpi-bar" role="img" aria-label="시작 {{ learning.runs|default:0 }}건 중 재시작 {{ learning.retry_runs|default:0 }}건"><i class="kpi-fill kpi-retry" style="width:{% if learning.runs %}{% widthratio learning.retry_runs learning.runs 100 %}{% else %}0{% endif %}%"></i></div>
+  <div class="kpi-foot"><span>시작한 문제 {{ learning.runs|default:0 }}건 중 · 다시 하기 {{ learning.replay_runs|default:0 }}건</span></div>
 </article>
 </section>
