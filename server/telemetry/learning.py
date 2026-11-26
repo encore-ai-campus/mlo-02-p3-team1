@@ -25,17 +25,48 @@ def attempt_levels(attempts, events):
     return {str(a.pk): levels.get(str(a.pk)) for a in attempts}
 
 
-def retry_count(attempts, events):
-    """Restarts of a level already started in this run (attempts minus distinct levels).
+def completed_at(events):
+    """When the run's game was completed (first task_completed event), or None."""
+    times = [e.occurred_at for e in events if e.event_type == 'task_completed']
+    return min(times) if times else None
 
-    Attempts of unknown level (legacy) form one group, so old records keep the old meaning (attempts - 1)."""
+
+def attempts_after_completion(attempts, events):
+    """Attempts started after the game was completed in the same run (builds before the replay fix reopen
+    the last level in the completed run instead of starting a new run)."""
+    done = completed_at(events)
+    return [a for a in attempts if done is not None and a.started_at > done]
+
+
+def retry_count(attempts, events):
+    """재시작: restarts of a level before the game was completed, after a failed or still-open attempt.
+
+    Each attempt is compared with the previous attempt of the same level in this run. Replaying a level that
+    was already cleared (previous attempt succeeded) is practice, and an attempt started after the game was
+    completed is a replay (다시 하기); neither counts. Attempts of unknown level (legacy) form one group."""
     levels = attempt_levels(attempts, events)
-    return sum(n - 1 for n in Counter(levels.get(str(a.pk)) for a in attempts).values())
+    late = {str(a.pk) for a in attempts_after_completion(attempts, events)}
+    previous, count = {}, 0
+    for attempt in sorted(attempts, key=lambda a: (a.started_at, a.number)):
+        if str(attempt.pk) in late:
+            continue
+        level = levels.get(str(attempt.pk))
+        before = previous.get(level)
+        if before is not None and before.outcome != 'success':
+            count += 1
+        previous[level] = attempt
+    return count
 
 
 def is_retry_run(attempts, events):
-    """A run is a retry when one level was started more than once."""
+    """A run is a restart run (재시작) when retry_count > 0."""
     return retry_count(attempts, events) > 0
+
+
+def is_replay_run(run, attempts, events):
+    """다시 하기: the player had already completed this game in an earlier run (run.is_replay, set when the
+    snapshot is loaded), or played on after completing it in this same run."""
+    return bool(getattr(run, 'is_replay', False)) or bool(attempts_after_completion(attempts, events))
 
 
 def hinted_attempt(attempts, hint):
@@ -54,8 +85,8 @@ def learning_report(form, players):
     """
     if not form.is_valid():
         return {'runs': 0, 'tasks': [], 'failures': [], 'hint_evaluable': 0, 'hint_next_success': 0}
-    # 재시작 (retry_runs / restart_runs): the same level was started again in a run (is_retry_run).
-    # 다시 하기 (replay_runs): the player had already completed this game in an earlier run (run.is_replay).
+    # 재시작 (retry_runs / restart_runs): a level restarted before completion after a failed/open attempt (is_retry_run).
+    # 다시 하기 (replay_runs): the game was already completed, earlier or in this run (is_replay_run).
     # 오답률 (wrong_rate): operation_failed / (operation_succeeded + operation_failed). A reset (R) is a new
     # attempt, not an operation, so it is not counted.
     runs = selected_runs(form, players)
@@ -72,10 +103,11 @@ def learning_report(form, players):
         attempts = sorted(run.attempts.all(), key=lambda a: (a.started_at, a.number))
         row['runs'] += 1
         row['attempts'] += len(attempts)
-        if is_retry_run(attempts, list(run.events.all())):
+        run_events = list(run.events.all())
+        if is_retry_run(attempts, run_events):
             row['retry_runs'] += 1
             retry_runs += 1
-        if getattr(run, 'is_replay', False):
+        if is_replay_run(run, attempts, run_events):
             row['replay_runs'] += 1
             replay_runs += 1
         if run.status == 'completed':

@@ -414,6 +414,80 @@ class LiveApiTests(TestCase):
         self.assertEqual(self.client.get('/staff/players/').status_code, 200)
         events.delete_many({'_id': {'$in': [d['_id'] for d in docs]}})
 
+    def pipeline_run(self, prefix, player, run, start, rows):
+        """Insert one pipeline run: rows are (event_type, attempt_id or None, details), one second apart."""
+        base = {'player_id': player, 'minigame_id': 'ST03', 'session_id': run + '-s', 'run_id': run, 'content_version': 'base'}
+        docs = [{**base, '_id': f'{prefix}-{n}', 'sequence': n, 'event_type': kind, 'attempt_id': att and f'{prefix}-{att}',
+                 'details': details, 'occurred_at': start + timedelta(seconds=n)} for n, (kind, att, details) in enumerate(rows, 1)]
+        database().pipeline_learning_events.insert_many(docs)
+        return [d['_id'] for d in docs]
+
+    def register_player(self, name, install):
+        cache.clear()
+        self.client.post('/api/game/auth/register', json.dumps({'username': name, 'password': 'secret-pass',
+                                                                'install_id': install}), content_type='application/json')
+
+    def test_pipeline_replay_restart_and_practice(self):
+        self.register_player('player3', 'inst-rp-3')
+        now = timezone.now()
+        lv = lambda n: {'level': n}
+        ids = []
+        # Run 1 (yesterday-ish): level 1 failed after a wrong push, R, level 1 cleared, level 1 practised again
+        # after clearing (not a restart), level 2 cleared, completed; then old-build "다시 하기" reopens level 2
+        # in the same, completed run (counts as replay, not restart).
+        ids += self.pipeline_run('rp1', 'inst-rp-3', 'run-rp-1', now - timedelta(hours=2), [
+            ('problem_started', None, {}),
+            ('attempt_started', 'a1', lv(1)), ('operation_failed', 'a1', {'operation': 'push', 'failure_reason': 'full'}),
+            ('attempt_failed', 'a1', {'failure_reason': 'reset'}),
+            ('attempt_started', 'a2', lv(1)), ('operation_succeeded', 'a2', {'operation': 'push'}), ('attempt_succeeded', 'a2', {}),
+            ('attempt_started', 'a3', lv(1)), ('operation_succeeded', 'a3', {'operation': 'push'}), ('attempt_succeeded', 'a3', {}),
+            ('attempt_started', 'a4', lv(2)), ('operation_succeeded', 'a4', {'operation': 'pop'}), ('attempt_succeeded', 'a4', {}),
+            ('problem_completed', None, {}),
+            ('attempt_started', 'a5', lv(2)), ('operation_succeeded', 'a5', {'operation': 'pop'}), ('attempt_succeeded', 'a5', {}),
+        ])
+        # Run 2 (new run after completion, the fixed game): a replay of a completed game, no restart.
+        ids += self.pipeline_run('rp2', 'inst-rp-3', 'run-rp-2', now - timedelta(hours=1), [
+            ('problem_started', None, {}), ('attempt_started', 'b1', lv(1)), ('operation_succeeded', 'b1', {'operation': 'push'}),
+            ('attempt_succeeded', 'b1', {}),
+        ])
+        try:
+            self.client.force_login(self.admin)
+            page = self.client.get('/staff/')
+            learning = page.context['learning']
+            self.assertEqual(learning['runs'], 2)
+            # restart only for the R after a failed attempt (run 1); practice and the post-completion attempt are not
+            self.assertEqual(learning['retry_runs'], 1)
+            # run 1 played on after completing, run 2 follows run 1's completion: both are 다시 하기
+            self.assertEqual(learning['replay_runs'], 2)
+            # 1 wrong of 6 operations; resets are not operations
+            self.assertEqual((learning['wrong_ops'], learning['ops'], learning['wrong_rate']), (1, 6, 16.7))
+            st03 = next(g for g in page.context['catalog']['games'] if g['code'] == 'ST03')
+            self.assertEqual((st03['retries'], st03['replays'], st03['wrong_rate']), (1, 2, 16.7))
+            first = min(page.context['filter'].mongo_runs, key=lambda r: r.started_at)
+            self.assertFalse(first.is_replay)  # no earlier run; counted from its own post-completion attempt
+            games = self.client.get('/staff/games/?category=structures')
+            self.assertContains(games, '오답률')
+            self.assertNotContains(games, '<th>연산 성공률</th>')
+        finally:
+            database().pipeline_learning_events.delete_many({'_id': {'$in': ids}})
+
+    def test_pipeline_replay_ignores_other_players(self):
+        self.register_player('player6', 'inst-rp-6')
+        self.register_player('player8', 'inst-rp-8')
+        now = timezone.now()
+        done = [('problem_started', None, {}), ('attempt_started', 'c1', {'level': 1}), ('attempt_succeeded', 'c1', {}),
+                ('problem_completed', None, {})]
+        ids = self.pipeline_run('op1', 'inst-rp-8', 'run-op-1', now - timedelta(days=40), done)  # before the window
+        ids += self.pipeline_run('op2', 'inst-rp-6', 'run-op-2', now - timedelta(hours=1), done)
+        ids += self.pipeline_run('op3', 'inst-rp-8', 'run-op-3', now - timedelta(minutes=30), done)
+        try:
+            self.client.force_login(self.admin)
+            learning = self.client.get('/staff/').context['learning']
+            # player6's run is a first completion; player8's run follows its own completion from 40 days ago
+            self.assertEqual((learning['runs'], learning['replay_runs'], learning['retry_runs']), (2, 1, 0))
+        finally:
+            database().pipeline_learning_events.delete_many({'_id': {'$in': ids}})
+
     def test_overview_skips_pipeline_runs_already_in_legacy_collections(self):
         cache.clear()
         self.client.post('/api/game/auth/register', json.dumps({'username': 'player4', 'password': 'secret-pass',

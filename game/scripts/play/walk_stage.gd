@@ -30,6 +30,7 @@ var moves := 0
 var mistakes := 0
 var done := false
 var _task_started := false
+var _task_done := false      # problem_completed를 보낸 뒤면 true
 var code_lines: Array = []
 var goal_text := ""
 var items := {}             # 아이디 -> StageCrate (sync_items 로 관리)
@@ -155,7 +156,13 @@ func _next_level() -> void:
 		get_tree().change_scene_to_file(MENU)
 
 ## 같은 레벨 다시 시작. 아무 조작도 없었다면 attempt를 새로 만들지 않는다(재시도로 세지 않음).
+## 게임을 완료한 뒤의 다시 하기는 닫힌 실행에 아무것도 보내지 않고, 레벨 1부터 새 실행(start_task)으로 시작한다.
 func _retry_level(reason := "retry") -> void:
+	if _task_done:
+		_task_done = false
+		_task_started = false
+		start_level(0)
+		return
 	var touched := moves > 0 or mistakes > 0
 	if not done and touched:
 		var nm = get_node_or_null("/root/NetworkManager")
@@ -207,6 +214,7 @@ func win(detail: String) -> void:
 	if nm:
 		nm.call("complete_attempt", stage_id, true, "", {"level": level + 1, "moves": moves, "mistakes": mistakes, "stars": s})
 	if last:
+		_task_done = true
 		if nm:
 			nm.call("complete_task", stage_id, {"level": level_count, "moves": moves, "mistakes": mistakes, "stars": s})
 		MiniGameBase.record_clear(stage_id, s)

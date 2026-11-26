@@ -4,7 +4,7 @@ Only exact execution IDs (case insensitive) classify records. Never infer an ID
 from a title, legacy topic, or an operation. No ingestion/storage contract changes.
 """
 from collections import Counter
-from .learning import is_retry_run
+from .learning import is_retry_run, is_replay_run
 
 AREAS = [('structures', '자료구조'), ('algorithms', '알고리즘'), ('sql', 'SQL'), ('data', '데이터 탐색')]
 GAMES = [
@@ -93,7 +93,7 @@ def report(runs, events):
         actions = [e.event_type for r in items for e in r.events.all()]
         wrong, ops = actions.count('operation_failed'), actions.count('operation_failed') + actions.count('operation_succeeded')
         return dict(wrong_ops=wrong, ops=ops, wrong_rate=round(100 * wrong / ops, 1) if ops else None,
-                    replays=sum(bool(getattr(r, 'is_replay', False)) for r in items))
+                    replays=sum(is_replay_run(r, list(r.attempts.all()), list(r.events.all())) for r in items))
 
     games = [{**game, **metrics(buckets[code]), **game_metrics(buckets[code])} for code, game in CATALOG.items()]
     areas = []

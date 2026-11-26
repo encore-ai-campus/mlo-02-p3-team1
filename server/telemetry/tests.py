@@ -197,12 +197,21 @@ class MongoAnalyticsTests(TestCase):
         self.event('task_started', 1, 0)
         self.level_attempt(1, 1, 2, 1, 'success')
         self.level_attempt(2, 2, 3, 5, 'success')
-        self.level_attempt(3, 3, 4, 9, 'success')
+        self.level_attempt(3, 3, 4, 9, 'failure')
         learning = self.client.get('/staff/').context['learning']
         self.assertEqual((learning['retry_runs'], learning['tasks'][0]['attempts']), (0, 3))
-        # R at level 3: the same level starts again, which is a retry
+        # R at level 3 after failing it: the same level starts again, which is a restart (재시작)
         self.level_attempt(4, 3, 5, 13, 'success')
         self.assertEqual(self.client.get('/staff/').context['learning']['retry_runs'], 1)
+
+    def test_practice_of_a_cleared_level_is_not_a_restart(self):
+        self.event('task_started', 1, 0)
+        self.level_attempt(1, 1, 2, 1, 'success')
+        self.level_attempt(2, 1, 3, 5, 'failure')  # level 1 again after clearing it: practice
+        self.assertEqual(self.client.get('/staff/').context['learning']['retry_runs'], 0)
+        self.level_attempt(3, 1, 4, 9, 'success')  # restarted after the failed practice: 재시작
+        learning = self.client.get('/staff/').context['learning']
+        self.assertEqual((learning['retry_runs'], learning['replay_runs']), (1, 0))
 
     def completed_run(self, player, started):
         """A finished run of the same problem (stack-01) by `player`, started at `started`."""

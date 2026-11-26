@@ -33,6 +33,7 @@ var hint_step := 0
 var level_cleared := false
 var cleared_levels: Dictionary = {}
 var total_stars := 0
+var _task_done := false  # problem_completed를 보낸 뒤면 true
 
 # ---------- 스테이지 시각화 상태 ----------
 var mode := "stack_reverse"
@@ -849,7 +850,12 @@ func _build_clear_overlay() -> void:
 	var retry_b := _mk_gem_btn("↻ 다시 풀기", "btn_brown", Vector2(156, 50), 16)
 	retry_b.pressed.connect(func():
 		_clear_overlay.visible = false
-		_reset_board_only())
+		if _task_done:
+			_restart_run()
+		elif level_cleared:
+			_replay_cleared_level()
+		else:
+			_reset_board_only())
 	bh.add_child(retry_b)
 
 	_clear_next_btn = _mk_gem_btn("다음 레벨 ▶", "btn_green", Vector2(210, 50), 17)
@@ -1297,7 +1303,28 @@ func _on_level_cleared(reason: String) -> void:
 	if is_last or cleared_levels.size() >= Levels.LEVELS.size():
 		var avg_stars := clampi(roundi(float(total_stars) / float(maxi(cleared_levels.size(), 1))), 1, 3)
 		_telemetry("complete_task", [Levels.STAGE_ID, {"levels": Levels.LEVELS.size(), "stars": avg_stars}])
+		_task_done = true
 		MiniGameBase.record_clear(Levels.STAGE_ID, avg_stars)
+
+
+## 완료 뒤 다시 풀기: 닫힌 실행에는 보내지 않고 레벨 1부터 새 실행으로 시작한다.
+func _restart_run() -> void:
+	_task_done = false
+	cleared_levels.clear()
+	total_stars = 0
+	_telemetry("start_task", [Levels.STAGE_ID, {"title": Levels.STAGE_TITLE, "total_levels": Levels.LEVELS.size(), "mode": "code_bot"}])
+	_load_level(0)
+
+
+## 완료 전, 이미 깬 레벨을 다시 풀기: 성공으로 닫힌 시도에 이어 쓰지 않고 같은 레벨의 새 시도를 연다(연습).
+func _replay_cleared_level() -> void:
+	level_cleared = false
+	attempts = 0
+	hints_used = 0
+	hint_step = 0
+	_reset_board_only()
+	var lv: Dictionary = Levels.LEVELS[level_idx]
+	_telemetry("start_attempt", [Levels.STAGE_ID, level_idx + 1, {"level_id": lv.id, "goal": lv.goal}])
 
 
 func _on_clear_next() -> void:
