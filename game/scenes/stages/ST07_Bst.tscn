@@ -127,7 +127,7 @@ bubble_offset = Vector2(0, -210)
 shape = SubResource("r62")
 
 [node name="Pad4" type="Area2D" parent="Field/World"]
-position = Vector2(597.6, 490.3)
+position = Vector2(626.7, 472)
 script = ExtResource("3")
 kind = "pad"
 index = 4
@@ -147,7 +147,7 @@ bubble_offset = Vector2(0, -210)
 shape = SubResource("r62")
 
 [node name="Pad6" type="Area2D" parent="Field/World"]
-position = Vector2(1036.6, 481.1)
+position = Vector2(1030.5, 470)
 script = ExtResource("3")
 kind = "pad"
 index = 6
@@ -157,25 +157,25 @@ bubble_offset = Vector2(0, -210)
 shape = SubResource("r62")
 
 [node name="Plate0" type="Marker2D" parent="Field/World"]
-position = Vector2(704.9, 162.4)
+position = Vector2(711, 162.4)
 
 [node name="Plate1" type="Marker2D" parent="Field/World"]
-position = Vector2(515.6, 274.3)
+position = Vector2(513.3, 277.3)
 
 [node name="Plate2" type="Marker2D" parent="Field/World"]
-position = Vector2(891.8, 277.3)
+position = Vector2(892.6, 277.3)
 
 [node name="Plate3" type="Marker2D" parent="Field/World"]
-position = Vector2(374.6, 413.7)
+position = Vector2(375.4, 413.7)
 
 [node name="Plate4" type="Marker2D" parent="Field/World"]
-position = Vector2(625.9, 447.4)
+position = Vector2(626.7, 419.9)
 
 [node name="Plate5" type="Marker2D" parent="Field/World"]
-position = Vector2(812.1, 413.7)
+position = Vector2(814.4, 413.7)
 
 [node name="Plate6" type="Marker2D" parent="Field/World"]
-position = Vector2(1036.6, 429.0)
+position = Vector2(1030.5, 417.5)
 
 [node name="Npc" type="StaticBody2D" parent="Field/World"]
 position = Vector2(1135, 355)

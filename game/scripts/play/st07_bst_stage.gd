@@ -20,7 +20,6 @@ var comps := 0
 var labels: Array = []
 var ring: Line2D
 const C_PATH := Color("0b4fc4")        # 지나온 발판 숫자 (밝은 받침 위에서 잘 보이는 짙은 파랑)
-const C_PATH_LINE := Color("ffd23f")   # 지나온 길 화살표
 const C_EMPTY := Color("6b6257")       # 빈 발판 글씨
 
 func _init() -> void:
@@ -96,25 +95,23 @@ func rebuild() -> void:
 		labels[i].text = "빈칸" if keys[i] == null else str(keys[i])
 		labels[i].add_theme_font_size_override("font_size", 24 if keys[i] == null else 40)
 		labels[i].add_theme_color_override("font_color", C_EMPTY if keys[i] == null else (C_PATH if i in path else StageHUD.INK))
-	for i in range(1, path.size()):
-		_path_link(mark("Plate%d" % path[i - 1]) + Vector2(0, 34), mark("Plate%d" % path[i]) + Vector2(0, -36))
+	# 트리 연결: 값이 있는 부모-자식은 파란 파이프, 지나온 길은 금색 파이프
+	for c in range(1, 7):
+		if keys[c] != null and keys[(c - 1) / 2] != null:
+			_path_link(c, "head" if c in path else "next")
 	ring.position = mark("Plate%d" % cur) + Vector2(0, 4)
 
-## 지나온 길: 밝은 돌바닥 위에서도 보이게 짙은 테두리 위에 금색 화살표를 그린다.
-func _path_link(a: Vector2, b: Vector2) -> void:
-	var dir := (b - a).normalized()
-	var side := Vector2(-dir.y, dir.x)
-	var edge := Line2D.new()
-	edge.points = PackedVector2Array([a, b - dir * 10])
-	edge.width = 14.0
-	edge.default_color = StageHUD.INK
-	edge.begin_cap_mode = Line2D.LINE_CAP_ROUND
-	links.add_child(edge)
-	var tip := Polygon2D.new()
-	tip.color = StageHUD.INK
-	tip.polygon = PackedVector2Array([b + dir * 6, b - dir * 20 + side * 17, b - dir * 20 - side * 17])
-	links.add_child(tip)
-	link(a, b, C_PATH_LINE, 0.0)
+## 트리 연결선: 배경에 그려진 돌길을 따라 파이프 이미지를 깐다. 배경 픽셀 좌표 (자식 칸 번호 → 시작, 끝)
+const EDGE_BG := {
+	1: [Vector2(870, 262), Vector2(735, 350)], 2: [Vector2(995, 285), Vector2(1095, 362)],
+	3: [Vector2(618, 428), Vector2(515, 515)], 4: [Vector2(702, 425), Vector2(782, 522)],
+	5: [Vector2(1122, 438), Vector2(1082, 505)], 6: [Vector2(1215, 430), Vector2(1315, 515)],
+}
+const BG_SCALE := 0.766148
+
+func _path_link(child: int, kind: String) -> void:
+	var e: Array = EDGE_BG[child]
+	pipe(e[0] * BG_SCALE, e[1] * BG_SCALE, kind)
 
 func _target():
 	return tasks[0] if not tasks.is_empty() else null

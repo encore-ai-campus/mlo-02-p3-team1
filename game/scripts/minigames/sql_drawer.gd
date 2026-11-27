@@ -263,11 +263,11 @@ func _handle_mouse_click(pos: Vector2) -> void:
 		_after_solved()
 		return
 	# 상단 도움말/힌트 버튼 클릭
-	if Rect2(16, 14, 132, 36).has_point(pos):
+	if HELP_BTN.has_point(pos):
 		phase = "help"
 		queue_redraw()
 		return
-	if Rect2(156, 14, 112, 36).has_point(pos):
+	if HINT_BTN.has_point(pos):
 		use_hint()
 		return
 	# 우측 하단 도구함 및 제출 버튼 클릭
@@ -792,6 +792,9 @@ func _draw() -> void:
 	if phase == "help":
 		_draw_help()
 
+const HELP_BTN := Rect2(1000, 14, 136, 36)
+const HINT_BTN := Rect2(1144, 14, 122, 36)
+
 func _draw_mission() -> void:
 	var rect: Rect2 = {"query": Rect2(73, 8, 810, 92), "group": Rect2(329, 6, 621, 70), "join": Rect2(434, 6, 413, 94), "sub": Rect2(452, 6, 380, 80)}[activity]
 	img("mission_plate", rect)
@@ -799,12 +802,12 @@ func _draw_mission() -> void:
 	var size := fit(t, rect.size.x - 60, 24)
 	text_at(rect.get_center() + Vector2(0, -8), t, size, NAVY)
 	text_at(rect.get_center() + Vector2(0, 22), "%s · %d / 3단계" % [preload("res://scripts/learning_catalog.gd").display_tag(game.id, scene_file_path), level + 1], 15, Color("7a5a2a"))
-	# 좌측 상단 도움말(H) & 힌트(F) 버튼
-	var h_btn := Rect2(16, 14, 132, 36)
+	# 우측 상단 도움말(H) & 힌트(F) 버튼 (왼쪽에 두면 문제 제목판을 가린다)
+	var h_btn := HELP_BTN
 	draw_rect(h_btn, Color(0.11, 0.22, 0.45, 0.92))
 	draw_rect(h_btn, GOLD, false, 2.0)
 	text_at(h_btn.get_center(), "❓ 플레이 방법 (H)", 14, Color.WHITE)
-	var f_btn := Rect2(156, 14, 112, 36)
+	var f_btn := HINT_BTN
 	draw_rect(f_btn, Color(0.18, 0.36, 0.24, 0.92))
 	draw_rect(f_btn, Color("7ddc8a"), false, 2.0)
 	text_at(f_btn.get_center(), "💡 힌트 보기 (F)", 14, Color.WHITE)

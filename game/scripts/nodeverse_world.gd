@@ -429,13 +429,20 @@ func _show_loading() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_loading_layer.add_child(bg)
 	# 로딩 배경: 7개 섬 전체 지도 일러스트. 왼쪽 위 로고가 잘리지 않게 그림 전체를 보이게 놓고(비율 유지),
-	# 화면 비율이 16:9 가 아닐 때 남는 띠는 같은 그림을 늘려 깐 흐린 바탕으로 채운다.
+	# 화면 비율이 16:9 가 아닐 때 남는 위·아래 띠는 그림 가장자리 색(위: 하늘, 아래: 바다)으로 채운다.
+	# (같은 그림을 늘려 깔면 로고가 두 겹으로 겹쳐 보여서 쓰지 않는다)
 	var tex: Texture2D = load("res://textures/loading_bg.png")
+	var grad := Gradient.new()
+	grad.set_color(0, Color8(58, 172, 238))
+	grad.set_color(1, Color8(11, 188, 201))
+	var gtex := GradientTexture2D.new()
+	gtex.gradient = grad
+	gtex.fill_from = Vector2(0, 0)
+	gtex.fill_to = Vector2(0, 1)
 	var fill := TextureRect.new()
-	fill.texture = tex
+	fill.texture = gtex
 	fill.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	fill.stretch_mode = TextureRect.STRETCH_SCALE
-	fill.modulate = Color(0.75, 0.82, 0.88)
 	fill.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_loading_layer.add_child(fill)
 	var art := TextureRect.new()
