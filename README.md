@@ -91,12 +91,11 @@ code mlo-02-p3-team1/nodeverse.code-workspace
 
 | GitHub | 이름 | 역할 |
 |:---:|---|---|
-| <a href="https://github.com/ericsw2727"><img src="https://github.com/ericsw2727.png?size=40" width="32" alt="ericsw2727"><br>@ericsw2727</a> | 유성원 (팀장) | 서버·대시보드, MySQL 저장·조회 |
-| <a href="https://github.com/kingdoms1212"><img src="https://github.com/kingdoms1212.png?size=40" width="32" alt="kingdoms1212"><br>@kingdoms1212</a> | 서정길 | 총괄·검토 |
-| <a href="https://github.com/junbum8398-blip"><img src="https://github.com/junbum8398-blip.png?size=40" width="32" alt="junbum8398-blip"><br>@junbum8398-blip</a> | 박준범 | 게임 |
-| <a href="https://github.com/jobless-fish"><img src="https://github.com/jobless-fish.png?size=40" width="32" alt="jobless-fish"><br>@jobless-fish</a> | 이어진 | 파이프라인: 수집·전달·정제·집계·MongoDB 저장 |
+| <a href="https://github.com/ericsw2727"><img src="https://github.com/ericsw2727.png?size=40" width="32" alt="ericsw2727"><br>@ericsw2727</a> | 유성원 (팀장) | 팀 리드 · Django 관리자 대시보드 설계·구현 · 회원·배포 API와 DB 조회 |
+| <a href="https://github.com/kingdoms1212"><img src="https://github.com/kingdoms1212.png?size=40" width="32" alt="kingdoms1212"><br>@kingdoms1212</a> | 서정길 | 프로젝트 총괄·통합 검토 · 학습 지표 설계(오답률·재시작·다시 하기) · 신뢰성 개선과 문서·발표 |
+| <a href="https://github.com/junbum8398-blip"><img src="https://github.com/junbum8398-blip.png?size=40" width="32" alt="junbum8398-blip"><br>@junbum8398-blip</a> | 박준범 | 코딱지 월드 게임 기획·구현 · 회원 로그인·클라우드 세이브·자동 업데이트 · 학습 이벤트 송신과 파이프라인 연동 |
+| <a href="https://github.com/jobless-fish"><img src="https://github.com/jobless-fish.png?size=40" width="32" alt="jobless-fish"><br>@jobless-fish</a> | 이어진 | 실시간 수집·스트리밍 파이프라인 구현 · 원격 DB 적재와 장애 복구 · 실시간 관측소와 알림 |
 
-<img src="docs/readme/team-architecture.png" width="900" alt="전체 아키텍처와 담당: 수집(게임 박준범, 수집기·Kafka·DLQ 이어진), 스트리밍(Spark·Delta Lake 이어진), 원격 적재·관리자 화면(outbox·원격 작업자 이어진, 분석 DB·Django 유성원), 총괄·검토 서정길">
 
 - 작업 브랜치는 `game/…`, `pipeline/…`, `server/…`, `contracts/…`, `docs/…` 접두어를 쓰고 PR로 `main`에 합칩니다. `contracts/`를 바꾸는 PR은 세 파트 모두 리뷰합니다.
 - `.env`·API 키는 절대 커밋하지 않습니다. `.env.example`만 올립니다.
@@ -105,9 +104,9 @@ code mlo-02-p3-team1/nodeverse.code-workspace
 
 ## 아키텍처
 
-![코딱지 파이프라인 동작 아키텍처](docs/architecture/pipeline-architecture-2026-11-25.png)
+<img src="docs/readme/architecture-overview.png" width="900" alt="전체 아키텍처: 수집(게임·수집기·Kafka·DLQ), 스트리밍(Spark·Delta Lake Bronze·Silver·Gold·MongoDB rt_*), 원격 적재·관리자 화면(outbox·원격 작업자·분석 DB·Django)">
 
-[원본 SVG](docs/architecture/pipeline-architecture-2026-11-25.svg) · [한 장짜리 개요](pipeline/docs/architecture.png) · [보완 전 데이터 흐름 그림](docs/architecture/data-flow-2026-11-20.png) · [데이터 흐름과 남은 과제](docs/DATA_FLOW_AND_GAPS.md) · [PC별 배포 구성과 포트](docs/SETUP_GUIDE.md#7-pc별-배포-구성과-포트)
+[상세 아키텍처 그림](docs/architecture/pipeline-architecture-2026-11-25.png) · [원본 SVG](docs/architecture/pipeline-architecture-2026-11-25.svg) · [한 장짜리 개요](pipeline/docs/architecture.png) · [보완 전 데이터 흐름 그림](docs/architecture/data-flow-2026-11-20.png) · [데이터 흐름과 남은 과제](docs/DATA_FLOW_AND_GAPS.md) · [PC별 배포 구성과 포트](docs/SETUP_GUIDE.md#7-pc별-배포-구성과-포트)
 
 | 순서 | 위치 | 일어나는 일 |
 |---|---|---|
