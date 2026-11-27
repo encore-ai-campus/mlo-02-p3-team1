@@ -11,7 +11,7 @@
 게임을 하다 보면 자료구조·알고리즘·SQL이 손에 익고, 그 모든 플레이가 실시간 데이터 파이프라인을 타고 학습 진단이 됩니다.
 
 ![Godot](https://img.shields.io/badge/Godot-4.7.2-478CBF?logo=godotengine&logoColor=white)
-![Kafka](https://img.shields.io/badge/Apache_Kafka-3.9.1-231F20?logo=apachekafka&logoColor=white)
+![Kafka](https://img.shields.io/badge/Apache_Kafka-3.9.1-231F20?style=flat&logo=apachekafka&logoColor=white)
 ![Spark](https://img.shields.io/badge/Apache_Spark-3.5.3-E25A1C?logo=apachespark&logoColor=white)
 ![Delta Lake](https://img.shields.io/badge/Delta_Lake-3.2.1-00ADD4)
 ![MongoDB](https://img.shields.io/badge/MongoDB-7.0-47A248?logo=mongodb&logoColor=white)
@@ -21,14 +21,13 @@
 
 [**▶ itch.io에서 플레이**](https://kingdoms1212.itch.io/kkotackji) &nbsp;·&nbsp; [**📊 관리자 대시보드 둘러보기**](#한눈에-보기) &nbsp;·&nbsp; [**🏗 아키텍처**](#아키텍처) &nbsp;·&nbsp; [**🎬 홍보 숏츠**](docs/presentation/%EC%BD%94%EB%94%B1%EC%A7%80_%ED%99%8D%EB%B3%B4_%EC%88%8F%EC%B8%A0_30%EC%B4%88.mp4)
 
-<img src="docs/readme/kkodakji-play.gif" width="720" alt="코딱지 플레이 장면: 3D 섬 월드와 스택 스테이지 자동 풀이">
+<table align="center"><tr>
+<td align="center" valign="middle"><img src="docs/readme/kkodakji-play.gif" width="500" alt="코딱지 플레이 장면: 3D 섬 월드와 스택 스테이지 자동 풀이"><br><sub>플레이 장면</sub></td>
+<td align="center" valign="middle"><video src="https://github.com/user-attachments/assets/6a87fe49-bf94-4d1b-82d7-96e51b00c655" controls muted width="300"></video><br><sub>30초 홍보 숏츠 (▶ 누른 뒤 🔈 누르면 소리)</sub></td>
+</tr></table>
 
 
 </div>
-
-https://github.com/user-attachments/assets/6a87fe49-bf94-4d1b-82d7-96e51b00c655
-
-<p align="center"><sub>30초 홍보 숏츠 (▶ 누른 뒤 스피커 아이콘을 누르면 소리가 납니다)</sub></p>
 
 ## 숫자로 보는 코딱지
 
