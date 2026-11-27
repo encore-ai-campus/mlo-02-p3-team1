@@ -67,7 +67,7 @@ polygon = PackedVector2Array(1121.6, 186.9, 1201.3, 242.1, 1207.4, 499.5, 1173.7
 
 [node name="Boundary2" type="CollisionPolygon2D" parent="Field/Walls"]
 build_mode = 1
-polygon = PackedVector2Array(873.4, 499.5, 882.6, 505.7, 882.6, 557.8, 1109.4, 557.8, 1115.5, 566.9, 1060.3, 606.8, 426.0, 606.8, 217.6, 606.8, 183.9, 579.2, 190.0, 570.0, 340.2, 570.0, 340.2, 551.6, 346.3, 545.5, 760.0, 545.5, 760.0, 511.8, 766.1, 505.7, 870.3, 505.7, 873.4, 499.5)
+polygon = PackedVector2Array(873.4, 499.5, 882.6, 505.7, 882.6, 557.8, 1109.4, 557.8, 1115.5, 566.9, 1060.3, 606.8, 426.0, 606.8, 217.6, 606.8, 183.9, 579.2, 190.0, 570.0, 340.2, 570.0, 346.3, 586.0, 760.0, 586.0, 760.0, 511.8, 766.1, 505.7, 870.3, 505.7, 873.4, 499.5)
 
 [node name="Links" type="Node2D" parent="Field"]
 
@@ -114,7 +114,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r48")
 
 [node name="St3" type="Area2D" parent="Field/World"]
-position = Vector2(400, 520)
+position = Vector2(485, 560)
 script = ExtResource("3")
 kind = "st"
 index = 3
@@ -124,7 +124,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r48")
 
 [node name="St4" type="Area2D" parent="Field/World"]
-position = Vector2(510, 520)
+position = Vector2(554, 560)
 script = ExtResource("3")
 kind = "st"
 index = 4
@@ -134,7 +134,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r48")
 
 [node name="St5" type="Area2D" parent="Field/World"]
-position = Vector2(620, 520)
+position = Vector2(623, 560)
 script = ExtResource("3")
 kind = "st"
 index = 5
@@ -144,7 +144,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St6" type="Area2D" parent="Field/World"]
-position = Vector2(730, 520)
+position = Vector2(692, 560)
 script = ExtResource("3")
 kind = "st"
 index = 6

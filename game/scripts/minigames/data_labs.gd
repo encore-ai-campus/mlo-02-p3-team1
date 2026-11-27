@@ -552,49 +552,61 @@ func draw_board() -> void:
 		"stats": draw_stats_board()
 		"chart": draw_chart_board()
 
-const TAG_COLORS := {"숫자": Color("8fc1ff"), "문자": Color("d8b4ff"), "날짜": Color("9fe0a8"), "결측 있음": Color("ff9e8f"), "결측 없음": Color("9fe0a8"), "형식 OK": Color("9fe0a8"), "형식 섞임": Color("ffc27a")}
+
+const TAG_FILES := {"숫자": "number", "문자": "text", "날짜": "date", "결측 있음": "missing_yes", "결측 없음": "missing_no", "형식 OK": "format_ok", "형식 섞임": "format_mixed"}
+const TAG_DIR := "res://textures/stages/DATA02/tags/"
+const HOOK_Y := 224.0   # 화면 위 고리에 걸린 꼬리표 중심
+const SLOT_Y := 545.0   # 표 아래 받침대 중심
+var _tex_cache := {}
+
+func _tex(name: String) -> Texture2D:
+	if not _tex_cache.has(name):
+		_tex_cache[name] = load(TAG_DIR + name + ".png")
+	return _tex_cache[name]
+
+## 꼬리표 그림 한 장. c = 중심, w = 폭. 글씨는 오른쪽 빈 칸에 쓴다.
+func tag_sprite(c: Vector2, tag: String, w: float, size := 0) -> void:
+	var tex := _tex("tag_" + TAG_FILES.get(tag, "number"))
+	var h := w * 110.0 / 240.0
+	_cv.draw_texture_rect(tex, Rect2(c - Vector2(w, h) / 2, Vector2(w, h)), false)
+	if size > 0:
+		var tx := c.x + w * 0.17
+		var s := fit_size(tag, w * 0.58, size)
+		text(Vector2(tx, c.y + s * 0.36), tag, s, INK, true)
+
+func col_x(ci: int) -> float:
+	return 382 + 344.0 / PROFILE_COLS.size() * (ci + 0.5)
 
 func draw_profile_board() -> void:
 	var p: Dictionary = problems()[problem]
-	cover(Rect2(380, 238, 348, 244), Color("eef2f8"))
-	table_at(Vector2(382, 240), PROFILE_COLS, PROFILE_ROWS, 344, 40, 17)
-	cover(Rect2(155, 322, 165, 188), CREAM)
-	wrapped(Vector2(162, 348), "데이터 사전\n1행 = 학생 1명\nage 나이(세)\nzip 우편번호\njoined 가입일\nvisits 방문 수(회)\nNULL = 빈 칸", 170, 16, INK)
-	plate(Vector2(1000, 330), "%d단계 · %s 점검" % [level + 1, p.lens], 18)
-	# 열 머리 위에 붙은 꼬리표
-	var w := 344.0 / PROFILE_COLS.size()
-	for ci in PROFILE_COLS.size():
-		var col: String = PROFILE_COLS[ci]
-		var cx: float = 382 + w * (ci + 0.5)
-		if col == "id":
-			plate(Vector2(cx, 222), "번호", 14, Color("e6e0d0"), INK, w - 4)
-		elif state.tags.has(col):
-			plate(Vector2(cx, 222), state.tags[col], 14, TAG_COLORS.get(state.tags[col], GOLD), INK, w - 4)
-		else:
-			plate(Vector2(cx, 222), "?", 14, CREAM, WOOD, w - 4)
-	# 선반 꼬리표 (선반 그림의 # T 달력 칸 위)
+	table_at(Vector2(382, 262), PROFILE_COLS, PROFILE_ROWS, 344, 37, 17)
+	wrapped(Vector2(172, 336), "데이터 사전\n1행 = 학생 1명\nage 나이(세)\nzip 우편번호\njoined 가입일\nvisits 방문 수(회)\nNULL = 빈 칸", 150, 16, INK)
+	text(Vector2(1004, 332), "%d단계 · %s 점검" % [level + 1, p.lens], 19, INK, true)
+	# 화면 위 고리: 붙인 꼬리표가 걸린다
+	for c in state.tags:
+		tag_sprite(Vector2(col_x(PROFILE_COLS.find(c)), HOOK_Y), state.tags[c], 68)
+	# 오른쪽 선반 고리의 꼬리표
 	for i in 3:
 		var sp = spot("st", i)
-		if sp == null or i >= p.tags.size():
+		if sp == null or i >= p.tags.size() or state.held == p.tags[i]:
 			continue
-		var t: String = p.tags[i]
 		var focused: bool = player.focus == sp
-		plate(sp.position + Vector2(0, -4), t, 16, GOLD if focused else TAG_COLORS.get(t, CREAM), INK, 84)
-	# 표 아래 열 자리
+		tag_sprite(sp.position + Vector2(0, 2), p.tags[i], 112 if focused else 100, 15)
+	# 표 아래 받침대: 가까이 가면 노랗게, 붙이면 초록으로
 	for k in PROFILE_TARGETS.size():
-		var sp = spot("st", 3 + k)
-		if sp == null:
-			continue
 		var c: String = PROFILE_TARGETS[k]
-		var ci := PROFILE_COLS.find(c)
-		var cx: float = 382 + w * (ci + 0.5)
-		ink_line(Vector2(cx, 482), sp.position + Vector2(0, -18), Color("c9a46a"), 3.0)
-		var done_tag: bool = state.tags.has(c)
-		var focused: bool = player.focus == sp
-		plate(sp.position + Vector2(0, 26), ("%s 완료" % c) if done_tag else ("%s 자리" % c), 16, Color("9fe0a8") if done_tag else (GOLD if focused else CREAM))
+		var sp = spot("st", 3 + k)
+		var name := ""
+		if state.tags.has(c):
+			name = "slot_done"
+		elif sp != null and player.focus == sp:
+			name = "slot_ready"
+		if name != "":
+			var ctr := Vector2(col_x(PROFILE_COLS.find(c)), SLOT_Y)
+			_cv.draw_texture_rect(_tex(name), Rect2(ctr - Vector2(32, 24), Vector2(64, 48)), false)
 	# 들고 있는 꼬리표: 로봇 머리 위
 	if state.held != "":
-		plate(player.position + Vector2(0, -150), "들고 있음: " + state.held, 16, TAG_COLORS.get(state.held, GOLD))
+		tag_sprite(player.position + Vector2(78, -46), state.held, 120, 17)
 
 func draw_clean_board() -> void:
 	var p: Dictionary = problems()[problem]
