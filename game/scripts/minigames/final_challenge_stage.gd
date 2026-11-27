@@ -564,12 +564,29 @@ func _mk_parchment_chip(t: String, min_sz: Vector2, sz := 14, mono := true) -> B
 		b.add_theme_font_override("font", _code_font)
 	b.add_theme_font_size_override("font_size", sz)
 	b.add_theme_color_override("font_color", INK)
-	b.add_theme_color_override("font_hover_color", Color("0f172a"))
-	b.add_theme_stylebox_override("normal", _tex_box("chip_parchment", 14, 14, 12, 5))
-	b.add_theme_stylebox_override("hover", _tex_box("chip_parchment", 14, 14, 12, 5, Color(1.06, 1.04, 0.96)))
-	b.add_theme_stylebox_override("pressed", _tex_box("chip_parchment", 14, 14, 12, 5, Color(0.92, 0.88, 0.80)))
-	b.add_theme_stylebox_override("focus", _tex_box("chip_parchment", 14, 14, 12, 5))
+	b.add_theme_color_override("font_hover_color", INK)
+	b.add_theme_color_override("font_pressed_color", INK)
+	b.add_theme_color_override("font_focus_color", INK)
+	# 장식 테두리 텍스처는 글자 양끝을 가려서 읽기 어려웠다. 단색 카드 + 진한 테두리로 바꾼다.
+	b.add_theme_stylebox_override("normal", _chip_box(Color("fffaf0"), WOOD_MID))
+	b.add_theme_stylebox_override("hover", _chip_box(Color("fff1c2"), WOOD_DARK))
+	b.add_theme_stylebox_override("pressed", _chip_box(Color("f7d98b"), WOOD_DARK))
+	b.add_theme_stylebox_override("focus", _chip_box(Color("fffaf0"), WOOD_MID))
 	return b
+
+
+func _chip_box(bg: Color, border: Color) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.border_color = border
+	sb.set_border_width_all(2)
+	sb.border_width_bottom = 3
+	sb.set_corner_radius_all(6)
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
+	return sb
 
 
 # ============================================================================
@@ -759,27 +776,27 @@ func _build_ui() -> void:
 
 	var tray_hdr := HBoxContainer.new()
 	var ribbon := PanelContainer.new()
-	ribbon.add_theme_stylebox_override("panel", _tex_box("btn_brown", 18, 12, 16, 4))
-	ribbon.add_child(_mk_label("예시 코드 보기", 13, Color.WHITE, false, 2, INK))
+	ribbon.add_theme_stylebox_override("panel", _flat_box(WOOD_DARK, WOOD_DARK, 0, 6, 12))
+	ribbon.add_child(_mk_label("코드 보기", 14, Color("fff7e0")))
 	tray_hdr.add_child(ribbon)
 
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tray_hdr.add_child(spacer)
 
-	var clear_one := _mk_parchment_chip("✕ 선택 지우기", Vector2(100, 28), 12, false)
+	var clear_one := _mk_parchment_chip("✕ 선택 지우기", Vector2(0, 30), 13, false)
 	clear_one.pressed.connect(_clear_active_blank)
 	tray_hdr.add_child(clear_one)
 
-	var clear_all := _mk_parchment_chip("✕ 모두 비우기", Vector2(100, 28), 12, false)
+	var clear_all := _mk_parchment_chip("✕ 모두 비우기", Vector2(0, 30), 13, false)
 	clear_all.pressed.connect(_clear_all_blanks)
 	tray_hdr.add_child(clear_all)
 	tray_v.add_child(tray_hdr)
 
 	_choices_flow = HFlowContainer.new()
 	_choices_flow.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_choices_flow.add_theme_constant_override("h_separation", 8)
-	_choices_flow.add_theme_constant_override("v_separation", 6)
+	_choices_flow.add_theme_constant_override("h_separation", 10)
+	_choices_flow.add_theme_constant_override("v_separation", 8)
 	tray_v.add_child(_choices_flow)
 
 	# 하단 4색 보석 아케이드 실행 버튼 바
@@ -989,8 +1006,8 @@ func _mk_blank_input(bid: int, binfo: Dictionary) -> LineEdit:
 	le.add_theme_font_size_override("font_size", 14)
 	le.add_theme_color_override("font_color", Color("fff7cc"))
 	le.add_theme_color_override("font_placeholder_color", Color("8094b8"))
-	le.add_theme_stylebox_override("normal", _tex_box("blank_slot", 14, 12, 10, 3, Color(0.85, 0.85, 0.85)))
-	le.add_theme_stylebox_override("focus", _tex_box("blank_slot", 14, 12, 10, 3, Color(1.15, 1.12, 1.0)))
+	le.add_theme_stylebox_override("normal", _tex_box("blank_slot", 14, 12, 16, 3, Color(0.85, 0.85, 0.85)))
+	le.add_theme_stylebox_override("focus", _tex_box("blank_slot", 14, 12, 16, 3, Color(1.15, 1.12, 1.0)))
 	le.focus_entered.connect(func(): _select_blank(bid, false))
 	le.text_submitted.connect(func(_t): _on_run_pressed())
 	return le
@@ -1014,7 +1031,7 @@ func _build_choice_chips(lv: Dictionary) -> void:
 		c.queue_free()
 	for ch in lv.choices:
 		var code_str := str(ch)
-		var btn := _mk_parchment_chip(code_str, Vector2(0, 34), 14, true)
+		var btn := _mk_parchment_chip(code_str, Vector2(0, 38), 17, true)
 		btn.pressed.connect(func(): _insert_choice(code_str))
 		_choices_flow.add_child(btn)
 
@@ -1755,8 +1772,10 @@ func _draw_robot() -> void:
 	var rpos := _robot_visual_pos + Vector2(0, -_robot_hop)
 	_stage_canvas.draw_circle(_robot_visual_pos + Vector2(0, 26), 22.0, Color(0, 0, 0, 0.28))
 	if _robot_tex != null:
-		var rsize := Vector2(68, 68)
-		var draw_r := Rect2(rpos - rsize * 0.5, rsize)
+		# 원본 비율(84x142) 유지. 정사각형으로 그리면 로봇이 납작하게 눌린다. 발끝은 기존 위치(rpos.y + 34)에 맞춘다.
+		var rh := 88.0
+		var rsize := Vector2(rh * _robot_tex.get_width() / float(_robot_tex.get_height()), rh)
+		var draw_r := Rect2(Vector2(rpos.x - rsize.x * 0.5, rpos.y + 34.0 - rh), rsize)
 		if _robot_flip:
 			draw_r.size.x = -rsize.x
 			draw_r.position.x += rsize.x
@@ -1772,7 +1791,7 @@ func _draw_robot() -> void:
 	# 시안 발광 액션 말풍선 (PUSH 20 등)
 	if _floating_text != "":
 		var bw := maxf(92.0, float(_floating_text.length()) * 10.0 + 22.0)
-		var fp := Vector2(clampf(rpos.x - bw * 0.5, 12.0, 736.0 - bw), rpos.y - 62.0 - (1.0 - _floating_timer) * 8.0)
+		var fp := Vector2(clampf(rpos.x - bw * 0.5, 12.0, 736.0 - bw), rpos.y - 86.0 - (1.0 - _floating_timer) * 8.0)
 		var frect := Rect2(fp, Vector2(bw, 28))
 		_stage_canvas.draw_rect(frect.grow(2), Color(0.37, 0.84, 1.0, 0.35), true)
 		_stage_canvas.draw_rect(frect, Color("0b7285"), true)
