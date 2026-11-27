@@ -1,0 +1,88 @@
+====================================================================
+"코딱지" 30초 홍보 숏츠 - 오디오 크레딧 및 출처 (credits.txt)
+====================================================================
+최종 영상: 코딱지_홍보_숏츠_30초.mp4 (1080x1920, 30fps, 30.00초)
+오디오 믹스: audio/master_mix_30s.wav (BGM은 SFX 대비 정확히 -12.00 dB)
+
+--------------------------------------------------------------------
+1. 외부 CC0 / Public Domain 음원 (상업적 이용 가능, 저작자 표시 의무 없음)
+--------------------------------------------------------------------
+1) audio/cc0_sigh.ogg (변환: audio/cc0_sigh.wav)
+   - 용도: 3.00초 "아 ㅋㅋ 망했다" 한숨 효과음
+   - 출처: Wikimedia Commons — File:Hm and sigh.ogg
+   - URL: https://commons.wikimedia.org/wiki/File:Hm_and_sigh.ogg
+   - 라이선스: Public Domain (CC0 / PD)
+
+2) audio/cc0_ding.ogg (변환: audio/cc0_ding.wav)
+   - 용도: 11.80초 / 15.20초 / 18.80초 레벨업 "띠링" 효과음
+   - 출처: Wikimedia Commons — File:Airplane Chime Sound Effect.ogg
+   - URL: https://commons.wikimedia.org/wiki/File:Airplane_Chime_Sound_Effect.ogg
+   - 라이선스: CC0 1.0 Universal (Public Domain Dedication)
+
+3) audio/cc0_chime.wav
+   - 용도: 13.0~21.4초 "Build Success" 연타 팝업 차임 레이어
+   - 출처: Wikimedia Commons — File:Chime (1) Sample.wav
+   - URL: https://commons.wikimedia.org/wiki/File:Chime_(1)_Sample.wav
+   - 라이선스: CC0 1.0 Universal (Public Domain Dedication)
+
+4) audio/cc0_bauchamp_beat.ogg (변환: audio/cc0_bauchamp_beat.wav)
+   - 용도: 10.0~22.0초 트랩/EDM 성장 몽타주 비트 그루브 레이어
+   - 출처: Wikimedia Commons — File:Bauchamp - 128 beat with a weep.ogg (by Bauchamp)
+   - URL: https://commons.wikimedia.org/wiki/File:Bauchamp_-_128_beat_with_a_weep.ogg
+   - 라이선스: CC0 1.0 Universal (Public Domain Dedication)
+
+--------------------------------------------------------------------
+2. 프로젝트 자체 게임 음원 (NODEVERSE / 코딱지 저장소 내 오리지널 SFX)
+--------------------------------------------------------------------
+- audio/game_wrong.wav   : 0.05~2.10초 에러 팝업 레이어
+- audio/game_correct.wav : 13.0~21.4초 "Build Success" 팝업 효과음
+- audio/game_clear.wav   : 11.8 / 15.2 / 18.8초 레벨업 팡파레 레이어
+- audio/game_boing.wav   : 29.00초 엔딩 "뿅" 효과음 레이어
+  (원본 경로: mlo-02-p3-team1/game/audio/sfx/)
+
+--------------------------------------------------------------------
+3. 코드 합성 음원 (Python/NumPy & FFmpeg 자체 생성 — 저작권 제한 없음)
+--------------------------------------------------------------------
+- audio/bgm_trap_edm_30s.wav
+  : 140 BPM 저작권 프리 트랩/EDM BGM (5.5~9.85초 스네어 빌드업,
+    10~22초 몽타주 비트 + cc0_bauchamp_beat 레이어, 22.00초 헤비 808 드랍,
+    28.00~29.00초 완전 무음 컷)
+- audio/synth_win_error.wav           : 0.05~2.10초 윈도우 에러음 연타 (8회)
+- audio/synth_record_scratch.wav      : 5.00초 레코드 긁히는 소리 ("끼익")
+- audio/synth_epic_choir_drop.wav     : 22.00초 웅장한 합창 코드 + 서브 드랍
+- audio/synth_sunglasses_whoosh_snap.wav : 25.00초 선글라스 하강 "휘익" + 25.45초 착지 "착"
+- audio/synth_logo_impact.wav         : 27.00초 "코딱지" 로고 임팩트 히트
+- audio/synth_boing_finish.wav        : 29.00초 병맛 "뿅" 마무리 효과음
+
+--------------------------------------------------------------------
+3-1. 한국어 AI 나레이션 (TTS 보이스오버)
+--------------------------------------------------------------------
+- 엔진 / 보이스: Microsoft Edge Neural TTS (`ko-KR-InJoonNeural`)
+- 저장 파일: audio/tts_01_hook.wav ~ audio/tts_10_cta.wav (총 10개 구간)
+  * 00.25s : "코딩? 그거 먹는 거임?"
+  * 03.35s : "아, 망했다!"
+  * 05.55s : "그러다 이 코딱지만 한 게임을 만났다."
+  * 10.40s : "레벨 원, 코린이."
+  * 14.40s : "레벨 텐, 디버거!"
+  * 18.45s : "레벨 구십구, 코딩의 전사!"
+  * 22.60s : "에러? 그게 뭔데?"
+  * 27.08s : "코딱지!"
+  * 27.98s : "근데 이거 게임 이름이 코딱지임." (BGM·효과음 완전 정적 구간)
+  * 29.18s : "지금 플레이!"
+
+--------------------------------------------------------------------
+4. 타임라인 오디오 싱크 요약
+--------------------------------------------------------------------
+00.05 ~ 02.10s : 윈도우 에러음 연타 (빨간 에러 팝업 6종 + 흔들림 싱크)
+03.00s         : 한숨 ("에휴", cc0_sigh.wav — "아 ㅋㅋ 망했다" 자막 싱크)
+05.00s         : 레코드 스크래치 ("끼익" — 글리치 전환 + 로비 오픈 싱크)
+05.50 ~ 09.85s : 라이저 + 스네어 롤 빌드업 (-12dB BGM)
+10.00 ~ 22.00s : 140 BPM 트랩/EDM 비트 (-12dB BGM)
+  - 11.80s / 15.20s / 18.80s : 레벨업 무지개 폭발 + 띠링 (cc0_ding + game_clear)
+  - 13.0 / 14.1 / 16.5 / 17.6 / 20.0 / 20.5 / 21.0 / 21.4s : Build Success 연타
+22.00 ~ 27.95s : 22초 트랩/EDM 메인 드랍 (-12dB) + 웅장한 합창 임팩트
+25.00 ~ 25.45s : 선글라스 "휘익" 하강 + "착" 착지 (Deal With It 밈 싱크)
+27.00s         : "코딱지" 로고 임팩트
+28.00 ~ 29.00s : 1초 완전 무음 정적 ("근데 이거 게임 이름이 코딱지임")
+29.00 ~ 30.00s : 병맛 "뿅" 마무리 + 최종 엔딩 CTA
+====================================================================
