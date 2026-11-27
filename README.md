@@ -19,7 +19,7 @@
 ![Django](https://img.shields.io/badge/Django-5.2-092E20?logo=django&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 
-[**▶ itch.io에서 플레이**](https://kingdoms1212.itch.io/kkotackji) &nbsp;·&nbsp; [**📊 관리자 대시보드 둘러보기**](#한눈에-보기) &nbsp;·&nbsp; [**🏗 아키텍처**](#아키텍처) &nbsp;·&nbsp; [**🎬 홍보 숏츠**](https://youtube.com/shorts/y_Be5HSoYxk)
+[**▶ itch.io에서 플레이**](https://kingdoms1212.itch.io/kkotackji) &nbsp;·&nbsp; [**📊 관리자 대시보드 둘러보기**](#한눈에-보기) &nbsp;·&nbsp; [**🏗 아키텍처**](#아키텍처) &nbsp;·&nbsp; [**🎬 홍보 숏츠**](docs/presentation/%EC%BD%94%EB%94%B1%EC%A7%80_%ED%99%8D%EB%B3%B4_%EC%88%8F%EC%B8%A0_30%EC%B4%88.mp4)
 
 <img src="docs/readme/kkodakji-play.gif" width="720" alt="코딱지 플레이 장면: 3D 섬 월드와 스택 스테이지 자동 풀이">
 
@@ -28,7 +28,7 @@
 
 https://github.com/user-attachments/assets/6a87fe49-bf94-4d1b-82d7-96e51b00c655
 
-<p align="center"><sub>30초 홍보 숏츠 (▶ 누르면 소리와 함께 재생) · <a href="https://youtube.com/shorts/y_Be5HSoYxk">YouTube에서 보기</a></sub></p>
+<p align="center"><sub>30초 홍보 숏츠 (▶ 누른 뒤 스피커 아이콘을 누르면 소리가 납니다)</sub></p>
 
 ## 숫자로 보는 코딱지
 
