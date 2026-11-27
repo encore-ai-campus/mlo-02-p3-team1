@@ -428,9 +428,9 @@ func _show_loading() -> void:
 	bg.color = Color(0.07, 0.30, 0.40)
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_loading_layer.add_child(bg)
-	# 로딩 배경: 7개 섬 전체 지도 일러스트. 왼쪽 위 로고가 잘리지 않게 그림 전체를 보이게 놓고(비율 유지),
-	# 화면 비율이 16:9 가 아닐 때 남는 위·아래 띠는 그림 가장자리 색(위: 하늘, 아래: 바다)으로 채운다.
-	# (같은 그림을 늘려 깔면 로고가 두 겹으로 겹쳐 보여서 쓰지 않는다)
+	# 로딩 배경: 7개 섬 전체 지도 일러스트 (3:2, 위·아래에 하늘·바다 여백 포함).
+	# 화면을 꽉 채우고 넘치는 가장자리만 자른다: 16:9 는 위·아래 여백만, 3:2 는 그림 전체가 보인다.
+	# 뒤의 그라데이션은 4:3 처럼 더 좁은 화면에서도 빈칸이 안 보이게 깔아 둔다.
 	var tex: Texture2D = load("res://textures/loading_bg.png")
 	var grad := Gradient.new()
 	grad.set_color(0, Color8(58, 172, 238))
@@ -448,7 +448,7 @@ func _show_loading() -> void:
 	var art := TextureRect.new()
 	art.texture = tex
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	art.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_loading_layer.add_child(art)
 	# 진행 표시: 화면 아래쪽 반투명 말풍선 안

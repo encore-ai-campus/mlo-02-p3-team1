@@ -555,7 +555,9 @@ func draw_board() -> void:
 
 const TAG_FILES := {"숫자": "number", "문자": "text", "날짜": "date", "결측 있음": "missing_yes", "결측 없음": "missing_no", "형식 OK": "format_ok", "형식 섞임": "format_mixed"}
 const TAG_DIR := "res://textures/stages/DATA02/tags/"
-const HOOK_Y := 224.0   # 화면 위 고리에 걸린 꼬리표 중심
+const HOOK_Y := 252.0   # 붙인 꼬리표: 화면 안, 열 머리 바로 위 칸 중심
+const TABLE_Y := 268.0
+const ROW_H := 36.0
 const SLOT_Y := 545.0   # 표 아래 받침대 중심
 var _tex_cache := {}
 
@@ -579,12 +581,12 @@ func col_x(ci: int) -> float:
 
 func draw_profile_board() -> void:
 	var p: Dictionary = problems()[problem]
-	table_at(Vector2(382, 262), PROFILE_COLS, PROFILE_ROWS, 344, 37, 17)
+	table_at(Vector2(382, TABLE_Y), PROFILE_COLS, PROFILE_ROWS, 344, ROW_H, 17)
 	wrapped(Vector2(172, 336), "데이터 사전\n1행 = 학생 1명\nage 나이(세)\nzip 우편번호\njoined 가입일\nvisits 방문 수(회)\nNULL = 빈 칸", 150, 16, INK)
 	text(Vector2(1004, 332), "%d단계 · %s 점검" % [level + 1, p.lens], 19, INK, true)
-	# 화면 위 고리: 붙인 꼬리표가 걸린다
+	# 붙인 꼬리표: 표 화면 안, 그 열 머리 바로 위
 	for c in state.tags:
-		tag_sprite(Vector2(col_x(PROFILE_COLS.find(c)), HOOK_Y), state.tags[c], 68)
+		tag_sprite(Vector2(col_x(PROFILE_COLS.find(c)), HOOK_Y), state.tags[c], 68, 13)
 	# 오른쪽 선반 고리의 꼬리표
 	for i in 3:
 		var sp = spot("st", i)
@@ -598,7 +600,7 @@ func draw_profile_board() -> void:
 		var c: String = PROFILE_TARGETS[k]
 		var sp = spot("st", 3 + k)
 		var x := col_x(PROFILE_COLS.find(c))
-		var col_rect := Rect2(x - cw / 2, 262, cw, 37 * 6)
+		var col_rect := Rect2(x - cw / 2, TABLE_Y, cw, ROW_H * 6)
 		var name := ""
 		var focused: bool = sp != null and player.focus == sp
 		if state.tags.has(c):
@@ -613,7 +615,7 @@ func draw_profile_board() -> void:
 		if name != "":
 			_cv.draw_texture_rect(_tex(name), Rect2(Vector2(x, SLOT_Y) - Vector2(32, 24), Vector2(64, 48)), false)
 		# 표와 받침대 사이 열 이름 (받침대가 어느 열인지)
-		plate(Vector2(x, 500), "▼ " + c, 14, Color("9fe0a8") if state.tags.has(c) else (GOLD if focused else CREAM), INK, 60)
+		plate(Vector2(x, 500), state.tags[c] if state.tags.has(c) else "▼ " + c, 14, Color("9fe0a8") if state.tags.has(c) else (GOLD if focused else CREAM), INK, 60)
 	# 들고 있는 꼬리표: 로봇 머리 위
 	if state.held != "":
 		tag_sprite(player.position + Vector2(78, -46), state.held, 120, 17)
