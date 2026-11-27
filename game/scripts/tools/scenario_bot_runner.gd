@@ -976,25 +976,13 @@ func _bot_play_data_labs(_params: Dictionary) -> Dictionary:
 
 	# 2. DATA02_Profile
 	_open_lab("DATA02_Profile")
-	_type_field("rows", "5")
-	_type_field("cols", "5")
-	_pick("unit", 1)
-	_lab_press(["submit"])
+	_lab_press(["take:숫자", "put:age", "take:문자", "put:zip", "take:날짜", "put:joined", "take:숫자", "put:visits"])
 	var d2_l1: bool = game.level_done
 	_lab_level(1)
-	_pick("age_type", 1)
-	_pick("zip_type", 2)
-	_pick("joined_type", 3)
-	_pick("age_unit", 1)
-	_pick("visits_unit", 2)
-	_lab_press(["submit"])
+	_lab_press(["take:결측 있음", "put:age", "take:결측 없음", "put:zip", "take:결측 없음", "put:joined", "take:결측 없음", "put:visits"])
 	var d2_l2: bool = game.level_done
 	_lab_level(2)
-	_type_field("age_missing", "2")
-	_type_field("age_rate", "40")
-	_type_field("visits_missing", "0")
-	_pick("odd_col", 4)
-	_lab_press(["submit"])
+	_lab_press(["take:형식 OK", "put:age", "take:형식 OK", "put:zip", "take:형식 섞임", "put:joined", "take:형식 OK", "put:visits"])
 	var d2_l3: bool = game.level_done
 	_close_lab()
 	if d2_l1 and d2_l2 and d2_l3:

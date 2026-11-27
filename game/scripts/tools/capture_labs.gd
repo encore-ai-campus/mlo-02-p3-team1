@@ -40,7 +40,7 @@ func run() -> void:
 	await open("ALG01_Sorting", ["1"], 2)
 	await open("ALG03_DivideSort", ["lt", "gt"], 2)
 	await open("ALG04_ShortestPath", ["A", "update"], 0)
-	await open("DATA02_Profile", ["field:age_rate", "key:4", "key:0"], 2)
+	await open("DATA02_Profile", ["take:결측 있음", "put:age", "take:결측 없음"], 1)
 	await open("DATA01_Explore", ["trim", "number"], 2)
 	await open("DATA03_Stats", ["field:mean", "key:3", "key:4", "toggle_ex"], 2)
 	await open("DATA04_Chart", ["x", "y", "agg", "zero", "draw", "mark:1"], 0)

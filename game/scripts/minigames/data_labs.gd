@@ -9,12 +9,25 @@ const DICTIONARY := "데이터 사전: 1행 = 학생 1명 · age 나이(세) · 
 const TYPE_OPTS := ["숫자", "문자", "날짜"]
 const UNIT_OPTS := ["세", "회", "원"]
 const ROW_UNIT_OPTS := ["학생 1명", "방문 1회", "학교 1곳"]
+## 점검 꼬리표 붙이기: 선반에서 꼬리표를 집어(E) 표 아래 열 자리로 들고 가 붙인다(E).
+## 레벨마다 점검 관점이 하나씩: 자료형(dtype) → 결측(isna) → 형식(to_datetime)
+const PROFILE_TARGETS := ["age", "zip", "joined", "visits"]
 const PROFILE_LEVELS := [
-	[[{"key": "rows", "label": "행 개수", "kind": "number"}, {"key": "cols", "label": "열 개수", "kind": "number"}, {"key": "unit", "label": "1행의 관측 단위", "kind": "choice", "options": ROW_UNIT_OPTS}]],
-	[[{"key": "age_type", "label": "age 자료형", "kind": "choice", "options": TYPE_OPTS}, {"key": "zip_type", "label": "zip 자료형", "kind": "choice", "options": TYPE_OPTS},
-	  {"key": "joined_type", "label": "joined 자료형", "kind": "choice", "options": TYPE_OPTS}, {"key": "age_unit", "label": "age 단위", "kind": "choice", "options": UNIT_OPTS}, {"key": "visits_unit", "label": "visits 단위", "kind": "choice", "options": UNIT_OPTS}]],
-	[[{"key": "age_missing", "label": "age 결측 개수", "kind": "number"}, {"key": "age_rate", "label": "age 결측률 %", "kind": "number"},
-	  {"key": "visits_missing", "label": "visits 결측 개수", "kind": "number"}, {"key": "odd_col", "label": "형식이 섞인 열", "kind": "choice", "options": PROFILE_COLS}]],
+	[{"lens": "자료형", "tags": ["숫자", "문자", "날짜"],
+	  "answer": {"age": "숫자", "zip": "문자", "joined": "날짜", "visits": "숫자"},
+	  "why": {"age": "나이는 평균을 낼 수 있는 숫자예요.", "zip": "우편번호는 더하거나 평균 내지 않아요. 01012의 앞자리 0을 지키려면 문자예요.",
+		"joined": "가입일은 날짜예요. 날짜여야 기간을 계산하고 순서대로 정렬할 수 있어요.", "visits": "방문 횟수는 더하고 평균 낼 수 있는 숫자예요."},
+	  "code": {"age": "df['age'].dtype", "zip": "df['zip'].dtype", "joined": "df['joined'].dtype", "visits": "df['visits'].dtype"}}],
+	[{"lens": "결측", "tags": ["결측 있음", "결측 없음"],
+	  "answer": {"age": "결측 있음", "zip": "결측 없음", "joined": "결측 없음", "visits": "결측 없음"},
+	  "why": {"age": "age에는 비어 있는 칸(NULL)이 2개 있어요.", "zip": "zip은 다섯 칸 모두 값이 있어요.",
+		"joined": "joined는 다섯 칸 모두 값이 있어요. 형식이 달라도 비어 있진 않아요.", "visits": "visits의 0은 '한 번도 안 왔다'는 값이에요. 비어 있는 것과 달라요."},
+	  "code": {"age": "df['age'].isna().sum()", "zip": "df['zip'].isna().sum()", "joined": "df['joined'].isna().sum()", "visits": "df['visits'].isna().sum()"}}],
+	[{"lens": "형식", "tags": ["형식 OK", "형식 섞임"],
+	  "answer": {"age": "형식 OK", "zip": "형식 OK", "joined": "형식 섞임", "visits": "형식 OK"},
+	  "why": {"age": "NULL은 결측이지 형식 문제가 아니에요. 값이 있는 칸은 모두 숫자예요.", "zip": "zip은 모두 숫자 다섯 자리로 같은 형식이에요.",
+		"joined": "joined에 2026/02/11처럼 / 를 쓴 값이 섞여 있어요. 이대로면 날짜로 바꿀 때 실패해요.", "visits": "visits는 모두 정수예요."},
+	  "code": {"age": "df['age'].dropna().astype(int)", "zip": "df['zip'].str.fullmatch(r'\\d{5}').all()", "joined": "pd.to_datetime(df['joined'], format='%Y-%m-%d')", "visits": "df['visits'].astype(int)"}}],
 ]
 
 # ---------- 정제 데이터 ----------
@@ -61,13 +74,13 @@ const CHART_LEVELS := [
 func lab_table() -> Dictionary:
 	return {
 		"profile": {"id": "DATA02", "title": "관측 준비실", "levels": 3, "art": "DATA02", "npc": "NPC00", "npc_name": "데이터 관측 담당자",
-			"intro": ["어서 오세요. 데이터를 고치기 전에 먼저 살펴봐야 해요. 행이 뭘 뜻하는지, 열은 어떤 값인지부터요.",
-				"숫자처럼 보여도 우편번호는 계산하지 않는 문자예요. 0은 값이 있는 것이고, 비어 있어야 결측이에요.",
-				"방법은 간단해요. 표를 보고 → 아래 바닥 칸 앞에 서서 → 숫자 키로 입력하거나 E로 보기를 바꾸고 → '제출'에서 E. 오른쪽 위 점검표에 지금 넣은 값이 보여요."],
-			"talk": ["가운데 표를 세어 보세요. 아래 바닥의 '행 개수', '열 개수' 칸 앞에 서서 숫자 키를 누르면 바로 입력돼요. '1행의 관측 단위'는 E를 누를 때마다 보기가 바뀌어요. 왼쪽 데이터 사전에 답이 있어요. 다 채우면 오른쪽 '제출'에서 E!",
-				"이번엔 열마다 어떤 값인지 골라요. 바닥 칸에서 E를 누를 때마다 숫자·문자·날짜, 세·회·원이 바뀌어요. zip은 숫자처럼 보여도 계산하지 않는 우편번호예요. 다 고르면 '제출'에서 E.",
-				"비어 있는(NULL) 칸을 세요. 결측 개수와 결측률(결측 ÷ 전체 행 × 100)은 숫자 키로, 형식이 섞인 열은 E로 골라요. 0은 결측이 아니에요. 다 채우면 '제출'에서 E."],
-			"hints": ["행은 관측 하나, 열은 관측의 속성이에요.", "결측률 = 결측 개수 / 전체 행 × 100. 0은 결측이 아니에요.", "age가 [20, NULL, 30, 40, NULL]이면 결측 2개, 결측률 40%예요."]},
+			"intro": ["큰일이에요! 이 학생 기록표를 내일 분석팀에 넘겨야 하는데, 점검 꼬리표가 하나도 안 붙어 있어요.",
+				"꼬리표가 없으면 분석팀이 사고를 쳐요. 우편번호를 더해 버리거나, 빈 칸을 0으로 착각하거나, 날짜를 못 읽어서 멈춰 버리죠.",
+				"오른쪽 선반에서 꼬리표를 E로 집고, 표 아래 열 자리(age · zip · joined · visits)로 들고 가서 E로 붙여 주세요. 네 열에 다 붙이면 끝이에요!"],
+			"talk": ["1단계는 자료형 꼬리표예요. 이 열을 계산하는지(숫자), 이름처럼 쓰는지(문자), 날짜인지 표를 보고 붙여 주세요.",
+				"2단계는 결측 꼬리표예요. 비어 있는 칸(NULL)이 있는 열에만 '결측 있음'을 붙여요. 0은 빈 칸이 아니에요!",
+				"3단계는 형식 꼬리표예요. 한 열 안에서 값을 쓰는 모양이 다른 게 섞여 있으면 '형식 섞임'이에요."],
+			"hints": ["표에서 열 하나를 세로로 쭉 읽어 보세요. 그 열의 값으로 무엇을 할지 생각하면 꼬리표가 보여요.", "숫자처럼 보여도 계산하지 않으면 문자예요. 0은 값이고, NULL만 결측이에요.", "joined 열을 위에서 아래로 읽어 보세요. 구분 기호가 다른 값이 있어요."]},
 		"clean": {"id": "DATA01", "title": "기록 수리 공방", "levels": 3, "art": "DATA01", "npc": "NPC08", "npc_name": "기록 수리 담당자",
 			"intro": ["시간 없어요, 얼른 고쳐 봐요! 결측과 중복, 형식이 제멋대로인 기록을 규칙대로 정리하는 곳이에요.",
 				"처리 버튼을 누르면 순서대로 적용되어 미리보기가 바뀌어요. 중복은 첫 등장 행을 남기고, 0과 NULL은 달라요.",
@@ -98,15 +111,8 @@ func problems_for(n: int) -> Array:
 func setup_problem(p) -> void:
 	match activity:
 		"profile":
-			goal = PROFILE_GOALS[level]
-			var fields = {}
-			var picks = {}
-			for q in p:
-				if q.kind == "number":
-					fields[q.key] = ""
-				else:
-					picks[q.key] = -1
-			state = {"fields": fields, "picks": picks}
+			goal = "선반의 %s 꼬리표를 들고 가 네 열에 붙이기" % p.lens
+			state = {"held": "", "tags": {}}
 		"clean":
 			goal = p.goal
 			state = {"pipeline": [], "dedup": 1}
@@ -128,7 +134,7 @@ func _ready() -> void:
 	# 로봇이 시안 위에 덧그린 표·게시판 뒤로 숨지 않게 앞에 그리고, 장치 표지는 로봇 발밑에 둔다
 	player.z_index = 4
 	plate_offset = Vector2(0, 12) if activity == "stats" else Vector2(0, 30)
-	if activity in ["profile", "stats"]:
+	if activity == "stats":
 		hud.set_controls("WASD 이동 · 칸 앞에서 숫자 키 입력 · Backspace 지우기 · E 보기 바꾸기/제출 · F 힌트 · Z 되돌리기 · Esc 메뉴")
 
 func handle(key: String) -> void:
@@ -138,25 +144,14 @@ func handle(key: String) -> void:
 		"stats": stats_action(key)
 		"chart": chart_action(key)
 
-const PROFILE_GOALS := ["표를 보고 행 개수·열 개수·1행의 뜻 채우기", "열마다 자료형과 단위 고르기", "결측 개수·결측률 구하고, 형식이 섞인 열 찾기"]
-const PROFILE_STEPS := ["1단계 · 표 크기", "2단계 · 자료형·단위", "3단계 · 결측·형식"]
-
 func lab_rows() -> Array:
 	if activity == "profile":
-		# 점검표: 채워야 할 칸과 지금 넣은 값 (정답 여부는 제출할 때만 알려 준다)
+		# 열마다 붙인 꼬리표 (아직이면 _)
 		var rows := []
-		for q in problems()[problem]:
-			rows.append([q.label, profile_value_text(q)])
-		rows.append(["실수", mistakes])
+		for c in PROFILE_TARGETS:
+			rows.append([c, state.tags.get(c, "_")])
 		return rows
 	return [["행동", moves], ["실수", mistakes], ["힌트", hints_used]]
-
-func profile_value_text(q: Dictionary) -> String:
-	if q.kind == "number":
-		var t: String = state.fields.get(q.key, "")
-		return t if t != "" else "_"
-	var i: int = state.picks[q.key]
-	return "선택 안 함" if i < 0 else str(q.options[i])
 
 func state_code() -> String:
 	match activity:
@@ -164,69 +159,39 @@ func state_code() -> String:
 			return "df" + "".join(state.pipeline.map(func(s): return ".%s()" % s))
 		"chart":
 			return "chart(type=%s, x=%s, y=%s, agg=%s)" % [CHART_TYPES[state.type], problems()[problem].cols[state.x], problems()[problem].cols[state.y], AGGS[state.agg]]
-		"profile":
-			# 점검표를 pandas 로 확인하는 코드: 채운 값이 바로 코드에 들어간다
-			var lines := []
-			var code_of := {"rows": "len(df)", "cols": "len(df.columns)", "unit": "# 1행 =", "age_type": "df['age'].dtype", "zip_type": "df['zip'].dtype",
-				"joined_type": "df['joined'].dtype", "age_unit": "# age 단위", "visits_unit": "# visits 단위", "age_missing": "df['age'].isna().sum()",
-				"age_rate": "df['age'].isna().mean() * 100", "visits_missing": "df['visits'].isna().sum()", "odd_col": "# 형식이 섞인 열"}
-			for q in problems()[problem]:
-				var c: String = code_of.get(q.key, q.key)
-				lines.append(("%s %s" if c.begins_with("#") else "%s = %s") % [c, profile_value_text(q)])
-			return "\n".join(lines)
 	return ""
 
 # ---------- 데이터 점검 ----------
-func profile_answer(key: String):
-	match key:
-		"rows": return PROFILE_ROWS.size()
-		"cols": return PROFILE_COLS.size()
-		"unit": return 0
-		"age_type": return 0
-		"zip_type": return 1
-		"joined_type": return 2
-		"age_unit": return 0
-		"visits_unit": return 1
-		"age_missing": return missing_count(1)
-		"age_rate": return 100.0 * missing_count(1) / PROFILE_ROWS.size()
-		"visits_missing": return missing_count(4)
-		"odd_col": return odd_format_column()
-	return null
-
-func missing_count(col: int) -> int:
-	var n = 0
-	for r in PROFILE_ROWS:
-		if r[col] == null:
-			n += 1
-	return n
-
-func odd_format_column() -> int:
-	for r in PROFILE_ROWS:
-		if str(r[3]).contains("/"):
-			return 3
-	return -1
-
 func profile_action(key: String) -> void:
-	if key.begins_with("pick:"):
-		var k = key.trim_prefix("pick:")
-		var q = find_question(k)
+	var p: Dictionary = problems()[problem]
+	if key.begins_with("take:"):
+		var t := key.trim_prefix("take:")
 		step()
-		state.picks[k] = (state.picks[k] + 1) % q.options.size()
+		state.held = t
+		say("'%s' 꼬리표를 들었어요. 표 아래 열 자리로 가져가 E로 붙이세요." % t, StageHUD.GOLD, 3.0)
 		return
-	if key != "submit":
+	if not key.begins_with("put:"):
 		return
-	moves += 1
-	for q in problems()[problem]:
-		if q.kind == "number":
-			var v = field_number(q.key)
-			if is_nan(v) or absf(v - float(profile_answer(q.key))) > 0.1:
-				wrong("'%s' 값을 다시 계산해 보세요." % q.label)
-				return
-		elif state.picks[q.key] != profile_answer(q.key):
-			wrong("'%s' 선택을 데이터 사전과 비교해 보세요." % q.label)
-			return
-	code("df.info();", "점검 완료")
-	win("점검표가 데이터와 일치해요. 원본은 그대로예요.")
+	var c := key.trim_prefix("put:")
+	if state.held == "":
+		say("먼저 오른쪽 선반에서 꼬리표를 E로 집어 오세요.", StageHUD.GOLD, 3.0)
+		return
+	step()
+	if state.held != p.answer[c]:
+		var t: String = state.held
+		state.held = ""
+		wrong("%s 열에 '%s'는 아니에요. 꼬리표는 선반으로 돌아갔어요." % [c, t])
+		# 왜 틀렸는지는 담당자가 알림창으로 설명한다 (읽는 동안 멈춤)
+		hud.start_dialogue(npc_name, npc_portrait, ["%s 열에 '%s' 꼬리표를 붙이면 분석팀이 헷갈려요.\n\n%s" % [c, t, p.why[c]]], "다시 해 보기")
+		return
+	state.tags[c] = state.held
+	state.held = ""
+	code(p.code[c], "%s → %s" % [c, p.answer[c]])
+	if state.tags.size() < PROFILE_TARGETS.size():
+		good("%s = %s, 맞아요! (%d / 4)" % [c, p.answer[c], state.tags.size()])
+		return
+	var note := {"자료형": "분석팀이 이제 우편번호를 더하지 않아요.", "결측": "age 결측 2/5 = 40%. 0은 값으로 남았어요.", "형식": "joined 의 2026/02/11 을 고치면 날짜로 바꿀 수 있어요."}
+	win("%s 꼬리표 완료! %s 원본 표는 그대로예요." % [p.lens, note[p.lens]])
 
 func find_question(k: String) -> Dictionary:
 	for q in problems()[problem]:
@@ -523,17 +488,18 @@ func field_text(key: String) -> String:
 	return t if t != "" else "_"
 
 func profile_stations() -> Array:
-	var out = []
-	for q in problems()[problem]:
-		if q.kind == "number":
-			out.append(["field:" + q.key, "%s: 숫자 키로 입력" % q.label, "%s: %s" % [q.label, field_text(q.key)]])
+	# St0~2: 선반 꼬리표, St3~6: 표 아래 열 자리 (표지는 draw_profile_board 가 직접 그린다)
+	var p: Dictionary = problems()[problem]
+	var out := []
+	for i in 3:
+		out.append(["take:" + p.tags[i], "'%s' 꼬리표 집기" % p.tags[i], ""] if i < p.tags.size() else null)
+	for c in PROFILE_TARGETS:
+		if state.tags.has(c):
+			out.append(null)
+		elif state.held != "":
+			out.append(["put:" + c, "%s 열에 '%s' 붙이기" % [c, state.held], ""])
 		else:
-			var i: int = state.picks[q.key]
-			var pick_text: String = "선택" if i < 0 else str(q.options[i])
-			out.append(["pick:" + q.key, "%s: %s (E 바꾸기)" % [q.label, pick_text], "%s: %s" % [q.label, pick_text]])
-	while out.size() < 5:
-		out.append(null)
-	out.append(["submit", "점검표 제출", "제출"])
+			out.append(["put:" + c, "%s 열 자리 (꼬리표를 먼저 집어 오세요)" % c, ""])
 	return out
 
 func clean_stations() -> Array:
@@ -586,12 +552,49 @@ func draw_board() -> void:
 		"stats": draw_stats_board()
 		"chart": draw_chart_board()
 
+const TAG_COLORS := {"숫자": Color("8fc1ff"), "문자": Color("d8b4ff"), "날짜": Color("9fe0a8"), "결측 있음": Color("ff9e8f"), "결측 없음": Color("9fe0a8"), "형식 OK": Color("9fe0a8"), "형식 섞임": Color("ffc27a")}
+
 func draw_profile_board() -> void:
+	var p: Dictionary = problems()[problem]
 	cover(Rect2(380, 238, 348, 244), Color("eef2f8"))
 	table_at(Vector2(382, 240), PROFILE_COLS, PROFILE_ROWS, 344, 40, 17)
 	cover(Rect2(155, 322, 165, 188), CREAM)
-	wrapped(Vector2(162, 348), "1행=학생 1명\nage 나이(세)\nzip 우편번호\njoined 가입일\nvisits 방문(회)\nNULL만 결측", 170, 17, INK)
-	plate(Vector2(1000, 330), PROFILE_STEPS[level], 18)
+	wrapped(Vector2(162, 348), "데이터 사전\n1행 = 학생 1명\nage 나이(세)\nzip 우편번호\njoined 가입일\nvisits 방문 수(회)\nNULL = 빈 칸", 170, 16, INK)
+	plate(Vector2(1000, 330), "%d단계 · %s 점검" % [level + 1, p.lens], 18)
+	# 열 머리 위에 붙은 꼬리표
+	var w := 344.0 / PROFILE_COLS.size()
+	for ci in PROFILE_COLS.size():
+		var col: String = PROFILE_COLS[ci]
+		var cx: float = 382 + w * (ci + 0.5)
+		if col == "id":
+			plate(Vector2(cx, 222), "번호", 14, Color("e6e0d0"), INK, w - 4)
+		elif state.tags.has(col):
+			plate(Vector2(cx, 222), state.tags[col], 14, TAG_COLORS.get(state.tags[col], GOLD), INK, w - 4)
+		else:
+			plate(Vector2(cx, 222), "?", 14, CREAM, WOOD, w - 4)
+	# 선반 꼬리표 (선반 그림의 # T 달력 칸 위)
+	for i in 3:
+		var sp = spot("st", i)
+		if sp == null or i >= p.tags.size():
+			continue
+		var t: String = p.tags[i]
+		var focused: bool = player.focus == sp
+		plate(sp.position + Vector2(0, -4), t, 16, GOLD if focused else TAG_COLORS.get(t, CREAM), INK, 84)
+	# 표 아래 열 자리
+	for k in PROFILE_TARGETS.size():
+		var sp = spot("st", 3 + k)
+		if sp == null:
+			continue
+		var c: String = PROFILE_TARGETS[k]
+		var ci := PROFILE_COLS.find(c)
+		var cx: float = 382 + w * (ci + 0.5)
+		ink_line(Vector2(cx, 482), sp.position + Vector2(0, -18), Color("c9a46a"), 3.0)
+		var done_tag: bool = state.tags.has(c)
+		var focused: bool = player.focus == sp
+		plate(sp.position + Vector2(0, 26), ("%s 완료" % c) if done_tag else ("%s 자리" % c), 16, Color("9fe0a8") if done_tag else (GOLD if focused else CREAM))
+	# 들고 있는 꼬리표: 로봇 머리 위
+	if state.held != "":
+		plate(player.position + Vector2(0, -150), "들고 있음: " + state.held, 16, TAG_COLORS.get(state.held, GOLD))
 
 func draw_clean_board() -> void:
 	var p: Dictionary = problems()[problem]
@@ -715,3 +718,23 @@ func chart_marks(p: Dictionary, area: Rect2) -> void:
 		text(Vector2(cx, top - 3), display(data[i][1]), 12, INK, true)
 	if kind == "선" and pts.size() > 1:
 		_cv.draw_polyline(pts, BLUE, 3)
+
+func _process(_delta: float) -> void:
+	# 들고 있는 꼬리표가 로봇을 따라다니고, 가까운 자리가 노랗게 바뀌도록 매 프레임 다시 그린다
+	if activity == "profile" and board != null:
+		board.queue_redraw()
+
+## 실수 뒤 노란 화살표: 다음에 집을 꼬리표 또는 붙일 열 자리
+func next_key() -> String:
+	if activity != "profile" or done:
+		return ""
+	var p: Dictionary = problems()[problem]
+	if state.held != "":
+		for c in PROFILE_TARGETS:
+			if not state.tags.has(c) and p.answer[c] == state.held:
+				return "put:" + c
+		return ""
+	for c in PROFILE_TARGETS:
+		if not state.tags.has(c):
+			return "take:" + p.answer[c]
+	return ""
