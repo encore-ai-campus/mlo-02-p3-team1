@@ -63,8 +63,10 @@ func lab_table() -> Dictionary:
 		"profile": {"id": "DATA02", "title": "관측 준비실", "levels": 3, "art": "DATA02", "npc": "NPC00", "npc_name": "데이터 관측 담당자",
 			"intro": ["어서 오세요. 데이터를 고치기 전에 먼저 살펴봐야 해요. 행이 뭘 뜻하는지, 열은 어떤 값인지부터요.",
 				"숫자처럼 보여도 우편번호는 계산하지 않는 문자예요. 0은 값이 있는 것이고, 비어 있어야 결측이에요.",
-				"데이터 사전과 표를 보고 점검표를 채워 제출하세요. 원본은 바꾸지 않아요."],
-			"talk": ["몇 행 몇 열인지, 1행이 무엇을 뜻하는지 적어 주세요.", "각 열의 자료형과 단위를 데이터 사전과 비교해 주세요.", "결측 개수와 결측률을 계산하고, 형식이 섞인 열을 찾아 주세요."],
+				"방법은 간단해요. 표를 보고 → 아래 바닥 칸 앞에 서서 → 숫자 키로 입력하거나 E로 보기를 바꾸고 → '제출'에서 E. 오른쪽 위 점검표에 지금 넣은 값이 보여요."],
+			"talk": ["가운데 표를 세어 보세요. 아래 바닥의 '행 개수', '열 개수' 칸 앞에 서서 숫자 키를 누르면 바로 입력돼요. '1행의 관측 단위'는 E를 누를 때마다 보기가 바뀌어요. 왼쪽 데이터 사전에 답이 있어요. 다 채우면 오른쪽 '제출'에서 E!",
+				"이번엔 열마다 어떤 값인지 골라요. 바닥 칸에서 E를 누를 때마다 숫자·문자·날짜, 세·회·원이 바뀌어요. zip은 숫자처럼 보여도 계산하지 않는 우편번호예요. 다 고르면 '제출'에서 E.",
+				"비어 있는(NULL) 칸을 세요. 결측 개수와 결측률(결측 ÷ 전체 행 × 100)은 숫자 키로, 형식이 섞인 열은 E로 골라요. 0은 결측이 아니에요. 다 채우면 '제출'에서 E."],
 			"hints": ["행은 관측 하나, 열은 관측의 속성이에요.", "결측률 = 결측 개수 / 전체 행 × 100. 0은 결측이 아니에요.", "age가 [20, NULL, 30, 40, NULL]이면 결측 2개, 결측률 40%예요."]},
 		"clean": {"id": "DATA01", "title": "기록 수리 공방", "levels": 3, "art": "DATA01", "npc": "NPC08", "npc_name": "기록 수리 담당자",
 			"intro": ["시간 없어요, 얼른 고쳐 봐요! 결측과 중복, 형식이 제멋대로인 기록을 규칙대로 정리하는 곳이에요.",
@@ -75,7 +77,7 @@ func lab_table() -> Dictionary:
 		"stats": {"id": "DATA03", "title": "대표값 실험실", "levels": 3, "art": "DATA03", "npc": "NPC03", "npc_name": "통계 실험가",
 			"intro": ["호호, 왔구나. 숫자 묶음을 값 하나로 요약하는 법을 실험해 보자꾸나.",
 				"평균은 합을 개수로 나눈 값, 중앙값은 정렬했을 때 가운데 값, 범위는 최댓값 빼기 최솟값이란다. 값이 짝수 개면 가운데 두 값의 평균이 중앙값이야.",
-				"칸 앞에서 E를 누르고 숫자 키로 값을 넣어 제출해. NULL은 계산에서 빼고, 이상치는 비교할 때만 제외한단다."],
+				"칸 앞에 서서 숫자 키로 값을 넣고 '제출'에서 E를 누르렴. NULL은 계산에서 빼고, 이상치는 비교할 때만 제외한단다."],
 			"talk": ["개수, 평균, 범위를 계산해 보렴.", "홀수 개와 짝수 개의 중앙값이 어떻게 다른지, NULL은 어떻게 빠지는지 보렴.", "이상치를 뺐을 때 대표값이 어떻게 변하는지 비교하고, 데이터로 말할 수 있는 결론만 고르렴."],
 			"hints": ["평균·중앙값·범위는 각각 다른 면을 요약해요.", "먼저 정렬하고, NULL은 분모에서 뺀 뒤 계산하세요.", "[10,12,14,100]은 평균 34, 중앙값 13, 범위 90. 100을 빼면 평균·중앙값 12, 범위 4예요."]},
 		"chart": {"id": "DATA04", "title": "차트 관측소", "levels": 3, "art": "DATA04", "npc": "NPC07", "npc_name": "차트 관측 담당자",
@@ -96,7 +98,7 @@ func problems_for(n: int) -> Array:
 func setup_problem(p) -> void:
 	match activity:
 		"profile":
-			goal = "점검표를 데이터 사전과 원본으로 채우기"
+			goal = PROFILE_GOALS[level]
 			var fields = {}
 			var picks = {}
 			for q in p:
@@ -127,7 +129,7 @@ func _ready() -> void:
 	player.z_index = 4
 	plate_offset = Vector2(0, 12) if activity == "stats" else Vector2(0, 30)
 	if activity in ["profile", "stats"]:
-		hud.set_controls("WASD 이동 · E 칸 고르기/값 바꾸기 · 숫자 키 입력 · Backspace 지우기 · F 힌트 · Z 되돌리기 · Esc 메뉴")
+		hud.set_controls("WASD 이동 · 칸 앞에서 숫자 키 입력 · Backspace 지우기 · E 보기 바꾸기/제출 · F 힌트 · Z 되돌리기 · Esc 메뉴")
 
 func handle(key: String) -> void:
 	match activity:
@@ -136,8 +138,25 @@ func handle(key: String) -> void:
 		"stats": stats_action(key)
 		"chart": chart_action(key)
 
+const PROFILE_GOALS := ["표를 보고 행 개수·열 개수·1행의 뜻 채우기", "열마다 자료형과 단위 고르기", "결측 개수·결측률 구하고, 형식이 섞인 열 찾기"]
+const PROFILE_STEPS := ["1단계 · 표 크기", "2단계 · 자료형·단위", "3단계 · 결측·형식"]
+
 func lab_rows() -> Array:
+	if activity == "profile":
+		# 점검표: 채워야 할 칸과 지금 넣은 값 (정답 여부는 제출할 때만 알려 준다)
+		var rows := []
+		for q in problems()[problem]:
+			rows.append([q.label, profile_value_text(q)])
+		rows.append(["실수", mistakes])
+		return rows
 	return [["행동", moves], ["실수", mistakes], ["힌트", hints_used]]
+
+func profile_value_text(q: Dictionary) -> String:
+	if q.kind == "number":
+		var t: String = state.fields.get(q.key, "")
+		return t if t != "" else "_"
+	var i: int = state.picks[q.key]
+	return "선택 안 함" if i < 0 else str(q.options[i])
 
 func state_code() -> String:
 	match activity:
@@ -145,6 +164,16 @@ func state_code() -> String:
 			return "df" + "".join(state.pipeline.map(func(s): return ".%s()" % s))
 		"chart":
 			return "chart(type=%s, x=%s, y=%s, agg=%s)" % [CHART_TYPES[state.type], problems()[problem].cols[state.x], problems()[problem].cols[state.y], AGGS[state.agg]]
+		"profile":
+			# 점검표를 pandas 로 확인하는 코드: 채운 값이 바로 코드에 들어간다
+			var lines := []
+			var code_of := {"rows": "len(df)", "cols": "len(df.columns)", "unit": "# 1행 =", "age_type": "df['age'].dtype", "zip_type": "df['zip'].dtype",
+				"joined_type": "df['joined'].dtype", "age_unit": "# age 단위", "visits_unit": "# visits 단위", "age_missing": "df['age'].isna().sum()",
+				"age_rate": "df['age'].isna().mean() * 100", "visits_missing": "df['visits'].isna().sum()", "odd_col": "# 형식이 섞인 열"}
+			for q in problems()[problem]:
+				var c: String = code_of.get(q.key, q.key)
+				lines.append(("%s %s" if c.begins_with("#") else "%s = %s") % [c, profile_value_text(q)])
+			return "\n".join(lines)
 	return ""
 
 # ---------- 데이터 점검 ----------
@@ -497,7 +526,7 @@ func profile_stations() -> Array:
 	var out = []
 	for q in problems()[problem]:
 		if q.kind == "number":
-			out.append(["field:" + q.key, "%s 입력 (숫자 키)" % q.label, "%s: %s" % [q.label, field_text(q.key)]])
+			out.append(["field:" + q.key, "%s: 숫자 키로 입력" % q.label, "%s: %s" % [q.label, field_text(q.key)]])
 		else:
 			var i: int = state.picks[q.key]
 			var pick_text: String = "선택" if i < 0 else str(q.options[i])
@@ -521,7 +550,7 @@ func stats_stations() -> Array:
 	var p: Dictionary = problems()[problem]
 	var out = []
 	for f in p.fields:
-		out.append(["field:" + f, "%s 입력 (숫자 키)" % STAT_LABELS[f], "%s: %s" % [STAT_LABELS[f], field_text(f)]])
+		out.append(["field:" + f, "%s: 숫자 키로 입력" % STAT_LABELS[f], "%s: %s" % [STAT_LABELS[f], field_text(f)]])
 	while out.size() < 6:
 		out.append(null)
 	out.append(["toggle_ex", "이상치 제외 비교", "제외 비교"] if p.has("outlier") else null)
@@ -562,7 +591,7 @@ func draw_profile_board() -> void:
 	table_at(Vector2(382, 240), PROFILE_COLS, PROFILE_ROWS, 344, 40, 17)
 	cover(Rect2(155, 322, 165, 188), CREAM)
 	wrapped(Vector2(162, 348), "1행=학생 1명\nage 나이(세)\nzip 우편번호\njoined 가입일\nvisits 방문(회)\nNULL만 결측", 170, 17, INK)
-	plate(Vector2(1000, 330), "결측·형식 점검", 18)
+	plate(Vector2(1000, 330), PROFILE_STEPS[level], 18)
 
 func draw_clean_board() -> void:
 	var p: Dictionary = problems()[problem]

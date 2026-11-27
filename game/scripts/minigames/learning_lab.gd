@@ -231,6 +231,13 @@ func _unhandled_input(ev: InputEvent) -> void:
 		if actions.has(ev.keycode):
 			on_button(actions[ev.keycode])
 			return
+		# 숫자 칸 앞에 서 있으면 E 없이 바로 숫자 키로 입력된다
+		var f = player.focus
+		if f != null and f.kind == "st" and f.index < _st.size() and _st[f.index] != null and str(_st[f.index][0]).begins_with("field:"):
+			var fk: String = str(_st[f.index][0]).trim_prefix("field:")
+			var dg: int = ev.keycode - KEY_0
+			if fk != input_field and ((dg >= 0 and dg <= 9) or ev.keycode in [KEY_BACKSPACE, KEY_PERIOD, KEY_MINUS]):
+				input_field = fk
 		if input_field != "":
 			var digit: int = ev.keycode - KEY_0
 			if digit >= 0 and digit <= 9:
