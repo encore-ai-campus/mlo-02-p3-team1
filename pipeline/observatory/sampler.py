@@ -144,6 +144,18 @@ def findings(snapshot):
     result = []
     def add(ident, level, title, detail, samples=1):
         result.append(dict(id=ident, level=level, title=title, detail=detail, samples=samples))
+    ops = snapshot.get('operations') or {}
+    integrity = ops.get('integrity') or {}
+    if integrity.get('state') == 'recovery_required':
+        add('remote-integrity', 'error', '원격 DB 기록 유실·불일치 감지',
+            '적재가 보호 중지됐습니다. 백업·복구 후 전체 검증과 incident 확인 해제가 필요합니다.')
+    elif integrity.get('state') == 'unavailable' or (integrity.get('check_age_s') or 0) > max(120, (integrity.get('interval_s') or 30)*3):
+        add('remote-integrity', 'error', '원격 DB 정합성 검사 확인 필요', 'DB 접속 및 검증 작업 상태를 확인하세요. 검사 불가는 정상으로 처리하지 않습니다.')
+    maintenance = ops.get('maintenance') or {}
+    if maintenance.get('state') in ('failed', 'resume_failed') or maintenance.get('failure_unresolved'):
+        add('maintenance', 'error', '예약 압축 실패', '유지보수 기록과 Spark 재개 상태를 확인하세요. 자동 성공 해제하지 않습니다.')
+    elif maintenance.get('overdue'):
+        add('maintenance', 'warning', '예약 압축 실행 지연', '예정된 작업이 실행되지 않았습니다. PC·Docker와 작업 스케줄러를 확인하세요.')
     if snapshot['progress']['state'] != 'ok':
         add('progress', 'error', 'Spark 관측 신호 확인 필요', '진행 파일이 없거나 갱신이 지연되고 있습니다.')
     if snapshot['mongo']['state'] != 'ok':
@@ -272,6 +284,16 @@ class Sampler:
             db = self._database()
             db.command('ping')
             out['mongo'] = {'state': 'ok'}
+            out['operations'] = {}
+            for name, ident in [('integrity', 'remote_integrity'), ('maintenance', 'maintenance')]:
+                doc = db.pipeline_controls.find_one({'_id': ident}, {'state': 1, 'reason': 1, 'incident': 1,
+                    'checked_at': 1, 'interval_s': 1, 'checked_rows': 1, 'checked_total': 1, 'cycles': 1,
+                    'cycle_completed_at': 1, 'updated_at': 1, 'next_run_at': 1, 'last_success_at': 1,
+                    'failure_unresolved': 1}) or {}
+                doc.pop('_id', None)
+                doc['check_age_s'] = age(doc.get('checked_at'), now)
+                doc['overdue'] = bool(date(doc.get('next_run_at')) and date(doc['next_run_at']) < now-timedelta(minutes=30))
+                out['operations'][name] = doc
             published = db.pipeline_sink_status.find_one({'_id': 'remote_writer'}, {'states': 1, 'updated_at': 1})
             if published and (age(published.get('updated_at'), now) or 0) <= 30 and date(published.get('updated_at')):
                 out['queue'] = {'counts': {s: int((published.get('states') or {}).get(s, 0)) for s in STATES},

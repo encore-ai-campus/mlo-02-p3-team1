@@ -1,0 +1,126 @@
+{
+  "observatory": {
+    "at": "2026-11-27T04:01:12.442712+00:00",
+    "queue": {
+      "pending": 0,
+      "processing": 0,
+      "waiting_context": 0,
+      "retrying": 0,
+      "parked": 0,
+      "blocked": 0,
+      "quarantined": 12,
+      "stored": 6366
+    },
+    "kafka_pending": 0,
+    "operations": {
+      "integrity": {
+        "interval_s": 30,
+        "state": "ok",
+        "checked_at": "2026-11-27T04:00:42.698000+00:00",
+        "checked_rows": 100,
+        "checked_total": 2149,
+        "check_age_s": 29.744712,
+        "overdue": false
+      },
+      "maintenance": {
+        "next_run_at": "2026-11-27T18:00:00+00:00",
+        "state": "ok",
+        "updated_at": "2026-11-27T03:52:02.637000+00:00",
+        "last_success_at": "2026-11-27T03:52:02.637626+00:00",
+        "check_age_s": null,
+        "overdue": false
+      }
+    },
+    "sampler_error": null,
+    "alerts": []
+  },
+  "spark": {
+    "at": "2026-11-27T04:01:12.617Z",
+    "active_queries": 8,
+    "sink_failures": {
+      "count": 0,
+      "last": null
+    },
+    "query_restarts": {}
+  },
+  "deployed_file_sha256": {
+    "/app/remote/integrity.py": "4ce3be827af30d0cab00e0dd690154c91b1d3512f2df9b91453eeef69ce88b18",
+    "/app/observatory/sampler.py": "5f006b098663f3a364f69b159105a429aec9d16cd799b21b76e1c6015fecd71b"
+  },
+  "verified_retained_stored_rows": 6366,
+  "loads": [
+    {
+      "passed": true,
+      "unique_events": 1200,
+      "duplicate_requests": 120,
+      "sessions": 50,
+      "fault": "writer-stop",
+      "observed_durable_backlog": 612,
+      "http_send_s": 43.163,
+      "api_unique_rps": 27.8,
+      "to_all_stored_s": 94.464,
+      "latency_p50_s": 56.175,
+      "latency_p95_s": 63.544,
+      "latency_max_s": 80.476,
+      "member_count": 1,
+      "result": {
+        "states": {
+          "stored": 1200
+        },
+        "reasons": [],
+        "events": 1200,
+        "archive": 1200,
+        "completed_runs": 50
+      }
+    },
+    {
+      "passed": true,
+      "unique_events": 2400,
+      "duplicate_requests": 240,
+      "sessions": 100,
+      "fault": "spark-restart",
+      "observed_durable_backlog": 0,
+      "http_send_s": 86.502,
+      "api_unique_rps": 27.75,
+      "to_all_stored_s": 150.571,
+      "latency_p50_s": 19.427,
+      "latency_p95_s": 56.642,
+      "latency_max_s": 63.391,
+      "member_count": 1,
+      "result": {
+        "states": {
+          "stored": 2400
+        },
+        "reasons": [],
+        "events": 2400,
+        "archive": 2400,
+        "completed_runs": 100
+      }
+    }
+  ],
+  "post_deployment_unique_events": 13,
+  "post_deployment_duplicate_requests": 13,
+  "post_deployment_latency_min_s": 9.066,
+  "post_deployment_latency_max_s": 9.327,
+  "maintenance": [
+    {
+      "table": "silver.learning_events",
+      "before_rows": 2749,
+      "after_rows": 2749,
+      "before_files": 305,
+      "after_files": 2
+    },
+    {
+      "table": "gold.minigame_1m",
+      "before_rows": 257,
+      "after_rows": 257,
+      "before_files": 40,
+      "after_files": 1
+    }
+  ],
+  "scheduled_task": {
+    "name": "NODEVERSE-Pipeline-Maintenance",
+    "last_result": 0,
+    "next_run_kst": "2026-11-28T03:00:00+09:00"
+  }
+}

@@ -7,6 +7,8 @@ services:
     image: ${PIPELINE_APP_IMAGE:?Set PIPELINE_APP_IMAGE to the image built from this checkout}
     environment:
       REMOTE_MEMBER_CACHE_SECONDS: ${REMOTE_MEMBER_CACHE_SECONDS:-0}
+      REMOTE_INTEGRITY_INTERVAL_S: ${REMOTE_INTEGRITY_INTERVAL_S:-30}
+      REMOTE_INTEGRITY_BATCH: ${REMOTE_INTEGRITY_BATCH:-100}
   spark:
     command:
       - --master

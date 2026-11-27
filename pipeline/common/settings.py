@@ -76,6 +76,8 @@ class Settings:
     remote_context_path: str = field(default_factory=lambda: os.getenv("REMOTE_CONTEXT_PATH", "/run/private/remote-context.json"))
     remote_workers: int = field(default_factory=lambda: _int("REMOTE_WORKERS", 8))
     remote_batch: int = field(default_factory=lambda: _int("REMOTE_BATCH", 200))
+    remote_integrity_interval_s: int = field(default_factory=lambda: max(1, _int('REMOTE_INTEGRITY_INTERVAL_S', 30)))
+    remote_integrity_batch: int = field(default_factory=lambda: max(1, min(1000, _int('REMOTE_INTEGRITY_BATCH', 100))))
     # 8th round: how long a resolved live member is reused before MySQL is asked again (0 = no cache)
     remote_member_cache_seconds: int = field(default_factory=lambda: _int("REMOTE_MEMBER_CACHE_SECONDS", 300))
     remote_allow_guests: bool = field(default_factory=lambda: os.getenv('REMOTE_ALLOW_GUESTS', '0') == '1')

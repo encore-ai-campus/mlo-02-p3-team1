@@ -17,6 +17,11 @@ function incidentGuide(event,snapshot){
   const state=id==='context-age'?'waiting_context':id;if(queueGuides[state])target='#state-'+state;
   action=queueGuides[state]?.action||'처리 가능한 대기열의 증가 여부와 작업자 상태를 확인하세요. 연결과 적재 오류를 해결한 뒤 완료 건수가 증가하는지 점검하세요.';
   evidence=counts?(state in counts?`${queueGuides[state]?.title||state}: ${counts[state]}건`:`처리 대기 ${counts.pending||0} · 처리 중 ${counts.processing||0} · 재시도 ${counts.retrying||0}건`):'DB 관측 불가 · 현재 건수를 확인할 수 없습니다.';
+ }else if(id==='remote-integrity'||id==='maintenance'){
+  target='#incidents';label=id==='remote-integrity'?'원격 DB 정합성·복구':'예약 압축';
+  const op=snapshot.operations?.[id==='remote-integrity'?'integrity':'maintenance']||{};
+  action=id==='remote-integrity'?'writer의 remote.integrity status를 확인하고, 원격 DB 복구 후 verify 및 해당 incident로 acknowledge하세요. 이력이나 DB를 임의 초기화하지 마세요.':'유지보수 작업 로그, Windows 작업 스케줄러, Spark 재개 상태를 확인하세요. 실패 원인을 해결한 뒤 예약 작업을 다시 실행하세요.';
+  evidence=`상태: ${op.state||'미확인'} · 마지막 확인: ${op.checked_at||op.updated_at||'미확인'}${op.incident?' · incident: '+op.incident:''}`;
  }else if(id==='progress'){
   target='#queries';label='Spark 진행 신호';action='Spark 컨테이너 실행 상태와 진행 파일 갱신 경로를 확인하세요. 관측 파일 오류와 실제 쿼리 중단을 구분하세요.';evidence=`진행 신호 상태: ${snapshot.progress?.state||'미확인'}`;
  }else if(id==='remote'||id==='local-mongo'||id==='collector'){

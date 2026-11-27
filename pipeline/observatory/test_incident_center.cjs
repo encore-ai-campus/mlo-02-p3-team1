@@ -5,4 +5,6 @@ let g=ctx.guide({id:'context-age'},snapshot);assert.equal(g.target,'#state-waiti
 g=ctx.guide({id:'slow:silver_learning_events'},snapshot);assert.equal(g.target,'#query-silver_learning_events');assert.match(g.evidence,/6000ms/);
 g=ctx.guide({id:'quarantined'},snapshot);assert.equal(g.target,'#state-quarantined');assert.match(g.action,/필수 필드/);
 g=ctx.guide({id:'context-age'},{queue:{counts:null}});assert.match(g.evidence,/확인할 수 없습니다/);
+g=ctx.guide({id:'remote-integrity'},{operations:{integrity:{state:'recovery_required',incident:'test-incident'}}});assert.match(g.action,/acknowledge/);assert.match(g.evidence,/test-incident/);
+g=ctx.guide({id:'maintenance'},{operations:{maintenance:{state:'failed'}}});assert.match(g.action,/스케줄러/);assert.match(g.evidence,/failed/);
 console.log('Incident detail checks passed: matching query/state targets, evidence, action guides, unknown data.');

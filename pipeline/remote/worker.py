@@ -299,6 +299,9 @@ class Worker:
         self.owner = socket.gethostname() + ":" + str(uuid.uuid4())
         self.stop = threading.Event()
         self.leased = threading.Event()
+        from remote.integrity import IntegrityGuard
+        self.integrity = IntegrityGuard(self.local, self.remote, self.pool,
+            s.remote_integrity_interval_s, s.remote_integrity_batch)
         log(workers=s.remote_workers, batch=s.remote_batch, sql_pool=s.sql_pool_size)
 
     # background threads
@@ -314,6 +317,8 @@ class Worker:
         marks = None
         while not self.stop.wait(5):
             if not self.leased.is_set():
+                continue
+            if not self.integrity.allowed:
                 continue
             try:
                 marks = mirror_metrics(self.local, self.remote, marks)
@@ -366,6 +371,8 @@ class Worker:
                 log(task="revive", error=type(e).__name__)
 
     def _ensure_indexes(self):
+        self.local.remote_event_outbox.create_index([('state', 1), ('_id', 1)])
+        self.local.remote_event_outbox.create_index([('state', 1), ('stored_at', -1)])
         self.local.remote_event_outbox.create_index([("state", 1), ("next_attempt_at", 1)])
         self.local.remote_event_outbox.create_index([("state", 1), ("reason", 1)])
         self.local.remote_event_outbox.create_index([('delivery_lane',1),('state',1),('next_attempt_at',1)])
@@ -391,6 +398,9 @@ class Worker:
     def run_once(self, first_run=False) -> bool:
         """One claim/process round. Returns False when there was nothing to do."""
         recover_stale(self.local, first_run)
+        if not self.integrity.check():
+            health(self.local, 'integrity_paused')
+            return False
         jobs = claim_batch(self.local, self.batch)
         if not jobs:
             health(self.local, "ready")
