@@ -50,7 +50,7 @@ class Settings:
     observatory_interval_s: int = field(default_factory=lambda: _int("OBSERVATORY_INTERVAL_S", 10))
     observatory_collector_url: str = field(default_factory=lambda: os.getenv("OBSERVATORY_COLLECTOR_URL", "http://collector:8000"))
     observatory_key: str = field(default_factory=lambda: os.getenv("OBSERVATORY_KEY", ""), repr=False)
-    observatory_name: str = field(default_factory=lambda: os.getenv("OBSERVATORY_NAME", "NODEVERSE"))
+    observatory_name: str = field(default_factory=lambda: os.getenv("OBSERVATORY_NAME", "코딱지"))
     observatory_bind: str = field(default_factory=lambda: os.getenv("OBSERVATORY_BIND", "127.0.0.1"))
     observatory_spark_ui_url: str = field(default_factory=lambda: os.getenv("OBSERVATORY_SPARK_UI_URL", "http://spark:4040"))
     observatory_deployment_path: str = field(default_factory=lambda: os.getenv("OBSERVATORY_DEPLOYMENT_PATH", "/run/observatory/runtime.json"))

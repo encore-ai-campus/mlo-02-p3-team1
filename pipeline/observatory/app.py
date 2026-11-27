@@ -41,7 +41,7 @@ def create_app(sampler=None, background=True):
         if thread:
             thread.join(timeout=2)
 
-    app = FastAPI(title='NODEVERSE Observatory', lifespan=lifespan, docs_url=None, redoc_url=None)
+    app = FastAPI(title='코딱지 Observatory', lifespan=lifespan, docs_url=None, redoc_url=None)
     app.state.sampler = sampler
     app.mount('/static', StaticFiles(directory=STATIC), name='static')
 

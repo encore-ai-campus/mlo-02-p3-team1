@@ -1,14 +1,14 @@
 {% load static %}<!doctype html>
 <html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NODEVERSE 다운로드</title>
+<title>코딱지 다운로드</title>
 <link rel="stylesheet" href="{% static 'css/observatory.css' %}?v=9">
 <link rel="stylesheet" href="{% static 'css/live.css' %}?v=9">
 </head><body>
 <main class="download-page">
-  <a class="download-home" href="{% url 'home' %}">← NODEVERSE 홈페이지</a>
+  <a class="download-home" href="{% url 'home' %}">← 코딱지 홈페이지</a>
   <section class="card download-card">
     <span class="eyebrow">WINDOWS DOWNLOAD</span>
-    <h1>NODEVERSE 받기</h1>
+    <h1>코딱지 받기</h1>
     {% if release %}
       <p class="download-version">최신 버전 <strong>{{ release.build_version }}</strong>{% if pack %} · 콘텐츠 {{ pack.version }}{% endif %}</p>
       {% if release.notes %}<p class="subtitle">{{ release.notes }}</p>{% endif %}

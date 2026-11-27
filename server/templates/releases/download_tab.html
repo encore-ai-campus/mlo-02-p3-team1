@@ -8,7 +8,7 @@
 <div class="split-grid wide-left">
   <section class="card ov-card download-hero-card" aria-labelledby="dl-title">
     {% if release %}
-    <h2 id="dl-title" class="dl-title">NODEVERSE {{ release.build_version }} <span class="result-badge info">{{ release.channel }}</span></h2>
+    <h2 id="dl-title" class="dl-title">코딱지 {{ release.build_version }} <span class="result-badge info">{{ release.channel }}</span></h2>
     <p class="dl-meta">{% include 'accounts/nav_icon.html' with icon='windows' %}Windows Desktop<span aria-hidden="true">|</span>등록 {{ release.published_at|date:'Y.m.d' }}<span aria-hidden="true">|</span>최소 빌드 {{ release.min_build }}<span aria-hidden="true">|</span>콘텐츠 {% if pack %}{{ pack.version }}{% else %}base{% endif %}</p>
     {% if link %}
     <div class="dl-actions"><a class="btn-solid dl-button" href="{{ link }}">{% include 'accounts/nav_icon.html' with icon='windows' %}Windows 다운로드</a>{% for item in links %}{% if forloop.first %}<button type="button" class="btn-ghost" data-copy="{{ item.url }}">{% include 'accounts/nav_icon.html' with icon='link' %}<span>다운로드 페이지 주소 복사</span></button>{% endif %}{% endfor %}</div>

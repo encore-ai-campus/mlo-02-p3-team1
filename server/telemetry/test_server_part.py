@@ -124,7 +124,7 @@ class ManifestTests(TestCase):
                                    package_url='https://example.com/nodeverse.zip')
         self.upload('content-2026.11.19')
         page = self.client.get('/staff/download/')
-        self.assertContains(page, 'NODEVERSE 0.3.1')
+        self.assertContains(page, '코딱지 0.3.1')
         self.assertContains(page, 'https://example.com/nodeverse.zip')
         self.assertContains(page, '/api/game/manifest?channel=windows-stable')
         self.assertContains(page, 'content-2026.11.19.pck')

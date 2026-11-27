@@ -122,7 +122,7 @@ services['observatory'] = {
     'env_file': [{'path': '.env.remote', 'required': False}],
     'environment': {'MONGO_URI': 'mongodb://mongo:27017', 'MONGO_DB': 'nodeverse_logs',
                     'MONGO_TIMEOUT_MS': '1000', 'PROGRESS_PATH': '/data/metrics/streaming-progress.json',
-                    'OBSERVATORY_KEY': '${OBSERVATORY_KEY:-}', 'OBSERVATORY_NAME': '${OBSERVATORY_NAME:-NODEVERSE}',
+                    'OBSERVATORY_KEY': '${OBSERVATORY_KEY:-}', 'OBSERVATORY_NAME': '${OBSERVATORY_NAME:-코딱지}',
                     'OBSERVATORY_BIND': '${OBSERVATORY_BIND:-127.0.0.1}',
                     'KAFKA_BOOTSTRAP': BOOTSTRAP, 'OBSERVATORY_SPARK_UI_URL': 'http://spark:4040',
                     'OBSERVATORY_DEPLOYMENT_PATH': '/run/observatory/runtime.json',

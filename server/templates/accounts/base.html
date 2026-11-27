@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>{% block title %}NODEVERSE &middot; Learning Observatory{% endblock %}</title>
+  <title>{% block title %}코딱지 &middot; Learning Observatory{% endblock %}</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="stylesheet" href="{% static 'css/observatory.css' %}?v=9">
   <link rel="stylesheet" href="{% static 'css/dashboard-refresh.css' %}?v=12">
@@ -26,7 +26,7 @@
 <div class="app-shell {% if user.is_authenticated %}has-sidebar{% else %}auth-layout{% endif %}">
 {% if user.is_authenticated %}
   <aside class="sidebar" id="workspace-navigation" aria-label="관리자 메뉴">
-    <a class="sidebar-brand" href="{% url 'dashboard' %}"><span class="brand-mark" aria-hidden="true">N</span><span class="brand-text"><strong>NODEVERSE</strong><small>Learning Observatory</small></span></a>
+    <a class="sidebar-brand" href="{% url 'dashboard' %}"><span class="brand-mark" aria-hidden="true">코</span><span class="brand-text"><strong>코딱지</strong><small>Learning Observatory</small></span></a>
     <span class="nav-caption" id="nav-analysis">분석</span>
     <nav class="sidebar-nav" aria-labelledby="nav-analysis">
       <a {% if name == 'dashboard' and scope != 'game' %}class="current" aria-current="page"{% endif %} href="{% url 'dashboard' %}">{% include 'accounts/nav_icon.html' with icon='chart' %}<span>전체 현황</span></a>
