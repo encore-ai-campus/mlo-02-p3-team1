@@ -178,7 +178,7 @@ position = Vector2(812.1, 413.7)
 position = Vector2(1036.6, 429.0)
 
 [node name="Npc" type="StaticBody2D" parent="Field/World"]
-position = Vector2(648.2, 410.7)
+position = Vector2(1135, 355)
 
 [node name="Shadow" type="Polygon2D" parent="Field/World/Npc"]
 color = Color(0, 0, 0, 0.28)

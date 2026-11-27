@@ -19,6 +19,9 @@ var path: Array = []
 var comps := 0
 var labels: Array = []
 var ring: Line2D
+const C_PATH := Color("0b4fc4")        # 지나온 발판 숫자 (밝은 받침 위에서 잘 보이는 짙은 파랑)
+const C_PATH_LINE := Color("ffd23f")   # 지나온 길 화살표
+const C_EMPTY := Color("6b6257")       # 빈 발판 글씨
 
 func _init() -> void:
 	stage_id = "ST07"
@@ -90,11 +93,28 @@ func set_state(s: Dictionary) -> void:
 func rebuild() -> void:
 	clear_children(links)
 	for i in 7:
-		labels[i].text = "" if keys[i] == null else str(keys[i])
-		labels[i].add_theme_color_override("font_color", StageHUD.BLUE if i in path else StageHUD.INK)
+		labels[i].text = "빈칸" if keys[i] == null else str(keys[i])
+		labels[i].add_theme_font_size_override("font_size", 24 if keys[i] == null else 40)
+		labels[i].add_theme_color_override("font_color", C_EMPTY if keys[i] == null else (C_PATH if i in path else StageHUD.INK))
 	for i in range(1, path.size()):
-		link(mark("Plate%d" % path[i - 1]) + Vector2(0, 34), mark("Plate%d" % path[i]) + Vector2(0, -36), C_LINK, 0.0)
+		_path_link(mark("Plate%d" % path[i - 1]) + Vector2(0, 34), mark("Plate%d" % path[i]) + Vector2(0, -36))
 	ring.position = mark("Plate%d" % cur) + Vector2(0, 4)
+
+## 지나온 길: 밝은 돌바닥 위에서도 보이게 짙은 테두리 위에 금색 화살표를 그린다.
+func _path_link(a: Vector2, b: Vector2) -> void:
+	var dir := (b - a).normalized()
+	var side := Vector2(-dir.y, dir.x)
+	var edge := Line2D.new()
+	edge.points = PackedVector2Array([a, b - dir * 10])
+	edge.width = 14.0
+	edge.default_color = StageHUD.INK
+	edge.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	links.add_child(edge)
+	var tip := Polygon2D.new()
+	tip.color = StageHUD.INK
+	tip.polygon = PackedVector2Array([b + dir * 6, b - dir * 20 + side * 17, b - dir * 20 - side * 17])
+	links.add_child(tip)
+	link(a, b, C_PATH_LINE, 0.0)
 
 func _target():
 	return tasks[0] if not tasks.is_empty() else null

@@ -295,7 +295,11 @@ func _build_dialogue(root: Control) -> void:
 	skip.position = Vector2(1130, 660)
 	dlg.add_child(skip)
 
-func start_dialogue(speaker: String, portrait: Texture2D, pages: Array) -> void:
+var _close_label := "시작하기"
+
+## close_label: 마지막 쪽의 안내 문구 (기본 "시작하기", 게임 중 알림창은 "계속하기")
+func start_dialogue(speaker: String, portrait: Texture2D, pages: Array, close_label := "시작하기") -> void:
+	_close_label = close_label
 	dlg_name.text = speaker
 	dlg_portrait.texture = portrait
 	_pages = pages
@@ -309,7 +313,7 @@ func _show_page() -> void:
 	dlg_text.text = _pages[_page]
 	dlg_text.visible_ratio = 0.0
 	dlg_page.text = "%d / %d" % [_page + 1, _pages.size()]
-	dlg_more.text = "▼ E / Space 다음" if _page < _pages.size() - 1 else "▶ E / Space 시작하기"
+	dlg_more.text = "▼ E / Space 다음" if _page < _pages.size() - 1 else "▶ E / Space " + _close_label
 	if _type_tween:
 		_type_tween.kill()
 	_type_tween = create_tween()

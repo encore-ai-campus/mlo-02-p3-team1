@@ -168,6 +168,10 @@ func _answer(choice: String) -> void:
 		win("최종 점수 %d점\n실수 %d회" % [score, 3 - lives])
 	else:
 		_show_card()
+		if choice == q[1]:
+			# 정답이면 코드를 알림창으로 보여 준다. 창이 열려 있는 동안은 타이머가 멈춘다 (_process 참고).
+			hud.start_dialogue("정답! %s" % q[1], npc_portrait,
+				["%s\n\n%s" % [q[2], "\n".join(SNIPPET[q[1]])]], "다음 요청")
 
 func undo_last() -> void:
 	pass   # 시간제 문제에서는 되돌리기 없음
