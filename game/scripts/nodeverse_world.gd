@@ -428,11 +428,20 @@ func _show_loading() -> void:
 	bg.color = Color(0.07, 0.30, 0.40)
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_loading_layer.add_child(bg)
-	# 로딩 배경: 7개 섬 전체 지도 일러스트 (화면을 꽉 채우고 넘치는 부분은 잘라냄)
+	# 로딩 배경: 7개 섬 전체 지도 일러스트. 왼쪽 위 로고가 잘리지 않게 그림 전체를 보이게 놓고(비율 유지),
+	# 화면 비율이 16:9 가 아닐 때 남는 띠는 같은 그림을 늘려 깐 흐린 바탕으로 채운다.
+	var tex: Texture2D = load("res://textures/loading_bg.png")
+	var fill := TextureRect.new()
+	fill.texture = tex
+	fill.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	fill.stretch_mode = TextureRect.STRETCH_SCALE
+	fill.modulate = Color(0.75, 0.82, 0.88)
+	fill.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_loading_layer.add_child(fill)
 	var art := TextureRect.new()
-	art.texture = load("res://textures/loading_bg.png")
+	art.texture = tex
 	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	art.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_loading_layer.add_child(art)
 	# 진행 표시: 화면 아래쪽 반투명 말풍선 안
