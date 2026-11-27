@@ -69,6 +69,7 @@ func summary_code() -> void: pass                  # 클리어 시 코드 패널
 
 # ---------- 수명 주기 ----------
 func _ready() -> void:
+	get_tree().root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP   # 화면 비율이 16:9 가 아니어도 2D 게임 화면을 가운데에 맞춘다
 	_num_re.compile("(?<![\\w#])(\\d+)")
 	for c in world.get_children():
 		if c is Interactable:

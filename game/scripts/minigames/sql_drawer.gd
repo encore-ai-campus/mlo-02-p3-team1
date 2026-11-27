@@ -55,6 +55,7 @@ var tables := {}
 
 # ---------- 준비 ----------
 func _ready() -> void:
+	get_tree().root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP   # 화면 비율이 16:9 가 아니어도 2D 게임 화면을 가운데에 맞춘다
 	game = Data.GAMES[activity]
 	stage_id = game.id
 	font = load("res://fonts/NotoSansKR_Medium.tres")

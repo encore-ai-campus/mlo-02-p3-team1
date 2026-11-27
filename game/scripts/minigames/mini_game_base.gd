@@ -113,6 +113,7 @@ func controls_text() -> String: return "클릭 선택 · Z 되돌리기 · R 초
 
 # ---------- 수명 주기 ----------
 func _ready() -> void:
+	get_tree().root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP   # 화면 비율이 16:9 가 아니어도 2D 게임 화면을 가운데에 맞춘다
 	font = ThemeDB.fallback_font
 	var p := "res://textures/stages/%s/bg_pixel.png" % stage_id
 	if ResourceLoader.exists(p):

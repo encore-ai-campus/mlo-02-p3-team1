@@ -453,6 +453,7 @@ static func evaluate_goal(lv: Dictionary, host: SimHost) -> Dictionary:
 # ============================================================================
 
 func _ready() -> void:
+	get_tree().root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP   # 화면 비율이 16:9 가 아니어도 2D 게임 화면을 가운데에 맞춘다
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	_ui_font = load("res://fonts/NotoSansKR_Medium.tres")
 	_robot_tex = load("res://textures/sprites/robot.png")
