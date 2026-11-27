@@ -19,14 +19,14 @@ func lab_table() -> Dictionary:
 		"tree": {"id": "DS09", "title": "가지 잇는 나무", "levels": 3, "art": "ST06", "npc": "NPC06", "npc_name": "자료실 사서",
 			"intro": ["어서 오렴. 책이 층층이 갈라지는 자료실을 지으려면 먼저 '트리'를 이어 봐야 한단다.",
 				"맨 위 하나가 루트, 아래로 이어진 쪽이 자식, 더 내려갈 곳이 없으면 리프야. 부모는 언제나 하나뿐이지.",
-				"조작은 간단해. 부모 노드와 자식 노드를 차례로 E를 누르고 숫자 키 1은 왼쪽, 2는 오른쪽, 3은 연결 해제란다. 고리가 생기거나 부모가 둘이면 거부된단다."],
+				"조작은 간단해. 부모 노드와 자식 노드를 차례로 E를 누르고 숫자 키 1은 왼쪽, 2는 오른쪽, 3은 연결 해제란다. 고리가 생기거나 부모가 둘이면 거부된단다.", "표와 똑같이 이어지는 순간 바로 완성이야. 따로 검사하러 갈 필요 없단다."],
 			"talk": ["A를 루트로 두고 왼쪽에 B, 오른쪽에 C를 이어 보렴.", "한 단계 더 깊은 나무야. 표의 왼쪽과 오른쪽을 잘 보렴. 한쪽만 있는 부모도 있단다.", "잘못 이어진 가지가 있구나. 부모와 자식을 고른 뒤 3번 키로 연결을 풀고, 표대로 다시 이어 보렴."],
 			"hints": ["트리는 고리가 없고 모든 노드의 부모가 하나인 구조예요.", "표에서 부모 하나씩 읽어 왼쪽 슬롯, 오른쪽 슬롯 순서로 맞춰 보세요.", "예: A.left = B, A.right = C, B.left = D 이면 루트는 A, 리프는 C와 D예요."]},
 		"graph": {"id": "DS10", "title": "연결망 건설소", "levels": 3, "art": "ST09", "npc": "NPC09", "npc_name": "연결망 측량사",
 			"intro": ["왔어? 이번엔 조사가 아니라 건설이야. 마을 사이에 노선을 놓아서 '그래프'를 직접 만들어 보자.",
 				"집은 정점, 길은 간선이야. 양쪽으로 다닐 수 있으면 무방향, 한쪽으로만 가면 방향 간선, 길에 비용이 붙으면 가중치가 있다고 해.",
 				"트리와 달리 그래프는 고리가 생겨도 괜찮아. 어디에도 안 이어진 집이 있어도 요청대로라면 정답이야.",
-				"출발 정점과 도착 정점을 차례로 E를 누르고 숫자 키 1로 간선을 놓아. 2는 삭제, 3과 4는 비용 조절이야. 다 놓으면 검사 지점에서 E를 눌러 확인해."],
+				"집 앞에 서서 E로 출발 집을 고르고, 다른 집 앞에서 E로 도착 집을 고른 다음 숫자 키 1로 길을 놓아. 2는 삭제, 3과 4는 비용 조절이야. 노선표와 똑같아지면 바로 완성이야."],
 			"talk": ["양쪽으로 다니는 길 4개를 놓아 줘. 무방향이라 A-B와 B-A는 같은 길이야.", "이번엔 한쪽으로만 가는 편도 노선이야. C에서 A로 돌아오면 고리가 생기지만 유효해.", "비용이 잘못된 노선과 방향이 뒤집힌 노선이 있어. 고쳐서 복원해 줘. E는 연결하지 않아도 돼."],
 			"hints": ["정점은 장소, 간선은 연결이에요. 방문 순서는 평가하지 않아요.", "표의 각 줄을 출발 → 도착 순서로 E를 눌러 만들고, 방향과 비용까지 같은지 보세요.", "예: A→B(3), B→C(2)이면 A에서 C로 갈 수 있지만 C에서 A로는 못 가요."]},
 	}
@@ -37,12 +37,17 @@ func problems_for(n: int) -> Array:
 func setup_problem(p: Dictionary) -> void:
 	if activity == "tree":
 		state = {"edges": p.start.duplicate(true), "parent": "", "child": ""}
-		goal = "표와 같은 부모·자식 연결 만들기"
+		goal = "표대로 가지 잇기: 부모 E → 자식 E → 1(왼쪽)/2(오른쪽)"
 	else:
 		state = {"edges": {}, "from": "", "to": "", "cost": 1}
 		for e in p.start:
 			state.edges[edge_key(e[0], e[1])] = e[2]
-		goal = ("양방향" if not p.directed else "편도") + " 노선표대로 연결망 만들기"
+		if p.start.size() > 0:
+			goal = "노선표와 다른 길 고치기: 두 집 E → 2 삭제 · 3/4 비용 · 1 놓기"
+		elif p.directed:
+			goal = "편도 노선 %d개 놓기: 출발 집 E → 도착 집 E → 1" % p.edges.size()
+		else:
+			goal = "노선표의 길 %d개 놓기: 두 집에서 E → 1" % p.edges.size()
 
 func handle(key: String) -> void:
 	if activity == "tree":
@@ -128,6 +133,14 @@ func tree_link(parent: String, child: String, side: int) -> void:
 	code("%s.%s = %s;" % [parent, "left" if side == 0 else "right", child])
 	state.parent = ""
 	state.child = ""
+	# 표와 같아지면 바로 완성 판정한다 (따로 검사 지점을 찾지 않아도 되게)
+	var p: Dictionary = problems()[0]
+	if tree_rows(state.edges) == tree_rows(p.target):
+		tree_action("check")
+	else:
+		var left_n: int = tree_rows(p.target).size() - tree_rows(state.edges).size()
+		if left_n > 0:
+			say("연결 %d개 남았어요" % left_n, StageHUD.GOLD)
 
 func tree_rows(edges: Dictionary) -> Array:
 	var rows = []
@@ -197,6 +210,23 @@ func graph_add() -> void:
 		code('addEdge("%s", %d);' % [k, cost] if p.weighted else 'addEdge("%s");' % k)
 	state.from = ""
 	state.to = ""
+	_graph_progress()
+
+## 노선표와 같아지면 바로 완성 판정, 아니면 남은 노선 수를 알려 준다 (검사 지점을 따로 찾지 않아도 되게)
+func _graph_progress() -> void:
+	var p: Dictionary = problems()[0]
+	var want = {}
+	for e in p.edges:
+		want[edge_key(e[0], e[1])] = e[2]
+	if want == state.edges:
+		graph_check()
+		return
+	var left_n := 0
+	for k in want:
+		if state.edges.get(k, -1) != want[k]:
+			left_n += 1
+	if left_n > 0:
+		say("노선 %d개 남았어요" % left_n, StageHUD.GOLD)
 
 func graph_delete() -> void:
 	if state.from == "" or state.to == "":
@@ -211,6 +241,7 @@ func graph_delete() -> void:
 	code('removeEdge("%s");' % k)
 	state.from = ""
 	state.to = ""
+	_graph_progress()
 
 func graph_check() -> void:
 	moves += 1

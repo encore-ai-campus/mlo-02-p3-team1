@@ -63,14 +63,6 @@ centered = false
 build_mode = 1
 polygon = PackedVector2Array(251.3, 337.1, 848.9, 337.1, 867.3, 395.3, 855.0, 404.5, 790.7, 413.7, 799.9, 557.8, 769.2, 579.2, 729.4, 606.8, 475.0, 616.0, 278.9, 576.1, 236.0, 508.7, 285.0, 462.8, 285.0, 404.5, 242.1, 401.5, 232.9, 389.2, 229.8, 358.6, 251.3, 337.1)
 
-[node name="Boundary1" type="CollisionPolygon2D" parent="Field/Walls"]
-build_mode = 1
-polygon = PackedVector2Array(324.8, 416.8, 321.8, 493.4, 496.5, 493.4, 499.5, 416.8, 324.8, 416.8)
-
-[node name="Boundary2" type="CollisionPolygon2D" parent="Field/Walls"]
-build_mode = 1
-polygon = PackedVector2Array(600.7, 432.1, 579.2, 435.2, 548.6, 453.6, 533.2, 475.0, 530.2, 496.5, 539.4, 517.9, 573.1, 542.4, 616.0, 551.6, 628.2, 548.6, 655.8, 545.5, 692.6, 521.0, 701.8, 505.7, 701.8, 475.0, 692.6, 459.7, 655.8, 435.2, 600.7, 432.1)
-
 [node name="Links" type="Node2D" parent="Field"]
 
 [node name="World" type="Node2D" parent="Field"]
@@ -193,6 +185,7 @@ offset = Vector2(0, -75)
 
 [node name="Body" type="CollisionShape2D" parent="Field/World/Npc"]
 shape = SubResource("npc_body")
+disabled = true
 
 [node name="Talk" type="Area2D" parent="Field/World/Npc"]
 script = ExtResource("3")

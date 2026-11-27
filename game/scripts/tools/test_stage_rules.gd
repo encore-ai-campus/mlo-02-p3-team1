@@ -129,23 +129,26 @@ func test_st03() -> void:
 	# 복구 작업대는 앞쪽 발판 하나로 쓰고, 괄호 판정은 작업대 앞 세 발판(올바름 0 / 불일치 1 / 괄호 남음 2)으로 한다
 	check(s.spot("output").enabled and not s.spot("judge", 0).enabled, "ST03 상자 레벨: 작업대만 켜짐")
 	level(3)   # ([]{})
-	check(not s.spot("output").enabled and not s.spot("intake").enabled and s.spot("judge", 1).enabled, "ST03 괄호 레벨: 판정 발판만 켜짐")
+	check(not s.spot("output").enabled and s.spot("intake").enabled and not s.spot("lever").enabled and s.spot("judge", 1).enabled, "ST03 괄호 레벨: 레일 + 판정 발판 (레버 없음)")
 	act("judge", 0)
 	check(s.mistakes == 1 and not s.done, "ST03 다 읽기 전 올바름 선언 거부")
 	play_hints()
 	check(s.done, "ST03 올바름 발판으로 완료")
 	level(4)   # {[(])}
-	act("tower")
-	act("tower")
-	act("tower")
+	for i in 3:
+		act("intake")
+		act("tower")
+	act("intake")   # ']' 를 든다. 맨 위는 '('
 	act("judge", 2)
 	check(not s.done and s.mistakes == 1, "ST03 읽는 중 괄호 남음 선언 거부")
+	act("tower")
+	check(not s.done and s.mistakes == 2 and s.stack.size() == 3, "ST03 짝 안 맞는 닫는 괄호는 탑에 못 넣음")
 	act("judge", 1)
 	check(s.done, "ST03 불일치 발판으로 완료")
 	level(5)   # (()
-	act("tower")
-	act("tower")
-	act("lever")
+	for i in 3:
+		act("intake")
+		act("tower")
 	act("judge", 0)
 	check(not s.done and s.mistakes == 1, "ST03 괄호가 남았는데 올바름 선언 거부")
 	act("judge", 2)

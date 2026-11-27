@@ -5,11 +5,11 @@ extends WalkStage
 
 const M := 5
 const LEVELS := [
-	{"items": [[12, "포도"], [7, "배"], [3, "사과"], [10, "귤"]], "find": [7, 12], "goal": "h(k) = k mod 5 로 넣고 찾기"},
-	{"items": [[21, "감"], [6, "밤"], [11, "무"], [6, "밤"], [14, "콩"], [9, "쌀"]], "find": [11, 9, 6], "goal": "충돌과 중복 키를 처리하며 넣고 찾기"},
-	{"items": [[25, "책"], [40, "펜"], [33, "컵"], [18, "솔"], [25, "책"], [8, "끈"], [13, "못"]], "find": [13, 40, 18], "goal": "긴 체인이 생겨도 정확히 찾기"},
-	{"items": [[7, "배"], [12, "감"], [7, "귤"]], "find": [7], "update": true, "goal": "같은 키가 또 오면 값만 바꾸기 (맵)"},
-	{"items": [[7, "배"], [12, "감"], [2, "콩"], [9, "쌀"]], "find": [2, 4], "linear": true, "goal": "선형 탐사: 충돌하면 다음 빈 칸에 넣기"},
+	{"items": [[12, "포도"], [7, "배"], [3, "사과"], [10, "귤"]], "find": [7, 12], "goal": "물품 4개를 사물함에 등록한 뒤, 키 7·12 찾기"},
+	{"items": [[21, "감"], [6, "밤"], [11, "무"], [6, "밤"], [14, "콩"], [9, "쌀"]], "find": [11, 9, 6], "goal": "물품 6개 등록 (같은 키는 거절함으로), 키 11·9·6 찾기"},
+	{"items": [[25, "책"], [40, "펜"], [33, "컵"], [18, "솔"], [25, "책"], [8, "끈"], [13, "못"]], "find": [13, 40, 18], "goal": "물품 7개 등록 (같은 칸엔 줄줄이), 키 13·40·18 찾기"},
+	{"items": [[7, "배"], [12, "감"], [7, "귤"]], "find": [7], "update": true, "goal": "물품 3개 등록 (같은 키는 이름만 바꾸기), 키 7 찾기"},
+	{"items": [[7, "배"], [12, "감"], [2, "콩"], [9, "쌀"]], "find": [2, 4], "linear": true, "goal": "선형 탐사로 4개 등록 (차 있으면 다음 칸), 키 2·4 찾기"},
 ]
 
 var buckets: Array = []
@@ -30,7 +30,9 @@ func _init() -> void:
 	hint_after_mistake = true
 	code_keywords += ["Item"]
 	intro = [
-		"반가워요. 저는 물품대장을 맡고 있어요. 물건이 수천 개여도 이름표만 보면 바로 찾아야 하거든요.",
+		"반가워요. 저는 물품대장을 맡고 있어요. 물건이 수천 개여도 번호만 보면 바로 찾아야 하거든요.",
+		"여기서 할 일은 두 가지예요. 먼저 입고대의 물품을 모두 알맞은 사물함에 등록하고, 다 끝나면 손님이 찾는 번호의 물품을 꺼내 줘요.",
+		"상자에 적힌 숫자가 '키'(물품 번호), 그 아래 글자가 '값'(물품 이름)이에요. 사물함은 키로만 정하고, 값은 함께 보관만 해요.",
 		"처음부터 하나씩 뒤지면 너무 오래 걸려요. 그래서 키를 계산 한 번으로 칸 번호로 바꾸는 함수를 써요. 이게 '해시 함수'예요.",
 		"여기 함수는 h(k) = k mod 5, 즉 키를 5로 나눈 나머지예요. 12면 나머지 2, 그러니 2번 사물함! 이렇게 키로 값을 찾는 구조가 '맵'이에요.",
 		"그런데 7도 나머지가 2네요? 다른 키가 같은 칸에 몰리는 걸 '충돌'이라고 해요. 같은 칸에 줄줄이 달아 두는 방법을 '체이닝'이라고 하죠.",
@@ -117,15 +119,33 @@ func rebuild() -> void:
 			var entry := {"text": "?" if hidden else str(it[0]), "pos": mark("Tag%d" % b) + Vector2(0, 44 + i * 36), "scale": 0.5, "color": col, "z": 1}
 			want["k%d" % it[0]] = entry
 	if not queue.is_empty() and hand == null:
-		want["q%d" % queue[0][0]] = {"text": str(queue[0][0]), "pos": mark("Inbox")}
+		want["q%d" % queue[0][0]] = {"text": _label(queue[0]), "pos": mark("Inbox")}
 	if hand != null:
-		want["q%d" % hand[0]] = {"text": str(hand[0]), "pos": hold_pos()}
+		want["q%d" % hand[0]] = {"text": _label(hand), "pos": hold_pos()}
 	var held_id = "q%d" % hand[0] if hand != null else null
 	sync_items(want, held_id)
 	for id in items:
+		if id.begins_with("q"):   # 입고대·손에 든 상자만 키 아래 이름(값)을 함께 적는다 (사물함 속 작은 상자는 키만)
+			_fit_label(items[id])
 		if want.has(id) and want[id].has("color"):
 			(items[id] as StageCrate).set_tint(want[id].color)
 	_draw_panel()
+
+## 입고대·손에 든 상자 명판: 키(숫자) 아래에 값(물품 이름)을 작게 적는다
+func _label(it) -> String:
+	return "%d\n%s" % [it[0], it[1]]
+
+## 두 줄 명판이 상자 안에 들어가도록 글자 크기를 줄인다 (상자마다 설정을 복제해 다른 스테이지에 영향 없게)
+func _fit_label(c) -> void:
+	if not c.is_node_ready() or c.label.has_meta("fit"):
+		return
+	var ls: LabelSettings = c.label.label_settings.duplicate()
+	ls.font_size = 18
+	ls.line_spacing = -6
+	c.label.label_settings = ls
+	c.label.offset_top = -60.0
+	c.label.offset_bottom = -8.0
+	c.label.set_meta("fit", true)
 
 func _draw_panel() -> void:
 	clear_children(panel_root)
@@ -147,7 +167,9 @@ func _cur_text() -> String:
 	return "키 %d 찾기" % finds[0] if not finds.is_empty() else "-"
 
 func info_rows() -> Array:
-	return [["단계", "넣기" if phase == "insert" else "찾기"], ["현재", _cur_text()], ["항목", count()], ["충돌 처리", "선형 탐사" if is_linear() else "체이닝"]]
+	var total: int = LEVELS[level].items.size()
+	var step_txt := "1단계 등록 %d / %d" % [total - queue.size() - (1 if hand != null else 0), total] if phase == "insert" else "2단계 찾기 (%d개 남음)" % finds.size()
+	return [["단계", step_txt], ["현재", _cur_text()], ["항목", count()], ["충돌 처리", "선형 탐사" if is_linear() else "체이닝"]]
 
 func state_text() -> String:
 	var t := ""
@@ -187,7 +209,7 @@ func interact(t: Interactable) -> void:
 			else:
 				snapshot()
 				hand = queue.pop_front()
-				code("key = %d;" % hand[0], hand[1])
+				code("item = (%d, \"%s\");" % [hand[0], hand[1]], "키 %d · 값 %s" % [hand[0], hand[1]])
 		"hash":
 			if hand != null:
 				code("h = %d %% 5;" % hand[0], "= %d" % (hand[0] % M))
@@ -245,7 +267,7 @@ func _insert(b: int) -> void:
 		return
 	snapshot()
 	buckets[b].append(hand)
-	code("table[%d].add(%d);" % [b, k], hand[1] + (" (충돌)" if buckets[b].size() > 1 or b != k % M else ""))
+	code("table[%d].add(%d, \"%s\");" % [b, k, hand[1]], "충돌, 줄 뒤에 달기" if buckets[b].size() > 1 or b != k % M else "%d mod 5 = %d" % [k, k % M])
 	hand = null
 	moves += 1
 	_after_insert()
