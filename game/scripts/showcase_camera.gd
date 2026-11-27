@@ -27,7 +27,7 @@ func _ready() -> void:
 	var panel := PanelContainer.new()
 	panel.position = Vector2(18, 18)
 	var lbl := Label.new()
-	lbl.text = "NODEVERSE 3D 에셋 쇼케이스 (총 70종 3D 모델 / sample-assets 53종 + objects 20종)\n" + \
+	lbl.text = "코딱지 3D 에셋 쇼케이스 (총 70종 3D 모델 / sample-assets 53종 + objects 20종)\n" + \
 		"• 우클릭 드래그: 회전 | 휠 클릭 / Shift+드래그: 이동 | 마우스 휠: 줌 | WASD/방향키: 이동\n" + \
 		"• 숫자키 [0]: 전체 보기  [1]: 캐릭터·소품  [2]: 지형·자연  [3]: 다리·부두·울타리  [4]: 자료구조 모듈  [5]: 표지판  [6]: 연결섬 오브젝트 OBJ01-20"
 	lbl.add_theme_font_size_override("font_size", 14)
