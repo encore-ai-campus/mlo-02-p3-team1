@@ -23,9 +23,9 @@
 
 <img src="docs/readme/kkodakji-play.gif" width="720" alt="코딱지 플레이 장면: 3D 섬 월드와 스택 스테이지 자동 풀이">
 
-<a href="https://youtube.com/shorts/y_Be5HSoYxk"><img src="docs/readme/shorts-preview.gif" width="240" alt="코딱지 30초 홍보 숏츠 미리보기: 코린이에서 디버거로 레벨 업"></a>
+<a href="https://youtube.com/shorts/y_Be5HSoYxk"><img src="docs/readme/shorts-play.jpg" width="300" alt="코딱지 30초 홍보 숏츠: 누르면 YouTube에서 재생"></a>
 
-<sub>▶ YouTube에서 30초 홍보 숏츠 보기 · <a href="docs/presentation/%EC%BD%94%EB%94%B1%EC%A7%80_%ED%99%8D%EB%B3%B4_%EC%88%8F%EC%B8%A0_30%EC%B4%88.mp4">영상 파일</a></sub>
+<sub>▶ YouTube에서 소리와 함께 보기 (30초)</sub>
 
 </div>
 
@@ -154,7 +154,7 @@ code mlo-02-p3-team1/nodeverse.code-workspace
 | 거절된 기록 (DLQ) | 422 원문을 `nv.dlq.v1`에 남깁니다. 계약 호환 문제로 거절된 기록은 [DLQ 복구 도구](pipeline/tools/recover_state_dlq.py)로 계획을 만든 뒤 같은 ID로 다시 보낼 수 있습니다(2026-11-25에 45건 복구, 기존 기록 변경 0건) |
 | 확인 | 관측소(:8011)가 쿼리 중단, 처리·배치 지연, 적재 대기·중단을 표시하고 경고·복구 이력을 남깁니다 |
 
-![장애·예외 상황 대응 비교](docs/presentation/fig-5-scenarios.png)
+<img src="docs/readme/failure-scenarios.png" width="900" alt="장애가 나도 기록은 이어집니다: MongoDB 정지, Spark 쿼리 실패, Kafka 브로커 정지, 재전송, 늦은 기록, 원격 적재 재시도, 유입 급증, park 경합, 원격 DB 교체의 처음 구조와 현재 구조 비교">
 
 자세히: [장애 복구 보고](pipeline/docs/RECOVERY_2026-11-25.md), [신뢰성 보완 기록](docs/changes/2026-11-20_pipeline_reliability.md), [구조 비교와 최적화](docs/presentation/NODEVERSE_파이프라인_구조비교_최적화.md)
 
