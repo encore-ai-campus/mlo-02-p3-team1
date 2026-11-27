@@ -31,6 +31,7 @@ var cable = null            # 들고 있는 연결선의 출발 ("A", "B", "C", 
 var read_i := 0             # 읽기 레벨: 지금까지 읽은 노드 수
 var L: Dictionary
 var cable_line: Line2D
+var cable_edge: Line2D
 var stickers: Node2D
 
 func _init() -> void:
@@ -61,9 +62,19 @@ func _init() -> void:
 
 func build_stage() -> void:
 	# HEAD 팻말과 null(리스트의 끝) 안내판 글자는 배경 그림에 들어 있다. HEAD 는 주황, next 는 은색, 끝(null)은 회색 파이프.
+	# 들고 다니는 연결선도 노란 선 대신 파이프로 그린다 (어두운 테두리 + 파이프 이미지)
+	cable_edge = Line2D.new()
+	cable_edge.width = 22.0
+	cable_edge.default_color = Color(0.08, 0.07, 0.11, 0.9)
+	cable_edge.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	cable_edge.end_cap_mode = Line2D.LINE_CAP_ROUND
+	cable_edge.z_index = 2
+	field.add_child(cable_edge)
+	field.move_child(cable_edge, world.get_index())
 	cable_line = Line2D.new()
-	cable_line.width = 7.0
-	cable_line.default_color = StageHUD.GOLD
+	cable_line.width = 18.0
+	cable_line.texture_mode = Line2D.LINE_TEXTURE_TILE
+	cable_line.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
 	cable_line.z_index = 2
 	field.add_child(cable_line)
 	field.move_child(cable_line, world.get_index())
@@ -135,9 +146,16 @@ func rebuild() -> void:
 func _process(_d: float) -> void:
 	if cable == null:
 		cable_line.clear_points()
+		cable_edge.clear_points()
 		return
 	var from: Vector2 = _anchor(cable if cable != "HEAD" else "Head")
-	cable_line.points = PackedVector2Array([from, world.to_local(player.carry_point.global_position)])
+	var pts := PackedVector2Array([from, world.to_local(player.carry_point.global_position)])
+	var tex: Texture2D = load(PIPE_DIR + ("pipe_head.png" if cable == "HEAD" else "pipe_next.png"))
+	if cable_line.texture != tex:
+		cable_line.texture = tex
+	cable_line.default_color = Color.WHITE if tex else (C_HEAD if cable == "HEAD" else C_LINK)
+	cable_line.points = pts
+	cable_edge.points = pts
 
 func info_rows() -> Array:
 	var ch := chain()
