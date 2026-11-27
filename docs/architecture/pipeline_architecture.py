@@ -40,7 +40,7 @@ def tagged(text):
 
 
 def badge(x, y, tag):
-    label, w = ("후속", 34) if tag == "+" else (f"{tag}차", 22)
+    label, w = ("추가", 34) if tag == "+" else (f"{tag}차", 22)
     return (f'<rect x="{x}" y="{y - 12}" width="{w}" height="16" rx="4" fill="{TAG[tag]}"/>'
             f'<text x="{x + w / 2}" y="{y + 1}" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">{label}</text>'), w
 
@@ -99,8 +99,8 @@ def build():
     o.append("</defs>")
     o.append(f'<rect width="{W}" height="{H}" fill="#ffffff"/>')
     o.append('<text x="30" y="42" font-size="28" font-weight="800" fill="#1f2430">아키텍처 상세: 코딱지 파이프라인 구성 요소별 설정</text>')
-    o.append('<text x="30" y="70" font-size="15" fill="#5b6472">2026-11-25 작성 · 2026-11-27 코드 대조 · 1~8차 보완과 후속 반영 · '
-             '배지 = 그 부분을 바꾼 보완 차수 (후속 = 8차 이후) · 실선 = 데이터, 파선 = 기동·상태 확인, 점선 = 화면 조회, 빨간 점선 = 실패 경로</text>')
+    o.append('<text x="30" y="70" font-size="15" fill="#5b6472">2026-11-25 작성 · 2026-11-27 코드 대조 · 1~8차 보완과 그 뒤 추가 반영 · '
+             '배지 = 그 부분을 바꾼 보완 차수 (추가 = 8차 이후 반영 완료, 할 일 아님) · 실선 = 데이터, 파선 = 기동·상태 확인, 점선 = 화면 조회, 빨간 점선 = 실패 경로</text>')
 
     # ------------------------------------------------------------------ row 1: game -> collector -> kafka, gates, server
     o.append(box(30, 100, 340, 330, "게임 클라이언트 (Godot)", [
@@ -411,7 +411,7 @@ def build():
         "[8] 원격 적재 순수 처리 34.7 → 219건/초",
         "    초당 200건 유입을 따라감 (평균 대기 2.9초)",
     ]))
-    o.append(box(1570, 1835, 780, 215, "후속 반영 · 남은 과제", [
+    o.append(box(1570, 1835, 780, 215, "8차 이후 추가 반영 · 남은 과제", [
         "[+] 압축은 outbox 적재·Mongo 게시 뒤, 경고 기준선은 현재 창과 같은 규칙",
         "[+] state 객체 호환·게스트 연결: 복구 45건 원격 원본·행동 로그 확인",
         "[+] 관측소 :8011 + 알림 센터",
