@@ -19,9 +19,13 @@
 ![Django](https://img.shields.io/badge/Django-5.2-092E20?logo=django&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 
-[**▶ itch.io에서 플레이**](https://kingdoms1212.itch.io/kkotackji) &nbsp;·&nbsp; [**📊 관리자 대시보드 둘러보기**](#한눈에-보기) &nbsp;·&nbsp; [**🏗 아키텍처**](#아키텍처)
+[**▶ itch.io에서 플레이**](https://kingdoms1212.itch.io/kkotackji) &nbsp;·&nbsp; [**📊 관리자 대시보드 둘러보기**](#한눈에-보기) &nbsp;·&nbsp; [**🏗 아키텍처**](#아키텍처) &nbsp;·&nbsp; [**🎬 홍보 숏츠**](docs/presentation/%EC%BD%94%EB%94%B1%EC%A7%80_%ED%99%8D%EB%B3%B4_%EC%88%8F%EC%B8%A0_30%EC%B4%88.mp4)
 
 <img src="docs/readme/kkodakji-play.gif" width="720" alt="코딱지 플레이 장면: 3D 섬 월드와 스택 스테이지 자동 풀이">
+
+<a href="docs/presentation/%EC%BD%94%EB%94%B1%EC%A7%80_%ED%99%8D%EB%B3%B4_%EC%88%8F%EC%B8%A0_30%EC%B4%88.mp4"><img src="docs/readme/shorts-preview.gif" width="240" alt="코딱지 30초 홍보 숏츠 미리보기: 코린이에서 디버거로 레벨 업"></a>
+
+<sub>▶ 30초 홍보 숏츠 보기 (누르면 영상 파일이 열립니다)</sub>
 
 </div>
 
