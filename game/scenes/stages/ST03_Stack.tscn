@@ -218,36 +218,6 @@ text = "복구실 장인"
 label_settings = SubResource("sign_text")
 horizontal_alignment = 1
 
-[node name="Sign0" type="Label" parent="Field/World"]
-z_index = 4
-offset_left = 210.3
-offset_top = 164.7
-offset_right = 390.3
-offset_bottom = 190.7
-text = "스택 탑"
-label_settings = SubResource("sign_text")
-horizontal_alignment = 1
-
-[node name="Sign1" type="Label" parent="Field/World"]
-z_index = 4
-offset_left = 492.3
-offset_top = 485.0
-offset_right = 672.3
-offset_bottom = 511.0
-text = "입고 레일"
-label_settings = SubResource("sign_text")
-horizontal_alignment = 1
-
-[node name="Sign2" type="Label" parent="Field/World"]
-z_index = 4
-offset_left = 741.3
-offset_top = 341.0
-offset_right = 921.3
-offset_bottom = 367.0
-text = "복구 작업대"
-label_settings = SubResource("sign_text")
-horizontal_alignment = 1
-
 [node name="HintArrow" type="Node2D" parent="Field/World"]
 z_index = 5
 position = Vector2(400, 250)

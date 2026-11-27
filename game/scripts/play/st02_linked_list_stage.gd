@@ -30,7 +30,6 @@ var removed: Array = []
 var cable = null            # 들고 있는 연결선의 출발 ("A", "B", "C", "HEAD") 또는 null
 var read_i := 0             # 읽기 레벨: 지금까지 읽은 노드 수
 var L: Dictionary
-var head_label: Label
 var cable_line: Line2D
 var stickers: Node2D
 
@@ -61,12 +60,7 @@ func _init() -> void:
 	]
 
 func build_stage() -> void:
-	# HEAD 팻말에는 노드 이름(A 등)이 아니라 "HEAD" 를 쓴다. 노드 A 와 헷갈리지 않게, HEAD 가 무엇을 가리키는지는 노란 연결선으로만 보여 준다.
-	head_label = text_at("HEAD", mark("AnchorHead") + Vector2(-10, 2), 23, StageHUD.INK, 0)
-	text_at("첫 노드를 가리키는 팻말", mark("AnchorHead") + Vector2(0, -58), 17, C_HEAD, 5)
-	# 끝 단말기: next 가 비었음(null)을 뜻한다. 흰 연결선과 같은 색으로 표시해 HEAD(노란색)와 구분한다.
-	text_at("null", mark("AnchorEnd") + Vector2(0, -66), 30, Color.WHITE, 7)
-	text_at("리스트의 끝", mark("AnchorEnd") + Vector2(0, -38), 17, Color("d9e2ec"), 5)
+	# HEAD 팻말과 null(리스트의 끝) 안내판 글자는 배경 그림에 들어 있다. HEAD 는 주황, next 는 은색, 끝(null)은 회색 파이프.
 	cable_line = Line2D.new()
 	cable_line.width = 7.0
 	cable_line.default_color = StageHUD.GOLD
@@ -119,15 +113,16 @@ func _anchor(k: String) -> Vector2:
 func rebuild() -> void:
 	clear_children(links)
 	clear_children(stickers)
-	link(_anchor("Head") + Vector2(40, 10), _anchor(head) + Vector2(-20, -26), C_HEAD, 24.0)
+	# HEAD 팻말에서 첫 노드 이름표 위로 주황 파이프를 꽂는다 (A 와 붙어 있어도 어디를 가리키는지 보이게)
+	pipe(_anchor("Head") + Vector2(40, -40), _anchor(head) + Vector2(-6, -44), "head", 70.0)
 	for k in KEYS:
 		if k in lost or k in removed:
 			continue
 		if nxt[k] == null:
 			if k in chain():
-				link(_anchor(k) + Vector2(30, 10), _anchor("End") + Vector2(-20, 20), Color(1, 1, 1, 0.75), 20.0)
+				pipe(_anchor(k) + Vector2(30, 10), _anchor("End") + Vector2(-20, 20), "null", 20.0, 34.0, 6.0)
 		else:
-			link(_anchor(k) + Vector2(0, 10), _anchor(nxt[k]) + Vector2(0, 14), C_LINK, 34.0)
+			pipe(_anchor(k) + Vector2(0, 10), _anchor(nxt[k]) + Vector2(0, 14), "next", 34.0, 52.0, 52.0)
 		if k in held:
 			text_at("로봇 임시 참조", _anchor(k) + Vector2(0, -44), 19, Color("e6c8ff"), 5, stickers)
 	for i in read_i:

@@ -56,13 +56,9 @@ func build_stage() -> void:
 	board = Node2D.new()
 	overlay.add_child(board)
 	pads = make_floor_layer()
-	# POP 레버: 탑 옆의 판이 무엇인지 분명히 보이게 이름표를 붙인다 (탑 앞에서 E 로 하는 push / pop 과 구분)
+	# POP 레버 안내판 글자는 배경 그림에 들어 있다.
 	lever_sign = Node2D.new()
 	overlay.add_child(lever_sign)
-	var lp := spot("lever").position
-	panel_at(Rect2(lp.x - 58, lp.y - 96, 116, 50), Color("c0392b"), StageHUD.INK, 3, lever_sign)
-	text_at("POP ▲", lp + Vector2(0, -80), 22, Color.WHITE, 4, lever_sign)
-	text_at("맨 위 꺼내기", lp + Vector2(0, -58), 15, Color("ffe7c2"), 3, lever_sign)
 
 func setup_level(n: int) -> void:
 	L = LEVELS[n]

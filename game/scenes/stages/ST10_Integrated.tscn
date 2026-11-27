@@ -211,16 +211,6 @@ text = "학습 지원 안내원"
 label_settings = SubResource("sign_text")
 horizontal_alignment = 1
 
-[node name="Sign0" type="Label" parent="Field/World"]
-z_index = 4
-offset_left = 450.1
-offset_top = 538.6
-offset_right = 630.1
-offset_bottom = 564.6
-text = "배열"
-label_settings = SubResource("sign_text")
-horizontal_alignment = 1
-
 [node name="HintArrow" type="Node2D" parent="Field/World"]
 z_index = 5
 position = Vector2(400, 250)

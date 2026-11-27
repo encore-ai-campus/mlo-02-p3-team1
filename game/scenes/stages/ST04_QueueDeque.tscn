@@ -185,16 +185,6 @@ text = "접수 담당자"
 label_settings = SubResource("sign_text")
 horizontal_alignment = 1
 
-[node name="Sign0" type="Label" parent="Field/World"]
-z_index = 4
-offset_left = 748.9
-offset_top = 492.7
-offset_right = 928.9
-offset_bottom = 518.7
-text = "도착 대기"
-label_settings = SubResource("sign_text")
-horizontal_alignment = 1
-
 [node name="HintArrow" type="Node2D" parent="Field/World"]
 z_index = 5
 position = Vector2(400, 250)

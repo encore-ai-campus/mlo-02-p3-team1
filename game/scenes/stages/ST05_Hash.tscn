@@ -219,26 +219,6 @@ text = "물품대장 담당자"
 label_settings = SubResource("sign_text")
 horizontal_alignment = 1
 
-[node name="Sign0" type="Label" parent="Field/World"]
-z_index = 4
-offset_left = 149.0
-offset_top = 498.8
-offset_right = 329.0
-offset_bottom = 524.8
-text = "입고대"
-label_settings = SubResource("sign_text")
-horizontal_alignment = 1
-
-[node name="Sign1" type="Label" parent="Field/World"]
-z_index = 4
-offset_left = 806.4
-offset_top = 498.8
-offset_right = 986.4
-offset_bottom = 524.8
-text = "중복 거절함"
-label_settings = SubResource("sign_text")
-horizontal_alignment = 1
-
 [node name="HintArrow" type="Node2D" parent="Field/World"]
 z_index = 5
 position = Vector2(400, 250)

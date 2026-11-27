@@ -10,6 +10,7 @@ const TOKEN_SCENE := preload("res://scenes/play/Token.tscn")
 const MENU := "res://scenes/Main.tscn"
 const C_LINK := Color("5fd6ff")
 const C_HEAD := Color("f2c14e")
+const PIPE_DIR := "res://textures/pipes/"
 
 static var intro_seen := {}
 
@@ -479,3 +480,47 @@ func link(a: Vector2, b: Vector2, col := C_LINK, bend := 0.0) -> void:
 	head.color = col
 	head.polygon = PackedVector2Array([tip + back * 14, tip - back * 12 + side * 12, tip - back * 12 - side * 12])
 	links.add_child(head)
+
+## 파이프 연결선 (ST02): 파이프 이미지를 선을 따라 반복해 그리고 끝에 화살촉을 단다. kind = "next" | "head" | "null"
+## trim_a, trim_b: 노드 글자(A, 10 등)를 가리지 않게 양 끝을 그만큼 줄인다.
+func pipe(a: Vector2, b: Vector2, kind := "next", bend := 0.0, trim_a := 0.0, trim_b := 0.0) -> void:
+	var dir := (b - a).normalized()
+	a += dir * trim_a
+	b -= dir * trim_b
+	var perp := Vector2(-dir.y, dir.x)
+	var mid := (a + b) / 2 + perp * bend
+	var pts := PackedVector2Array()
+	for i in 25:
+		var t := i / 24.0
+		pts.append(a.lerp(mid, t).lerp(mid.lerp(b, t), t))
+	var tip := pts[24]
+	var back := (tip - pts[21]).normalized()
+	var body := pts.duplicate()
+	body[24] = tip - back * 14.0      # 화살촉이 덮을 만큼 줄인다
+	var edge := Line2D.new()
+	edge.points = body
+	edge.width = 26.0
+	edge.default_color = Color(0.08, 0.07, 0.11, 0.9)
+	edge.joint_mode = Line2D.LINE_JOINT_ROUND
+	edge.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	links.add_child(edge)
+	var line := Line2D.new()
+	line.points = body
+	line.width = 22.0
+	line.joint_mode = Line2D.LINE_JOINT_ROUND
+	var tex: Texture2D = load(PIPE_DIR + "pipe_%s.png" % kind)
+	if tex:
+		line.texture = tex
+		line.texture_mode = Line2D.LINE_TEXTURE_TILE
+		line.texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+	else:
+		line.default_color = {"next": C_LINK, "head": C_HEAD}.get(kind, Color.WHITE)
+	links.add_child(line)
+	var nz: Texture2D = load(PIPE_DIR + "nozzle_%s.png" % kind)
+	if nz:
+		var sp := Sprite2D.new()
+		sp.texture = nz
+		sp.scale = Vector2.ONE * 0.5
+		sp.rotation = back.angle()
+		sp.position = tip - back * 8.0
+		links.add_child(sp)

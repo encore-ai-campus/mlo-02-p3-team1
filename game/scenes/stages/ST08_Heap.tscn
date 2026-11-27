@@ -283,26 +283,6 @@ text = "긴급 배정 담당자"
 label_settings = SubResource("sign_text")
 horizontal_alignment = 1
 
-[node name="Sign0" type="Label" parent="Field/World"]
-z_index = 4
-offset_left = 876.9
-offset_top = 404.6
-offset_right = 1056.9
-offset_bottom = 430.6
-text = "입고"
-label_settings = SubResource("sign_text")
-horizontal_alignment = 1
-
-[node name="Sign1" type="Label" parent="Field/World"]
-z_index = 4
-offset_left = 195.0
-offset_top = 370.1
-offset_right = 375.0
-offset_bottom = 396.1
-text = "완료 접수"
-label_settings = SubResource("sign_text")
-horizontal_alignment = 1
-
 [node name="HintArrow" type="Node2D" parent="Field/World"]
 z_index = 5
 position = Vector2(400, 250)
