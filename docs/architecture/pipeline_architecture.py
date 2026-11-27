@@ -98,7 +98,7 @@ def build():
                  f'orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="{col}"/></marker>')
     o.append("</defs>")
     o.append(f'<rect width="{W}" height="{H}" fill="#ffffff"/>')
-    o.append('<text x="30" y="42" font-size="28" font-weight="800" fill="#1f2430">코딱지 파이프라인 동작 아키텍처</text>')
+    o.append('<text x="30" y="42" font-size="28" font-weight="800" fill="#1f2430">아키텍처 상세: 코딱지 파이프라인 구성 요소별 설정</text>')
     o.append('<text x="30" y="70" font-size="15" fill="#5b6472">2026-11-25 작성 · 2026-11-27 코드 대조 · 1~8차 보완과 후속 반영 · '
              '배지 = 그 부분을 바꾼 보완 차수 (후속 = 8차 이후) · 실선 = 데이터, 파선 = 기동·상태 확인, 점선 = 화면 조회, 빨간 점선 = 실패 경로</text>')
 
