@@ -40,6 +40,15 @@ func _ready() -> void:
 	update_available.connect(_show_optional_update_dialog)
 	call_deferred("_startup_flow")
 
+## 게임은 전체화면으로 시작한다 (project.godot window/size/mode). F11 또는 Alt+Enter 로 창 모드와 전환.
+func _unhandled_input(ev: InputEvent) -> void:
+	if not (ev is InputEventKey and ev.pressed and not ev.echo):
+		return
+	if ev.keycode == KEY_F11 or (ev.keycode == KEY_ENTER and ev.alt_pressed):
+		var full := DisplayServer.window_get_mode() in [DisplayServer.WINDOW_MODE_FULLSCREEN, DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN]
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if full else DisplayServer.WINDOW_MODE_FULLSCREEN)
+		get_viewport().set_input_as_handled()
+
 func _startup_flow() -> void:
 	_check_build_changed()
 	# In headless CLI test runs, mount local packs immediately without waiting on network timeout
