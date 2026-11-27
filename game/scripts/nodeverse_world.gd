@@ -2909,6 +2909,20 @@ func _build_title_modal(canvas: CanvasLayer) -> void:
 	guest_btn.pressed.connect(func(): _on_guest_login())
 	form_vb.add_child(guest_btn)
 
+	# 전체화면이라 창 닫기 버튼이 없으므로 종료 버튼을 둔다
+	var quit_btn := Button.new()
+	quit_btn.text = "게임 종료"
+	quit_btn.custom_minimum_size = Vector2(0, 30)
+	quit_btn.add_theme_font_size_override("font_size", 12.5)
+	_apply_btn_styles(quit_btn,
+		Color(0.93, 0.89, 0.86),
+		Color(0.96, 0.84, 0.82),
+		Color(0.55, 0.16, 0.14),
+		Color(0.83, 0.70, 0.66), 10, 1
+	)
+	quit_btn.pressed.connect(func(): quit_game())
+	form_vb.add_child(quit_btn)
+
 	# 아이디 찾기 / 비밀번호 재설정 링크 행
 	var help_links_row := HBoxContainer.new()
 	help_links_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -3523,6 +3537,17 @@ func _build_pause_modal(canvas: CanvasLayer) -> void:
 	logout_btn.custom_minimum_size = Vector2(0, 44)
 	logout_btn.pressed.connect(func(): _on_logout())
 	btn_v.add_child(logout_btn)
+
+	var quit_btn := Button.new()
+	quit_btn.text = "⏻ 게임 종료"
+	quit_btn.custom_minimum_size = Vector2(0, 44)
+	quit_btn.pressed.connect(func(): quit_game())
+	btn_v.add_child(quit_btn)
+
+## 게임 종료 버튼: 창 닫기와 같은 길로 끝낸다 (NetworkManager 가 진행 저장 + 서버 전송 + 종료 기록 후 종료).
+func quit_game() -> void:
+	get_tree().root.propagate_notification(NOTIFICATION_WM_CLOSE_REQUEST)
+	get_tree().quit()
 
 ## 소리 크기 한 줄: [이름] [슬라이더] [끄기]
 func _audio_row(label_text: String, value: float, muted: bool, on_value: Callable, on_mute: Callable) -> Control:
