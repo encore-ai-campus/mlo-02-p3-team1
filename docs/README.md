@@ -36,3 +36,19 @@
 - 파이프라인: [`pipeline/docs/`](../pipeline/docs/) — 개요 그림(`architecture.png`), 설계 결정, 통합 현황, 원격 적재·관측소 운영, 복구 보고, E2E 시험 보고서, 델타레이크 요구사항 검토 보고서, 구현계획서·설명서
 - 서버: [`server/docs/`](../server/docs/) — DB 구조, MongoDB 연동, 게임 로그인 연동, 팀 인수인계
 - 공유 이벤트 형식: [`contracts/`](../contracts/)
+
+## 저장소 폴더 구조
+
+> 이 절은 저장소 루트 README에서 옮겨 온 요약입니다.
+
+```
+mlo-02-p3-team1/
+├─ game/        Godot 프로젝트 (바이너리 에셋은 Git LFS)
+├─ pipeline/    collector.py · spark/ · remote/ · observatory/ · compose.json · launcher.py
+├─ server/      config/ · accounts/ · telemetry/ · templates/ · static/
+├─ contracts/   공통 이벤트 규약
+├─ docs/        가이드 · 검토 · 보고서 · architecture/
+├─ .github/workflows/   폴더별 CI (pipeline·server·game)
+└─ nodeverse.code-workspace
+```
+

@@ -199,3 +199,17 @@ git push -u origin game/bridge-pathfinding
 | 게임이 이벤트 전송 시 422 | 수집기 응답의 `reason` 확인, `pipeline/contract.py`와 필드 비교 |
 | 서버 실시간 화면이 비어 있음 | 서버 `.env`의 `MONGODB_URI`가 파이프라인 MongoDB를 가리키는지 확인 |
 | `mysqlclient` 설치 실패 | Visual C++ Build Tools 설치 또는 MySQL Connector/C 설치 후 재시도 |
+
+## 7. PC별 배포 구성과 포트
+
+> 이 절은 저장소 루트 README에서 옮겨 온 요약입니다.
+
+| PC | 실행하는 것 | 기본 포트 |
+|---|---|---|
+| 게임 PC | 게임 EXE, launcher.exe | — |
+| 파이프라인 PC | 게이트웨이, 수집기, Kafka×3, Spark, 로컬 MongoDB, remote-writer, 관측소 (Docker Compose) | 8000(게이트웨이), 8003(수집기), 27017·27020(Mongo), 8011(관측소) |
+| DB PC | MySQL, MongoDB | 3306, 27017 |
+| 대시보드 PC | Django | 8000 |
+
+한 PC 로컬 실행(`전체실행.cmd`)에서는 게이트웨이 없이 수집기가 `127.0.0.1:8000`(`/v2/events`), Django가 `127.0.0.1:8010`(`/staff/login/`), MySQL이 `127.0.0.1:3306`, MongoDB가 `127.0.0.1:27017`, 관측소가 `127.0.0.1:8011`을 씁니다.
+

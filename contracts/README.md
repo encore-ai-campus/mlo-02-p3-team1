@@ -31,3 +31,38 @@
 - 서버 스키마 제목에 "ingestion endpoint not implemented"라고 되어 있어, 서버 쪽 스키마가 더 이전 초안일 가능성이 높습니다.
 
 어느 쪽을 기준으로 삼을지 세 파트가 정한 뒤, 이 README의 이 절을 지우세요.
+
+## 이벤트 규약 요약
+
+> 이 절은 저장소 루트 README에서 옮겨 온 요약입니다.
+
+기준은 [`pipeline/contract.py`](../pipeline/contract.py)이고 사본이 [`contracts/`](./)에 있습니다. 게임과 파이프라인은 이 규약과 일치합니다.
+
+| 종류 | 토픽 · 파티션 키 | 이벤트 |
+|---|---|---|
+| 학습 v2 | `nv.learning.v2` · session_id | problem_started, attempt_started, operation_succeeded, operation_failed, hint_used, attempt_succeeded, attempt_failed, problem_completed |
+| 업데이트 v2 | `nv.update.v1` · player_id | update_checked·prompted·accepted·dismissed, pack_download_started·succeeded·failed, pack_mounted, build_changed |
+| 실행 v1 | `nv.runtime.v1` · run_id | run_started, run_heartbeat, exit_* (근거 evidence 필수) |
+| 거부 | `nv.dlq.v1` | 422로 거절된 원문(4KB까지)과 사유 |
+
+학습 이벤트 예시:
+
+```json
+{
+  "schema_version": 2,
+  "event_id": "UUID", "player_id": "회원 ID 또는 설치 ID",
+  "session_id": "UUID", "run_id": "UUID", "attempt_id": "UUID (선택)",
+  "minigame_id": "ST03", "category": "DS",
+  "build_version": "0.3.0", "content_version": "base",
+  "event_type": "operation_failed",
+  "occurred_at": "2026-11-20T03:40:12.345Z",
+  "sequence": 7,
+  "details": { "operation": "pop", "failure_reason": "empty_stack", "mistakes": 1 }
+}
+```
+
+- `occurred_at`은 UTC 밀리초 형식입니다. 5분 넘게 미래면 거절, 6일 넘게 지났으면 `too_old`로 거절합니다.
+- `details`에는 허용된 키만(operation, failure_reason, level, moves, mistakes, stars, hint_id, state_before, state_after) 2KB 이하로 넣습니다.
+- `minigame_id`와 `category` 조합이 카탈로그와 다르면 거절합니다.
+- `sequence`는 세션 안에서 1부터 빠짐없이 증가해야 원격 적재가 진행됩니다.
+

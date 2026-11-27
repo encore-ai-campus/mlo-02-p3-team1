@@ -164,3 +164,34 @@ python tools/make_object_comparison.py
 ## 백업
 
 `../_archive/` — `godot_project_before_merge_20261104`(통합 전 이 프로젝트), `asset-modeling_20261104`(이전 작업 폴더).
+
+## 구성과 동작 방식 요약
+
+> 이 절은 저장소 루트 README에서 옮겨 온 요약입니다.
+
+| 항목 | 내용 |
+|---|---|
+| 엔진 | Godot **4.7.2** (웹 빌드는 Compatibility/WebGL2) |
+| 메인 씬 | `scenes/NodeverseWorld.tscn` — 메인 섬과 자료구조·알고리즘·SQL·데이터 섬이 다리로 연결된 3D 월드 |
+| 미니게임 | `scripts/learning_catalog.gd`: 실습 23종(DS 9 · ALGO 6 · SQL 4 · DATA 4) + 자료구조 종합 보너스, 종합 도전 섬의 판테온 코드 자동화·종합 코딩테스트 |
+| 자동 로드 | `NetworkManager`(이벤트 송신·회원 API·F6 디버그 패널), `UpdateManager`(시작 시 업데이트 확인) |
+| 주소 설정 | `config.ini`(예시 `game/config.ini.example`)의 `[pipeline]`·`[server]` 주소와 `[debug] debug_enabled`. EXE 옆 또는 `project.godot` 옆에 두고 재시작 |
+| 내보내기 | `Windows Desktop`(EXE), `Web`, `Content Pack`(.pck 리소스 팩) |
+
+**동작 방식**
+1. 로그인하면 Django `/api/game/auth/login`으로 회원을 확인하고 클라우드 세이브를 불러옵니다. 이후 학습 이벤트의 `player_id`는 회원 ID입니다.
+2. 미니게임에서 행동이 일어날 때마다 `NetworkManager`가 v2 이벤트를 만들어 **디스크 큐**(`user://telemetry/pending/`)에 먼저 저장합니다.
+3. 큐에서 하나씩 `POST /v2/events`로 보냅니다(3초 타임아웃, `X-API-Key`). 202면 삭제, 4xx 거절은 `rejected/`로 옮기고(401 키 오류는 큐에 둔 채 60초마다 재시도), 그 밖의 오류는 같은 event_id로 1~60초 간격으로 재시도합니다. 네트워크가 없어도 게임은 멈추지 않습니다.
+4. 시작할 때 `/api/game/manifest`로 새 버전·리소스 팩을 확인하고 업데이트 이벤트를 보냅니다.
+5. 실행·종료 감시는 `launcher.exe`(`pipeline/launcher.py`)가 맡아 `/v1/events`로 보냅니다.
+6. 한 번의 미니게임 플레이가 실행(run) 하나입니다. 레벨을 시작할 때마다 시도(attempt)를 열고, 조작한 뒤 R(다시 시작)을 누르면 그 시도를 실패로 닫고 같은 레벨의 새 시도를 엽니다(아무 조작이 없으면 보내지 않음). 게임을 완료한 뒤의 "다시 하기"는 레벨 1부터 새 실행으로 시작합니다.
+7. 수집기·Django 주소는 `config.ini`가 있으면 그 값을, 없으면 기존 JSON 설정이나 코드 기본값을 씁니다. 디버그 기능(F3~F6)은 `debug_enabled`로 켜고 끕니다.
+
+**실행 화면**
+
+| 로비 | 스테이지 자동 풀이 (DS-03 스택) |
+|---|---|
+| ![게임 로비](../docs/readme/game-lobby.jpg) | ![게임 월드](../docs/readme/game-stage-st03.jpg) |
+
+자세히: [미니게임 안내](MINIGAME_GUIDE.md), [게임 문서](docs/)
+

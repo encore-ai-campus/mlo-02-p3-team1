@@ -190,3 +190,83 @@ PySpark가 없는 환경에서는 Spark가 필요한 시험(경고 기준선 등
 | [docs/TECHNICAL_REVIEW.md](docs/TECHNICAL_REVIEW.md) | Kafka·Streaming·복구·Delta·성능 점검 |
 | [docs/E2E_TEST_REPORT_2026-11-20.md](docs/E2E_TEST_REPORT_2026-11-20.md) | 실제 서비스 시험 보고서 |
 | [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) | 강제 종료·타임 트래블 시연 대본 |
+
+## 구성과 보장 요약
+
+> 이 절은 저장소 루트 README에서 옮겨 온 요약입니다.
+
+대용량 누적 기록에 대비한 **선택 압축·코드 사전 확장 설계**를 문서로 보관합니다. 기존 실시간 JSON 전송은 유지하며, 관련 참조 구현을 전체 게임·운영에 적용한 상태는 아닙니다. 실제 데이터 규모가 커졌을 때 크기·CPU·지연을 비교한 뒤 적용 여부를 결정합니다. 자세히: [압축·사전 확장 설계](docs/COMPRESSION_EXTENSION.md).
+
+| 구성 요소 | 역할 |
+|---|---|
+| `collector.py` (FastAPI) | `POST /v2/events` 단일 이벤트 수집. 키 확인 → 스키마 검사 → 토픽 분류 → Kafka `acks=all` 확인 후 **202**. 잘못된 입력은 **422 + DLQ**, Kafka 장애는 **503** |
+| Kafka 3대 | 토픽 5개, 복제 3·최소 ISR 2, 보관 7일 |
+| `spark/` | Spark 앱 1개·스트리밍 쿼리 7개(원격 적재 시 8개). `delta_stream.py`가 진입점·감독이고 `bronze`·`silver`·`gold`·`periodic`·`sinks`·`compaction` 모듈이 Bronze(원본 보존) → Silver(검증·중복 제거) → Gold(1분·5분 집계) → MongoDB `rt_*`를 처리 |
+| `remote/` (remote-writer) | Silver를 통과한 이벤트를 outbox에 쌓고, 작업자가 원격 MySQL·MongoDB에 서버가 읽는 형태(세션·문제 실행·시도·이벤트)로 적재 |
+| `observatory/` | 읽기 전용 관측소(:8011). 쿼리별 처리 속도, 적재 상태별 건수·최대 대기, 경고·복구 이력과 알림 센터 |
+| `simulator.py`, `spark/verify.py`, `spark/probe_latency.py` | 계약 점검·부하 시험·행 수 대조·지연 측정 |
+| `launcher.py` | 게임 실행기. 실행·하트비트·종료 이벤트를 SQLite 큐에 보관 후 전송 |
+
+**동작 방식과 보장**
+- **유실 방지:** 202는 Kafka에 복제·기록된 뒤에만 돌려줍니다. Kafka가 7일 보관하므로 Spark가 멈춰도 재시작하면 체크포인트부터 이어서 처리합니다.
+- **중복 방지:** 같은 event_id 재전송은 Silver에서 7일 동안 걸러지고, insert-only MERGE라 다시 실행해도 행이 늘지 않습니다. 같은 ID에 다른 내용이 오면 `silver.quarantine`에 `id_conflict`로 격리합니다.
+- **지연:** 이벤트가 대시보드 `rt_*`에 반영되기까지 평시 약 10~18초입니다(구조상 제약, D22).
+- **원격 적재:** 회원 매핑이 없거나 세션 순서가 비면 `waiting_context`로 기다리고, 잘못된 데이터는 `blocked`, 일시 오류는 `retrying`으로 둡니다. `REMOTE_ALLOW_GUESTS=1`이면 등록 회원에 없는 UUID 플레이어를 게스트 회원으로 적재합니다.
+- **압축:** 각 테이블을 쓰는 스레드가 300배치마다 작은 파일만 합치고, Silver는 outbox 적재 뒤·Gold는 MongoDB 게시 뒤에 압축해 원격 적재와 화면 게시가 기다리지 않습니다.
+- **상태 객체:** 게임이 `state_before`·`state_after`를 객체로 보내면 수집기가 정렬된 JSON 문자열로 바꿔 받습니다.
+
+**실행 화면**
+
+![파이프라인 로컬 실행 상태 (docker ps · 수집기 준비 · Spark 로그 · MongoDB)](../docs/readme/pipeline-status.jpg)
+
+자세히: [설계 결정 기록](docs/DECISIONS.md), [원격 적재 운영](docs/LIVE_REMOTE_SINK.md)
+
+## 지연 이벤트 처리
+
+> 이 절은 저장소 루트 README에서 옮겨 온 요약입니다.
+
+오프라인 큐, 수집 서버 장애 복구, 업데이트 대기 때문에 며칠 전 플레이 기록이 오늘 처음 도착할 수 있습니다. 원칙은 **저장은 버리지 않고, 실시간 화면은 도착 시각, 분석 화면은 플레이 시각**입니다.
+
+| 항목 | 처리 |
+|---|---|
+| 정의 | 플레이 시각(`occurred_at`, 기기 시계)과 받은 시각(`received_at`, 수집기 시계)이 300초 넘게 차이 나면 늦은 이벤트입니다 ([`pipeline/common/lateness.py`](common/lateness.py)). 수집기는 6일 넘게 지난 기록을 `too_old`로 거절하고, 게임도 6일 지난 기록은 큐에서 만료합니다 |
+| Silver 시간 | 늦은 이벤트는 `event_time`을 받은 시각으로 바꿔 저장합니다. 원래 `occurred_at`은 그대로 남습니다 |
+| 실시간 화면 (Gold, `rt_*`) | 1분 집계에 받은 시각 기준으로 들어갑니다. 상단 지표에 "늦게 도착 N건 포함"으로 따로 표시합니다 |
+| 실패 급증 경고 | 정시 이벤트만으로 판정합니다. 장애 복구 직후 한꺼번에 들어온 옛 실패가 거짓 경고를 만들지 않습니다 |
+| 분석 화면 | 원격 적재가 세션·시도·이벤트에 플레이 시각을 그대로 넣으므로, 날짜별 학습 통계는 실제 플레이 날짜로 셉니다 |
+| Silver MERGE | 늦은 ID가 섞인 배치는 ID 생성일별로 나눠 MERGE해 스캔 범위가 넓어지지 않습니다 |
+| 버전 보급률 | 플레이어별 최신 버전을 플레이 시각 순으로 판단해, 늦게 온 옛 버전 기록이 다운그레이드처럼 보이지 않습니다 |
+
+- 1분 집계·경고 집계의 워터마크는 2분입니다. 300초 이내라 플레이 시각을 그대로 쓰는 기록 중 2~5분 늦게 도착한 것은 이미 닫힌 창에 해당해 실시간 집계에서 빠질 수 있습니다. 분석 화면에는 반영됩니다.
+- 로컬 시험에서 사흘 전 기록 602건을 현재 트래픽 2,005건과 함께 보냈을 때, 602건 모두 저장·총계에 포함되고 경고 판정에서만 빠졌습니다(경고 창 시도 수 차이 84건 = 늦은 기록의 시도 수). 자세히: [늦게 도착한 데이터 처리](../docs/changes/2026-11-21_late_events.md)
+- 30일 넘게 오프라인으로 쌓인 기록을 별도 경로(`/v2/offline`, 90일 이내)로 올리는 장기 동기화는 구현·격리 시험까지 했고 운영에서는 꺼져 있습니다. 자세히: [장기 오프라인 동기화](docs/OFFLINE_SYNC_2026-11-25.md)
+
+## Delta 튜닝 비교
+
+> 이 절은 저장소 루트 README에서 옮겨 온 요약입니다.
+
+Bronze는 원본을 append만 하고, Silver는 중복 제거 후 insert-only MERGE, Gold는 1분·5분 창 집계를 MERGE로 씁니다. 데이터가 늘어도 매 배치가 필요한 범위만 읽고 쓰도록 아래처럼 바꿨습니다.
+
+| 항목 | 이전 | 현재 |
+|---|---|---|
+| Silver MERGE 조건 | `event_id` 하나 → 배치마다 Silver 전체 스캔 | 배치 날짜 −7일~+1일 범위와 UUIDv7 ID 범위를 조건에 추가, ID 생성일별로 나눠 MERGE |
+| 파일 압축 | Delta 자동 압축이 커밋마다 날짜 파티션 전체를 다시 씀(실데이터 약 30MB인 Silver가 디스크 4.9GB, Bronze 7.5GB) | 자동 압축 끔. 쓰기 스레드가 300배치마다 작은 파일만 압축(64~128MB 목표), Bronze는 10분마다, outbox 적재·MongoDB 게시가 끝난 뒤 실행 |
+| VACUUM | — | 별도 스레드에서 6시간마다 (실시간 요약 갱신을 막지 않음) |
+| ZORDER | — | `ZORDER BY (minigame_id, player_id, event_id)` 유지. `event_id` 단독 ZORDER와 비교한 결과 MERGE는 비슷하고(1.08~1.83초 대 1.16~1.86초) 플레이어 1명 조회는 단독 쪽이 2.4~2.6배 더 읽어 현행 유지 |
+
+같은 부하(6,000건, 초당 100건)에서 비교한 결과입니다.
+
+| 지표 | 이전 | 현재 |
+|---|---|---|
+| Silver MERGE 단계 중앙값 | 5.35초 | 1.55초 |
+| Silver learning 배치 중앙값 | 5.65초 | 1.75초 |
+| gold_1m 배치 중앙값 | 3.60초 | 2.20초 |
+| 시험 1회 디스크 증가 (Silver / Bronze) | +420MB / +633MB | +2MB / +2MB |
+| 원격 적재 완료 (전송 시작부터) | 104초 | 81초 |
+
+![보완 차수별 변경점](../docs/presentation/fig-3-rounds.png)
+
+![최적화 전후 성능 비교](../docs/presentation/fig-4-metrics.png)
+
+모든 수치는 같은 로컬 PC(Windows 11 ARM64, WSL2 Docker, Spark 4코어)에서 잰 값이며 운영 환경 수치는 아닙니다. 자세히: [Silver MERGE·압축 보완](../docs/changes/2026-11-21_silver_merge_scaling.md), [구조 비교와 최적화](../docs/presentation/NODEVERSE_파이프라인_구조비교_최적화.md)
+
