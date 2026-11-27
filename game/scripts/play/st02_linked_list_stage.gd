@@ -124,8 +124,12 @@ func _anchor(k: String) -> Vector2:
 func rebuild() -> void:
 	clear_children(links)
 	clear_children(stickers)
-	# HEAD 팻말에서 첫 노드 이름표 위로 주황 파이프를 꽂는다 (A 와 붙어 있어도 어디를 가리키는지 보이게)
-	pipe(_anchor("Head") + Vector2(40, -40), _anchor(head) + Vector2(-6, -44), "head", 70.0)
+	# HEAD 팻말에서 첫 노드 이름표로 주황 파이프를 꽂는다.
+	# A, C 는 팻말 위에서 크게 휘어 이름표 위로 내려 꽂고, 아래쪽 B 는 팻말 기둥 아래에서 A 를 피해 비스듬히 잇는다.
+	if head == "B":
+		pipe(_anchor("Head") + Vector2(0, 48), _anchor(head) + Vector2(-58, -30), "head", 0.0)
+	else:
+		pipe(_anchor("Head") + Vector2(-10, -45), _anchor(head) + Vector2(16, -50), "head", -90.0)
 	for k in KEYS:
 		if k in lost or k in removed:
 			continue
