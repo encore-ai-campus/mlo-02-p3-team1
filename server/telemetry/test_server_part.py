@@ -471,6 +471,33 @@ class LiveApiTests(TestCase):
         finally:
             database().pipeline_learning_events.delete_many({'_id': {'$in': ids}})
 
+    def test_pipeline_coding_test_and_token_clicks_are_not_in_wrong_rate(self):
+        self.register_player('player2', 'inst-ct-2')
+        now = timezone.now()
+        typing = [('problem_started', None, {'level': 1, 'mode': 'coding_test'}), ('attempt_started', 'd1', {'level': 1}),
+                  *[('operation_succeeded', 'd1', {'operation': 'token_click'})] * 5,
+                  ('operation_failed', 'd1', {'operation': 'submit_wrong', 'failure_reason': 'mismatch'})]
+        ids = self.pipeline_run('ct1', 'inst-ct-2', 'run-ct-1', now - timedelta(hours=1), typing)
+        try:
+            self.client.force_login(self.admin)
+            page = self.client.get('/staff/')
+            learning = page.context['learning']
+            self.assertEqual((learning['wrong_ops'], learning['ops'], learning['wrong_rate']), (0, 0, None))
+            game = next(g for g in page.context['catalog']['games'] if g['code'] == 'ST03')
+            self.assertIsNone(game['wrong_rate'])  # shown as —, not 100%
+            # the failure is still listed among repeated failure causes
+            self.assertEqual(learning['failures'], [{'operation': 'submit_wrong', 'reason': 'mismatch', 'count': 1}])
+            # a token click outside the coding test is not judged either
+            ids += self.pipeline_run('ct2', 'inst-ct-2', 'run-ct-2', now - timedelta(minutes=30), [
+                ('problem_started', None, {}), ('attempt_started', 'e1', {'level': 1}),
+                ('operation_succeeded', 'e1', {'operation': 'token_click'}),
+                ('operation_failed', 'e1', {'operation': 'wrong_move', 'failure_reason': 'x'}),
+                ('operation_succeeded', 'e1', {'operation': 'good_move'})])
+            learning = self.client.get('/staff/').context['learning']
+            self.assertEqual((learning['wrong_ops'], learning['ops'], learning['wrong_rate']), (1, 2, 50.0))
+        finally:
+            database().pipeline_learning_events.delete_many({'_id': {'$in': ids}})
+
     def test_pipeline_replay_ignores_other_players(self):
         self.register_player('player6', 'inst-rp-6')
         self.register_player('player8', 'inst-rp-8')

@@ -96,7 +96,7 @@
 
   <article class="card ov-card ov-attention board-card" data-card="attention" data-span="4" aria-labelledby="attention-title">
     <div class="ov-card-head" data-card-handle>
-      <h2 id="attention-title">확인이 필요한 문제<span class="kpi-info" role="button" tabindex="0" aria-label="재시작률 기준 보기" data-tip="재시작률 = 게임을 완료하기 전에 같은 레벨을 다시 시작한 실행 ÷ 그 문제의 전체 실행. 다음 레벨로 넘어간 것은 재시작이 아닙니다. 다시 하기 = 이미 완료한 게임을 다시 푼 실행 (별 개수 무관). 오답률 = 잘못된 조작 ÷ 전체 조작. 다시 시작(R)은 포함하지 않습니다. 재시작률이 높은 순서이며, 같으면 실행이 많은 문제가 먼저입니다. 실패 원인은 그 문제에서 기록된 연산 실패만 셉니다. 문제를 누르면 오른쪽에 자세히 표시합니다.">i</span></h2>
+      <h2 id="attention-title">확인이 필요한 문제<span class="kpi-info" role="button" tabindex="0" aria-label="재시작률 기준 보기" data-tip="재시작률 = 게임을 완료하기 전에 같은 레벨을 다시 시작한 실행 ÷ 그 문제의 전체 실행. 다음 레벨로 넘어간 것은 재시작이 아닙니다. 다시 하기 = 이미 완료한 게임을 다시 푼 실행 (별 개수 무관). 오답률 = 잘못된 조작 ÷ 판정된 조작. 다시 시작(R)·되돌리기·코딩테스트 토큰 입력은 포함하지 않습니다. 재시작률이 높은 순서이며, 같으면 실행이 많은 문제가 먼저입니다. 실패 원인은 그 문제에서 기록된 연산 실패만 셉니다. 문제를 누르면 오른쪽에 자세히 표시합니다.">i</span></h2>
       <a class="text-link" data-qs-link="games" href="{% url 'games' %}?{{ querystring }}">게임 분석 {% include 'accounts/nav_icon.html' with icon='arrow' %}</a>
       {% include 'telemetry/overview_card_tools.html' %}
     </div>

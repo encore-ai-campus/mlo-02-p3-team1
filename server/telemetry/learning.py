@@ -25,6 +25,35 @@ def attempt_levels(attempts, events):
     return {str(a.pk): levels.get(str(a.pk)) for a in attempts}
 
 
+# Operations the game records as "succeeded" without judging anything: undoing a move, typing one token in the
+# coding test. Counting them would lower 오답률 for players who undo a lot, so they are left out of it.
+NEUTRAL_OPERATIONS = {'undo', 'token_click'}
+
+
+def event_details(event):
+    payload = event.payload if isinstance(event.payload, dict) else {}
+    return payload.get('details') if isinstance(payload.get('details'), dict) else payload
+
+
+def is_coding_test_run(events):
+    """The ST10 coding test (mode coding_test in its start event) has no judged correct operation, only failed
+    submissions, so its 오답률 would always read 100%. It shares the ST10 ID with two other games."""
+    return any(e.event_type == 'task_started' and event_details(e).get('mode') == 'coding_test' for e in events)
+
+
+def judged_operations(events):
+    """(wrong, total) operations for 오답률: operation_failed / (operation_succeeded + operation_failed),
+    without neutral operations (undo, token_click) and without coding-test runs."""
+    if is_coding_test_run(events):
+        return 0, 0
+    wrong = total = 0
+    for event in events:
+        if event.event_type in ('operation_succeeded', 'operation_failed') and (event.operation or '') not in NEUTRAL_OPERATIONS:
+            total += 1
+            wrong += event.event_type == 'operation_failed'
+    return wrong, total
+
+
 def completed_at(events):
     """When the run's game was completed (first task_completed event), or None."""
     times = [e.occurred_at for e in events if e.event_type == 'task_completed']
@@ -87,8 +116,8 @@ def learning_report(form, players):
         return {'runs': 0, 'tasks': [], 'failures': [], 'hint_evaluable': 0, 'hint_next_success': 0}
     # 재시작 (retry_runs / restart_runs): a level restarted before completion after a failed/open attempt (is_retry_run).
     # 다시 하기 (replay_runs): the game was already completed, earlier or in this run (is_replay_run).
-    # 오답률 (wrong_rate): operation_failed / (operation_succeeded + operation_failed). A reset (R) is a new
-    # attempt, not an operation, so it is not counted.
+    # 오답률 (wrong_rate): operation_failed / (operation_succeeded + operation_failed) via judged_operations,
+    # without undo / token_click and coding-test runs. A reset (R) is a new attempt, not an operation.
     runs = selected_runs(form, players)
     runs = list(runs.select_related('task').prefetch_related('attempts', 'events'))
     groups = {}
@@ -119,13 +148,13 @@ def learning_report(form, players):
         if run.status == 'abandoned':
             abandoned += 1
             row['abandoned'] += 1
+        run_wrong, run_ops = judged_operations(run_events)
+        row['wrong_ops'] += run_wrong
+        row['ops'] += run_ops
+        wrong_ops += run_wrong
+        ops += run_ops
         for event in run.events.all():
-            if event.event_type in ('operation_succeeded', 'operation_failed'):
-                row['ops'] += 1
-                ops += 1
             if event.event_type == 'operation_failed':
-                row['wrong_ops'] += 1
-                wrong_ops += 1
                 row['failure_counts'][(event.operation or 'unknown', event.failure_reason or 'unknown')] += 1
         hints = sorted((e for e in run.events.all() if e.event_type == 'hint'), key=lambda e: (e.occurred_at, e.sequence))
         if hints:

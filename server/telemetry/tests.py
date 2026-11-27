@@ -204,6 +204,20 @@ class MongoAnalyticsTests(TestCase):
         self.level_attempt(4, 3, 5, 13, 'success')
         self.assertEqual(self.client.get('/staff/').context['learning']['retry_runs'], 1)
 
+    def test_wrong_rate_ignores_undo(self):
+        collection(LearningTask).update_one({'_id': str(self.problem.pk)}, {'$set': {'task_id': 'ST03'}})
+        self.event('task_started', 1, 0)
+        self.event('attempt_started', 2, 1)
+        self.event('operation_succeeded', 3, 2, operation='good_move')
+        self.event('operation_failed', 4, 3, operation='wrong_move', failure_reason='empty_stack')
+        for seq in (5, 6, 7):
+            self.event('operation_succeeded', seq, seq, operation='undo')
+        response = self.client.get('/staff/')
+        task = response.context['learning']['tasks'][0]
+        self.assertEqual((task['wrong_ops'], task['ops'], task['wrong_rate']), (1, 2, 50.0))
+        game = next(g for g in response.context['catalog']['games'] if g['code'] == 'ST03')
+        self.assertEqual((game['wrong_ops'], game['ops'], game['wrong_rate']), (1, 2, 50.0))
+
     def test_practice_of_a_cleared_level_is_not_a_restart(self):
         self.event('task_started', 1, 0)
         self.level_attempt(1, 1, 2, 1, 'success')

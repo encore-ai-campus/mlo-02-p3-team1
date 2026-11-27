@@ -4,7 +4,7 @@ Only exact execution IDs (case insensitive) classify records. Never infer an ID
 from a title, legacy topic, or an operation. No ingestion/storage contract changes.
 """
 from collections import Counter
-from .learning import is_retry_run, is_replay_run
+from .learning import is_retry_run, is_replay_run, judged_operations
 
 AREAS = [('structures', '자료구조'), ('algorithms', '알고리즘'), ('sql', 'SQL'), ('data', '데이터 탐색')]
 GAMES = [
@@ -90,8 +90,8 @@ def report(runs, events):
 
     def game_metrics(items):
         # Per game only (not per area): 오답률 from operation events, 다시 하기 runs. retries stays = 재시작.
-        actions = [e.event_type for r in items for e in r.events.all()]
-        wrong, ops = actions.count('operation_failed'), actions.count('operation_failed') + actions.count('operation_succeeded')
+        judged = [judged_operations(list(r.events.all())) for r in items]
+        wrong, ops = sum(w for w, _ in judged), sum(t for _, t in judged)
         return dict(wrong_ops=wrong, ops=ops, wrong_rate=round(100 * wrong / ops, 1) if ops else None,
                     replays=sum(is_replay_run(r, list(r.attempts.all()), list(r.events.all())) for r in items))
 
