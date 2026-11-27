@@ -2688,7 +2688,7 @@ func _build_game_logo() -> Control:
 	sub.add_theme_font_override("normal_font", bold)
 	sub.add_theme_font_size_override("normal_font_size", 22)
 	sub.add_theme_color_override("default_color", ink)
-	sub.text = "[color=#e0a400]코[/color]딩을 [color=#e8517e]딱[/color] 깨우치는 [color=#7b5cff]지[/color]름길"
+	sub.text = "[color=#e0a400]코[/color]딩의 원리를 [color=#e8517e]딱[/color] 깨우치는 [color=#7b5cff]지[/color]름길"
 	ribbon.add_child(sub)
 	return header
 
@@ -2698,7 +2698,7 @@ func _build_title_modal(canvas: CanvasLayer) -> void:
 	title_modal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	canvas.add_child(title_modal)
 
-	# [1. 상단 중앙 타이틀: 코딱지 / 코딩을 딱 깨우치는 지름길]
+	# [1. 상단 중앙 타이틀: 코딱지 / 코딩의 원리를 딱 깨우치는 지름길]
 	title_modal.add_child(_build_game_logo())
 
 	# [2. 우측 아이보리 로그인/회원가입 폼 카드 (사이즈 세로 축소: 높이 430px)]

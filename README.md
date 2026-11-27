@@ -1,12 +1,14 @@
 <div align="center">
 
-<img src="docs/readme/kkodakji-icon.png" width="120" alt="코딱지 아이콘">
+<img src="docs/readme/kkodakji-keyart.jpg" width="900" alt="코딱지 키 아트: 코딩의 원리를 딱 깨우치는 지름길">
 
 # 코딱지
 
-### 코딩을 딱 깨우치는 지름길
+### 코딩의 원리를 딱 깨우치는 지름길
 
-**게임을 하다 보면 자료구조·알고리즘·SQL이 손에 익고, 그 모든 플레이가 실시간 데이터 파이프라인을 타고 학습 진단이 됩니다.**
+**외우지 말고, 움직여라. 코딩이 딱 이해된다!**
+
+게임을 하다 보면 자료구조·알고리즘·SQL이 손에 익고, 그 모든 플레이가 실시간 데이터 파이프라인을 타고 학습 진단이 됩니다.
 
 ![Godot](https://img.shields.io/badge/Godot-4.7.2-478CBF?logo=godotengine&logoColor=white)
 ![Kafka](https://img.shields.io/badge/Apache%20Kafka-3.9.1-231F20?logo=apachekafka&logoColor=white)
