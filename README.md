@@ -234,7 +234,75 @@ mlo-02-p3-team1/
 
 ---
 
-## 5. 추후 예정
+## 5. 지연 이벤트 · 장애 복구 · Delta 튜닝
+
+### 5-1. 지연 이벤트 (늦게 도착한 기록)
+
+오프라인 큐, 수집 서버 장애 복구, 업데이트 대기 때문에 며칠 전 플레이 기록이 오늘 처음 도착할 수 있습니다. 원칙은 **저장은 버리지 않고, 실시간 화면은 도착 시각, 분석 화면은 플레이 시각**입니다.
+
+| 항목 | 처리 |
+|---|---|
+| 정의 | 플레이 시각(`occurred_at`, 기기 시계)과 받은 시각(`received_at`, 수집기 시계)이 300초 넘게 차이 나면 늦은 이벤트입니다 ([`pipeline/common/lateness.py`](pipeline/common/lateness.py)). 수집기는 6일 넘게 지난 기록을 `too_old`로 거절하고, 게임도 6일 지난 기록은 큐에서 만료합니다 |
+| Silver 시간 | 늦은 이벤트는 `event_time`을 받은 시각으로 바꿔 저장합니다. 원래 `occurred_at`은 그대로 남습니다 |
+| 실시간 화면 (Gold, `rt_*`) | 1분 집계에 받은 시각 기준으로 들어갑니다. 상단 지표에 "늦게 도착 N건 포함"으로 따로 표시합니다 |
+| 실패 급증 경고 | 정시 이벤트만으로 판정합니다. 장애 복구 직후 한꺼번에 들어온 옛 실패가 거짓 경고를 만들지 않습니다 |
+| 분석 화면 | 원격 적재가 세션·시도·이벤트에 플레이 시각을 그대로 넣으므로, 날짜별 학습 통계는 실제 플레이 날짜로 셉니다 |
+| Silver MERGE | 늦은 ID가 섞인 배치는 ID 생성일별로 나눠 MERGE해 스캔 범위가 넓어지지 않습니다 |
+| 버전 보급률 | 플레이어별 최신 버전을 플레이 시각 순으로 판단해, 늦게 온 옛 버전 기록이 다운그레이드처럼 보이지 않습니다 |
+
+- 1분 집계·경고 집계의 워터마크는 2분입니다. 300초 이내라 플레이 시각을 그대로 쓰는 기록 중 2~5분 늦게 도착한 것은 이미 닫힌 창에 해당해 실시간 집계에서 빠질 수 있습니다. 분석 화면에는 반영됩니다.
+- 로컬 시험에서 사흘 전 기록 602건을 현재 트래픽 2,005건과 함께 보냈을 때, 602건 모두 저장·총계에 포함되고 경고 판정에서만 빠졌습니다(경고 창 시도 수 차이 84건 = 늦은 기록의 시도 수). 자세히: [늦게 도착한 데이터 처리](docs/changes/2026-11-21_late_events.md)
+- 30일 넘게 오프라인으로 쌓인 기록을 별도 경로(`/v2/offline`, 90일 이내)로 올리는 장기 동기화는 구현·격리 시험까지 했고 운영에서는 꺼져 있습니다. 자세히: [장기 오프라인 동기화](pipeline/docs/OFFLINE_SYNC_2026-11-25.md)
+
+### 5-2. 장애 복구
+
+어느 한 단계가 멈춰도 앞 단계가 기록을 보관하고, 다시 살아나면 같은 ID로 이어서 처리합니다. 재전송은 여러 번 일어날 수 있지만 event_id·내용 해시·insert-only MERGE로 결과가 한 번만 반영되게 만듭니다(분산 트랜잭션 기반 exactly-once를 보장한다는 뜻은 아닙니다).
+
+| 장애 지점 | 대응 |
+|---|---|
+| 게임 PC 네트워크 끊김·강제 종료 | 이벤트를 먼저 디스크 큐(`user://telemetry/pending/`)에 쓰고 202를 받은 뒤에만 지웁니다. 끊기거나 종료돼도 다음 실행 때 같은 event_id로 다시 보냅니다(1~60초 간격 재시도, 최대 5,000건). 4xx는 그 건만 `rejected/`로 옮기고, 401은 보관한 채 재시도합니다 |
+| 수집기 · Kafka | Kafka `acks=all` 확인 뒤에만 202를 줍니다. Kafka가 응답하지 않으면 5초 안에 503을 돌려주고 게임이 다시 보냅니다. 복제 3·최소 ISR 2라 브로커 1대가 멈춰도 수집은 계속됩니다 |
+| Spark | 쿼리마다 체크포인트가 있고 Kafka가 7일 보관하므로, Spark가 멈췄다 다시 뜨면 마지막 처리 위치부터 이어 갑니다. 감독 루프가 실패한 쿼리만 체크포인트에서 다시 시작하고, 10분 안에 5회를 넘으면 컨테이너를 재시작합니다 |
+| 중복 | 같은 event_id 재전송은 Silver 상태 저장소(기본 7일)와 insert-only MERGE로 걸러져 행이 늘지 않습니다. 같은 ID에 다른 내용이 오면 `silver.quarantine`에 격리합니다 |
+| 로컬 MongoDB (`rt_*`) | 쓰기를 5회 재시도하고, 끝내 실패한 창은 기록해 두었다가 Gold Delta에서 다시 게시합니다. 로컬 시험에서 MongoDB를 130초 멈춰도 수집은 계속됐고 Spark 재시작은 0회였습니다 |
+| 원격 적재 (outbox → 원격 MySQL·MongoDB) | 상태(pending·processing·stored·retrying·waiting_context·parked·blocked·quarantined)를 outbox에 남깁니다. 일시 오류는 `retrying`, 기한·횟수를 넘으면 `parked`로 두고 조건이 맞으면 자동 재개합니다. 세션 순번 순서를 지키며 다른 세션은 막지 않습니다 |
+| 거절된 기록 (DLQ) | 422 원문을 `nv.dlq.v1`에 남깁니다. 계약 호환 문제로 거절된 기록은 [`pipeline/tools/recover_state_dlq.py`](pipeline/tools/recover_state_dlq.py)로 계획을 만든 뒤 같은 ID로 다시 보낼 수 있습니다(2026-11-25에 45건 복구, 기존 기록 변경 0건) |
+| 확인 | 관측소(:8011)가 쿼리 중단, 처리·배치 지연, 적재 대기·중단을 표시하고 경고·복구 이력을 남깁니다 |
+
+![장애·예외 상황 대응 비교](docs/presentation/fig-5-scenarios.png)
+
+자세히: [게스트 처리·이벤트 복구 보고](pipeline/docs/RECOVERY_2026-11-25.md), [신뢰성 보완 기록](docs/changes/2026-11-20_pipeline_reliability.md), [구조 비교 자료](docs/presentation/NODEVERSE_파이프라인_구조비교_최적화.md)
+
+### 5-3. Delta 튜닝 비교
+
+Bronze는 원본을 append만 하고, Silver는 중복 제거 후 insert-only MERGE, Gold는 1분·5분 창 집계를 MERGE로 씁니다. 데이터가 늘어도 매 배치가 필요한 범위만 읽고 쓰도록 아래처럼 바꿨습니다.
+
+| 항목 | 이전 | 현재 |
+|---|---|---|
+| Silver MERGE 조건 | `event_id` 하나 → 배치마다 Silver 전체 스캔 | 배치 날짜 −7일~+1일 범위와 UUIDv7 ID 범위를 조건에 추가, ID 생성일별로 나눠 MERGE |
+| 파일 압축 | Delta 자동 압축이 커밋마다 날짜 파티션 전체를 다시 씀(실데이터 약 30MB인 Silver가 디스크 4.9GB, Bronze 7.5GB) | 자동 압축 끔. 쓰기 스레드가 300배치마다 작은 파일만 압축(64~128MB 목표), Bronze는 10분마다, outbox 적재·MongoDB 게시가 끝난 뒤 실행 |
+| VACUUM | — | 별도 스레드에서 6시간마다 (실시간 요약 갱신을 막지 않음) |
+| ZORDER | — | `ZORDER BY (minigame_id, player_id, event_id)` 유지. `event_id` 단독 ZORDER와 비교한 결과 MERGE는 비슷하고(1.08~1.83초 대 1.16~1.86초) 플레이어 1명 조회는 단독 쪽이 2.4~2.6배 더 읽어 현행 유지 |
+
+같은 부하(6,000건, 초당 100건)에서 비교한 결과입니다.
+
+| 지표 | 이전 | 현재 |
+|---|---|---|
+| Silver MERGE 단계 중앙값 | 5.35초 | 1.55초 |
+| Silver learning 배치 중앙값 | 5.65초 | 1.75초 |
+| gold_1m 배치 중앙값 | 3.60초 | 2.20초 |
+| 시험 1회 디스크 증가 (Silver / Bronze) | +420MB / +633MB | +2MB / +2MB |
+| 원격 적재 완료 (전송 시작부터) | 104초 | 81초 |
+
+![보완 차수별 변경점](docs/presentation/fig-3-rounds.png)
+
+![최적화 전후 성능 비교](docs/presentation/fig-4-metrics.png)
+
+모든 수치는 같은 로컬 PC(Windows 11 ARM64, WSL2 Docker, Spark 4코어)에서 잰 값이며 운영 환경 수치는 아닙니다. 자세히: [Silver MERGE·압축 보완](docs/changes/2026-11-21_silver_merge_scaling.md), [구조 비교와 최적화](docs/presentation/NODEVERSE_파이프라인_구조비교_최적화.md)
+
+---
+
+## 6. 추후 예정
 
 남은 항목만 적었습니다. 처리한 내용은 [변경 리포트](docs/reports/2026-11-20_NODEVERSE_변경리포트.md), [구조 비교 자료](docs/presentation/), [파이프라인 문서](pipeline/docs/)에, 항목별 근거(파일·줄 번호)는 [docs/DATA_FLOW_AND_GAPS.md](docs/DATA_FLOW_AND_GAPS.md)에 있습니다.
 
