@@ -121,6 +121,14 @@ func setup_problem(p) -> void:
 func setup_level(n: int) -> void:
 	super.setup_level(n)
 
+func _ready() -> void:
+	super._ready()
+	# 로봇이 시안 위에 덧그린 표·게시판 뒤로 숨지 않게 앞에 그리고, 장치 표지는 로봇 발밑에 둔다
+	player.z_index = 4
+	plate_offset = Vector2(0, 12) if activity == "stats" else Vector2(0, 30)
+	if activity in ["profile", "stats"]:
+		hud.set_controls("WASD 이동 · E 칸 고르기/값 바꾸기 · 숫자 키 입력 · Backspace 지우기 · F 힌트 · Z 되돌리기 · Esc 메뉴")
+
 func handle(key: String) -> void:
 	match activity:
 		"profile": profile_action(key)

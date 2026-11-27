@@ -78,13 +78,13 @@ y_sort_enabled = true
 z_index = 3
 
 [node name="Player" parent="Field/World" instance=ExtResource("4")]
-position = Vector2(560.0, 590.0)
+position = Vector2(560, 500)
 
 [node name="Spawn" type="Marker2D" parent="Field/World"]
-position = Vector2(560.0, 590.0)
+position = Vector2(560, 500)
 
 [node name="St0" type="Area2D" parent="Field/World"]
-position = Vector2(190.0, 578.0)
+position = Vector2(190, 515)
 script = ExtResource("3")
 kind = "st"
 index = 0
@@ -94,7 +94,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r48")
 
 [node name="St1" type="Area2D" parent="Field/World"]
-position = Vector2(355.0, 578.0)
+position = Vector2(355, 512)
 script = ExtResource("3")
 kind = "st"
 index = 1
@@ -104,7 +104,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r48")
 
 [node name="St2" type="Area2D" parent="Field/World"]
-position = Vector2(520.0, 578.0)
+position = Vector2(520, 512)
 script = ExtResource("3")
 kind = "st"
 index = 2
@@ -114,7 +114,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r48")
 
 [node name="St3" type="Area2D" parent="Field/World"]
-position = Vector2(685.0, 578.0)
+position = Vector2(685, 512)
 script = ExtResource("3")
 kind = "st"
 index = 3
@@ -124,7 +124,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r48")
 
 [node name="St4" type="Area2D" parent="Field/World"]
-position = Vector2(850.0, 578.0)
+position = Vector2(830, 480)
 script = ExtResource("3")
 kind = "st"
 index = 4
@@ -134,7 +134,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r48")
 
 [node name="St5" type="Area2D" parent="Field/World"]
-position = Vector2(1060.0, 578.0)
+position = Vector2(1050, 505)
 script = ExtResource("3")
 kind = "st"
 index = 5
@@ -155,6 +155,7 @@ texture = ExtResource("6")
 offset = Vector2(0, -75)
 
 [node name="Body" type="CollisionShape2D" parent="Field/World/Npc"]
+disabled = true
 shape = SubResource("npc_body")
 
 [node name="Talk" type="Area2D" parent="Field/World/Npc"]

@@ -64,18 +64,6 @@ centered = false
 build_mode = 1
 polygon = PackedVector2Array(168.6, 168.6, 1100.2, 168.6, 1201.3, 242.1, 1201.3, 275.8, 1195.2, 281.9, 867.3, 281.9, 867.3, 530.2, 965.3, 530.2, 1146.2, 530.2, 1152.3, 539.4, 1143.1, 548.6, 1060.3, 606.8, 217.6, 606.8, 98.1, 508.7, 107.3, 248.2, 168.6, 168.6)
 
-[node name="Boundary1" type="CollisionPolygon2D" parent="Field/Walls"]
-build_mode = 1
-polygon = PackedVector2Array(318.7, 196.1, 315.7, 297.3, 566.9, 297.3, 570.0, 196.1, 318.7, 196.1)
-
-[node name="Boundary2" type="CollisionPolygon2D" parent="Field/Walls"]
-build_mode = 1
-polygon = PackedVector2Array(600.7, 196.1, 597.6, 297.3, 848.9, 297.3, 852.0, 196.1, 600.7, 196.1)
-
-[node name="Boundary3" type="CollisionPolygon2D" parent="Field/Walls"]
-build_mode = 1
-polygon = PackedVector2Array(257.4, 318.7, 257.4, 398.4, 251.3, 404.5, 220.7, 404.5, 220.7, 570.0, 401.5, 570.0, 398.4, 401.5, 404.5, 395.3, 435.2, 395.3, 441.3, 401.5, 438.2, 570.0, 622.1, 570.0, 619.0, 401.5, 634.4, 395.3, 655.8, 401.5, 652.8, 570.0, 836.6, 570.0, 833.6, 401.5, 852.0, 395.3, 852.0, 318.7, 257.4, 318.7)
-
 [node name="Links" type="Node2D" parent="Field"]
 
 [node name="World" type="Node2D" parent="Field"]
@@ -91,7 +79,7 @@ position = Vector2(1000.0, 560.0)
 position = Vector2(1000.0, 560.0)
 
 [node name="St0" type="Area2D" parent="Field/World"]
-position = Vector2(220.0, 586.0)
+position = Vector2(220, 572)
 script = ExtResource("3")
 kind = "st"
 index = 0
@@ -101,7 +89,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St1" type="Area2D" parent="Field/World"]
-position = Vector2(345.0, 586.0)
+position = Vector2(345, 572)
 script = ExtResource("3")
 kind = "st"
 index = 1
@@ -111,7 +99,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St2" type="Area2D" parent="Field/World"]
-position = Vector2(470.0, 586.0)
+position = Vector2(470, 572)
 script = ExtResource("3")
 kind = "st"
 index = 2
@@ -121,7 +109,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St3" type="Area2D" parent="Field/World"]
-position = Vector2(595.0, 586.0)
+position = Vector2(595, 572)
 script = ExtResource("3")
 kind = "st"
 index = 3
@@ -131,7 +119,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St4" type="Area2D" parent="Field/World"]
-position = Vector2(720.0, 586.0)
+position = Vector2(720, 572)
 script = ExtResource("3")
 kind = "st"
 index = 4
@@ -141,7 +129,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St5" type="Area2D" parent="Field/World"]
-position = Vector2(845.0, 586.0)
+position = Vector2(845, 572)
 script = ExtResource("3")
 kind = "st"
 index = 5
@@ -161,7 +149,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r44")
 
 [node name="St7" type="Area2D" parent="Field/World"]
-position = Vector2(1010.0, 575.0)
+position = Vector2(975, 568)
 script = ExtResource("3")
 kind = "st"
 index = 7
@@ -171,7 +159,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r40")
 
 [node name="St8" type="Area2D" parent="Field/World"]
-position = Vector2(1130.0, 565.0)
+position = Vector2(1062, 565)
 script = ExtResource("3")
 kind = "st"
 index = 8
@@ -192,6 +180,7 @@ texture = ExtResource("6")
 offset = Vector2(0, -75)
 
 [node name="Body" type="CollisionShape2D" parent="Field/World/Npc"]
+disabled = true
 shape = SubResource("npc_body")
 
 [node name="Talk" type="Area2D" parent="Field/World/Npc"]

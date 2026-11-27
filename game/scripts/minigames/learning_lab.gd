@@ -38,6 +38,8 @@ var board: Node2D
 var _cv: CanvasItem
 var _st: Array = []
 var _pop_canvas: Node2D
+## 장치 바닥 표지의 위치 (장치 지점 기준)
+var plate_offset := Vector2(0, -10)
 
 # ---------- 하위 클래스가 구현 ----------
 func lab_table() -> Dictionary: return {}
@@ -183,7 +185,11 @@ func on_button(id) -> void:
 		popup = key.trim_prefix("view:")
 	elif key.begins_with("field:"):
 		input_field = key.trim_prefix("field:")
-		hud.toast("숫자 키로 입력하세요. 지우기는 Backspace", StageHUD.GOLD)
+		var label := input_field
+		for st in _st:
+			if st != null and st[0] == key and st.size() > 2:
+				label = str(st[2]).split(":")[0]
+		hud.toast("%s 칸 선택! 숫자 키로 입력하고, 틀리면 Backspace로 지워요" % label, StageHUD.GOLD, 4.0)
 	elif key.begins_with("key:"):
 		_key_input(key.trim_prefix("key:"))
 	else:
@@ -249,7 +255,9 @@ func _draw_board_layer() -> void:
 	for i in _st.size():
 		if _st[i] != null and _st[i].size() > 2 and _st[i][2] != "" and spot("st", i) != null:
 			var focused: bool = player.focus == spot("st", i)
-			plate(spot("st", i).position + Vector2(0, -10), _st[i][2], 18, GOLD if focused else CREAM)
+			var editing: bool = input_field != "" and _st[i][0] == "field:" + input_field
+			var label: String = _st[i][2] + ("  ← 입력 중" if editing else "")
+			plate(spot("st", i).position + plate_offset, label, 18, Color("9fe0a8") if editing else (GOLD if focused else CREAM))
 
 func _draw_popup_layer() -> void:
 	if popup == "":
