@@ -11,9 +11,9 @@
 게임을 하다 보면 자료구조·알고리즘·SQL이 손에 익고, 그 모든 플레이가 실시간 데이터 파이프라인을 타고 학습 진단이 됩니다.
 
 ![Godot](https://img.shields.io/badge/Godot-4.7.2-478CBF?logo=godotengine&logoColor=white)
-![Kafka](https://img.shields.io/badge/Apache%20Kafka-3.9.1-231F20?logo=apachekafka&logoColor=white)
-![Spark](https://img.shields.io/badge/Apache%20Spark-3.5.3-E25A1C?logo=apachespark&logoColor=white)
-![Delta Lake](https://img.shields.io/badge/Delta%20Lake-3.2.1-00ADD4)
+![Kafka](https://img.shields.io/badge/Apache_Kafka-3.9.1-231F20?logo=apachekafka&logoColor=white)
+![Spark](https://img.shields.io/badge/Apache_Spark-3.5.3-E25A1C?logo=apachespark&logoColor=white)
+![Delta Lake](https://img.shields.io/badge/Delta_Lake-3.2.1-00ADD4)
 ![MongoDB](https://img.shields.io/badge/MongoDB-7.0-47A248?logo=mongodb&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL-8.4-4479A1?logo=mysql&logoColor=white)
 ![Django](https://img.shields.io/badge/Django-5.2-092E20?logo=django&logoColor=white)
