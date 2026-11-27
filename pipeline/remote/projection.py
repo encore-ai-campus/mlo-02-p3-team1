@@ -214,6 +214,35 @@ class Projector:
         ensure(self.remote.pipeline_quarantined_events, doc, ["payload_hash", "reason"])
         return self.receipt(event, {"scope": "learning_quarantine", "event_id": event["event_id"], "reason": reason})
 
+    def verify_receipt(self, event, result):
+        """A local receipt is not proof that a restored remote database still has its records.
+
+        Fail closed; do not reset cursors or replay terminal updates out of order. Recovery requires
+        a coordinated restore/rebuild, rather than marking absent dashboard documents as stored.
+        """
+        if result.get('scope') == 'learning_quarantine':
+            doc = self.remote.pipeline_quarantined_events.find_one({'_id': event['event_id']})
+            valid = doc and doc.get('payload_hash') == event['payload_hash'] and doc.get('reason') == result.get('reason')
+        elif result.get('scope') == 'dashboard_records':
+            doc = self.remote.gameplay_events.find_one({'_id': event['event_id']})
+            run = self.remote.problem_runs.find_one({'_id': result['run_id']})
+            session = self.remote.game_sessions.find_one({'_id': result['session_id']})
+            valid = (doc and run and session
+                     and doc.get('source_payload_hash') == event['payload_hash']
+                     and doc.get('run_id') == result['run_id']
+                     and doc.get('session_id') == result['session_id']
+                     and doc.get('attempt_id') == result.get('attempt_id')
+                     and run.get('session_id') == result['session_id']
+                     and session.get('player_id') == result['member_id']
+                     and self.remote.game_problems.find_one({'_id': run.get('task_id')}))
+            if valid and result.get('attempt_id'):
+                attempt = self.remote.solution_attempts.find_one({'_id': result['attempt_id']})
+                valid = attempt and attempt.get('run_id') == result['run_id']
+        else:
+            valid = False
+        if not valid:
+            raise Conflict('remote_projection_recovery_required')
+
     def project(self, event, archived=False):
         """archived=True: the caller already wrote (and conflict-checked) the archive copy of this event."""
         kind = self.kind(event) if archived else self.archive(event)
@@ -233,6 +262,7 @@ class Projector:
             receipt = self.local.remote_projection_receipts.find_one({"_id": event["event_id"]})
             if not receipt or receipt["payload_hash"] != event["payload_hash"]:
                 raise Conflict("sequence_reuse_or_missing_receipt")
+            self.verify_receipt(event, receipt['result'])
             if sequence == cursor["last_sequence"]:  # the newest receipt: its wake may not have happened
                 self.wake_successor(event)
             return receipt["result"]
@@ -276,6 +306,13 @@ class Projector:
             self.cache[("ctx", contextkey)] = context
         if context is None:
             return self.quarantine(event, "event_without_prior_problem_start")
+        # A local run context can also outlive a remote-only restore. Check before inserting children.
+        present = self._cached(('remote_context_present', source_run), lambda:
+            bool(self.remote.problem_runs.find_one({'_id': source_run})
+                 and self.remote.game_sessions.find_one({'_id': context['session_id']})
+                 and self.remote.game_problems.find_one({'_id': context['problem_id']})))
+        if not present:
+            raise Conflict('remote_projection_recovery_required')
         if context["game_id"] != game_id or context["player_id"] != player:
             raise Conflict("run_context_mismatch")
         if occurred < context["started_at"]:

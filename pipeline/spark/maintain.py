@@ -4,12 +4,15 @@ No VACUUM, schema migration, deletion or checkpoint changes.
 import argparse
 import json
 from datetime import date
-import tables as tb
 
 COLUMNS = {
     "bronze.game_events": ["topic", "partition"],
     "silver.learning_events": ["minigame_id", "player_id", "event_id"],
     "silver.update_events": ["player_id", "event_id"],
+    "gold.minigame_1m": [],
+    "gold.failure_alerts": [],
+    "gold.update_progress_5m": [],
+    "gold.version_adoption": [],
 }
 
 
@@ -19,9 +22,12 @@ def statements(table, day=None):
     partition = "ingest_date" if table.startswith("bronze.") else "event_date"
     predicate = ""
     if day:
+        if table.startswith('gold.'):
+            raise ValueError('--date is supported only for partitioned Bronze/Silver tables')
         date.fromisoformat(day)
         predicate = f" WHERE {partition} = DATE '{day}'"
-    return f"OPTIMIZE {table}{predicate} ZORDER BY ({', '.join(COLUMNS[table])})"
+    zorder = f" ZORDER BY ({', '.join(COLUMNS[table])})" if COLUMNS[table] else ''
+    return f"OPTIMIZE {table}{predicate}{zorder}"
 
 
 def main():
@@ -34,6 +40,10 @@ def main():
     if not a.execute:
         print(json.dumps({"execute": False, "sql": [sql for _, sql in plans], "requires": "stop streaming writers"}))
         return
+    # Plan-only use needs no Spark/Delta installation and never opens a Spark session.
+    import sys
+    sys.path.insert(0, '/opt/nodeverse')
+    import tables as tb
     spark = tb.spark_session("nodeverse-maintenance")
     try:
         from pathlib import Path

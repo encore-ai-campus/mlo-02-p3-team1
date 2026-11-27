@@ -45,7 +45,8 @@
 - **유실 방지:** 202는 Kafka 3대 중 2대 이상에 기록된 뒤에만 돌려줍니다. Kafka가 7일 보관하므로 Spark가 멈춰도 체크포인트부터 이어서 처리합니다.
 - **중복 방지:** 같은 `event_id` 재전송은 Silver에서 걸러지고, insert-only MERGE라 다시 실행해도 행이 늘지 않습니다. 원격 적재의 모든 쓰기는 같은 내용만 통과시키고 다르면 충돌로 멈춥니다.
 - **늦게 도착한 이벤트:** 플레이 시각과 도착 시각이 일정 간격 넘게 차이 나면 실시간 건수에는 넣되 따로 세고, 실패 급증 경고에서는 뺍니다. 경고 기준선(직전 30분 6개 창)도 `gold.failure_alerts`에서 현재 창과 같은 규칙으로 읽습니다.
-- **압축:** Delta 자동 압축은 끄고, 각 테이블을 쓰는 스레드가 `COMPACT_EVERY_BATCHES`(300)배치마다 그 배치가 쓴 파티션의 작은 파일만 합칩니다. Silver는 outbox 적재 뒤, Gold는 MongoDB 게시 뒤에 압축하므로 원격 적재와 화면 게시가 압축을 기다리지 않습니다.
+- **압축:** 기본 `COMPACTION_MODE=maintenance`에서는 스트리밍 배치와 주기 타이머가 OPTIMIZE를 실행하지 않습니다. 압축은 Spark 쓰기를 멈춘 유지보수 시간에 `spark/maintain.py`로 별도 실행합니다. 기존 `inline` 방식은 명시적으로 선택할 수 있으나, outbox 적재·MongoDB 게시 뒤라도 다음 배치는 압축 완료를 기다립니다. [복구·압축 운영 안내](docs/changes/2026-11-27_pipeline_review_fixes.md)를 확인하세요.
+- **원격 DB 복원:** 로컬 처리 이력만으로 재전송을 성공 처리하지 않습니다. 원격 이벤트·세션·실행·시도·문제 정의가 사라지거나 참조가 다르면 `remote_projection_recovery_required`로 차단합니다. 기존 stored 행 전체를 계속 대조하는 기능이나 자동 재구축 기능은 아니며, 원격 DB 복원 후에는 로컬 상태와의 일관성 복구가 필요합니다.
 - **상태 객체:** 배포 게임이 `details.state_before`/`state_after`를 JSON 객체로 보내면 수집기가 키 순서를 고정한 JSON 문자열로 바꿉니다. 512자 제한과 `details` 크기 제한은 그대로입니다.
 - **지연:** 이벤트가 `rt_*`에 반영되기까지 평시 약 10~18초입니다(D22).
 
@@ -108,7 +109,8 @@ docker compose -p nodeverse-v2-live --env-file .env --env-file live.env -f compo
 | `COLLECTOR_BIND`, `COLLECTOR_PORT` | 127.0.0.1, 8000 | 수집기 공개 범위·포트 (다른 PC에서 받으려면 0.0.0.0) |
 | `SPARK_CORES`, `SPARK_DRIVER_MEMORY` | 4, 2g | Spark 로컬 코어·메모리 |
 | `DEDUP_TTL_HOURS` | 168 | Silver 중복 제거 상태 보관 시간 |
-| `COMPACT_EVERY_BATCHES` | 300 | 테이블별 압축 간격(배치 수) |
+| `COMPACTION_MODE` | maintenance | 별도 유지보수 압축. inline은 기존 배치 내 압축을 명시적으로 활성화 |
+| `COMPACT_EVERY_BATCHES` | 300 | inline 모드에서만 테이블별 압축 간격(배치 수) |
 | `REMOTE_EXPORT_ENABLED` | 0 | 1이면 Silver·실행 이벤트를 outbox에 적재 |
 | `REMOTE_ALLOW_GUESTS` | 0 | 1이면 등록 회원에 없는 UUID 플레이어를 게스트로 적재 |
 | `REMOTE_MEMBER_CACHE_SECONDS` | 300 | 회원 확인 결과 재사용 시간 (0 = 매번 확인) |

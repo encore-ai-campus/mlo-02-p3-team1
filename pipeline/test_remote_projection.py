@@ -31,6 +31,49 @@ def test_projection_and_replay(dbs):
  assert run["active_ms"] is None and run["paused_ms"] is None
  assert isinstance(target.gameplay_events.find_one()["occurred_at"],datetime)
 
+
+@pytest.mark.parametrize('collection', ['game_sessions','problem_runs','solution_attempts','gameplay_events','game_problems'])
+def test_remote_only_restore_never_reports_replay_success(dbs, collection):
+ local,target=dbs;events=rows()
+ for event in events:Projector(local,target,None,{}).project(event)
+ target[collection].delete_many({})
+ # The local cursor/receipts survive a remote-only restore; they cannot certify remote storage.
+ with pytest.raises(Conflict,match='remote_projection_recovery_required'):
+  Projector(local,target,None,{}).project(events[2])
+
+
+def test_remote_only_restore_blocks_new_children(dbs):
+ local,target=dbs;events=rows()
+ Projector(local,target,None,{}).project(events[0])
+ target.problem_runs.delete_many({})
+ with pytest.raises(Conflict,match='remote_projection_recovery_required'):
+  Projector(local,target,None,{}).project(events[1])
+ assert target.solution_attempts.count_documents({})==0
+ assert target.gameplay_events.count_documents({})==1
+
+
+def test_remote_quarantine_receipt_requires_remote_document(dbs):
+ local,target=dbs;event=dict(rows()[0],event_type='operation_succeeded')
+ projector=Projector(local,target,None,{})
+ assert projector.project(event)['scope']=='learning_quarantine'
+ target.pipeline_quarantined_events.delete_many({})
+ with pytest.raises(Conflict,match='remote_projection_recovery_required'):
+  projector.project(event)
+
+
+def test_worker_blocks_restored_remote_instead_of_marking_stored(dbs):
+ import remote.worker as worker
+ local,target=dbs;events=rows()
+ for event in events:Projector(local,target,None,{}).project(event)
+ target.gameplay_events.delete_many({})
+ event=events[2]
+ local.remote_event_outbox.insert_one({'_id':event['event_id'],'event':event,'state':'processing',
+                                     'attempts':1,'queued_at':datetime.now(timezone.utc)})
+ worker.process_job(local.remote_event_outbox.find_one({'_id':event['event_id']}),local,target,_Pool(),{},True)
+ job=local.remote_event_outbox.find_one({'_id':event['event_id']})
+ assert job['state']=='blocked' and job['reason']=='remote_projection_recovery_required'
+ assert 'stored_at' not in job
+
 def test_out_of_order(dbs):
  l,t=dbs;p=Projector(l,t,None,{});e=rows()
  with pytest.raises(Waiting,match="sequence_gap"):p.project(e[1])

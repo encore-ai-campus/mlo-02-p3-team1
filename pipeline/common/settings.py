@@ -20,6 +20,13 @@ def _flag(name: str, default: bool = False) -> bool:
     return raw.strip() == "1" if raw.strip() else default
 
 
+def _compaction_mode() -> str:
+    mode = os.getenv('COMPACTION_MODE', 'maintenance').strip()
+    if mode not in ('maintenance', 'inline'):
+        raise ValueError('COMPACTION_MODE must be maintenance or inline')
+    return mode
+
+
 @dataclass(frozen=True)
 class Settings:
     # collector
@@ -43,6 +50,7 @@ class Settings:
     outbox_stage_chunk: int = field(default_factory=lambda: _int("OUTBOX_STAGE_CHUNK", 500))
     # small-file compaction and VACUUM (spark/compaction.py); 0 disables the step
     compact_every_batches: int = field(default_factory=lambda: _int("COMPACT_EVERY_BATCHES", 300))
+    compaction_mode: str = field(default_factory=_compaction_mode)
     compact_bronze_minutes: int = field(default_factory=lambda: _int("COMPACT_BRONZE_MINUTES", 10))
     vacuum_interval_hours: int = field(default_factory=lambda: _int("VACUUM_INTERVAL_HOURS", 6))
     vacuum_retain_hours: int = field(default_factory=lambda: _int("VACUUM_RETAIN_HOURS", 168))

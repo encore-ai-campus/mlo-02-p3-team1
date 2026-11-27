@@ -5,7 +5,8 @@ Why not Delta auto compaction: with spark.databricks.delta.autoCompact.enabled i
 (~30 MB for 2 files). Live Silver data was ~30 MB but the table used 4.9 GB on disk (Bronze 7.5 GB), and the
 rewrite time grew with the partition size, inside every micro-batch.
 
-Instead:
+Default COMPACTION_MODE=maintenance disables streaming/timer OPTIMIZE. Run maintain.py with writers stopped.
+The following legacy behaviour applies only to explicit COMPACTION_MODE=inline:
   * compact_after_write(): called by the single writer of a table right after its own write, every
     COMPACT_EVERY_BATCHES batches, for the partitions it touched. Same thread as the MERGE, so it can never
     conflict with that MERGE. OPTIMIZE only rewrites files smaller than optimize.minFileSize (set in
@@ -44,6 +45,8 @@ def _optimize(spark, table: str, where: str = "") -> dict:
 
 def compact_after_write(spark, table: str, partition_col: str | None = None, values=()) -> None:
     """Count one write of `table`; every COMPACT_EVERY_BATCHES writes, compact the touched partitions."""
+    if settings.get().compaction_mode != 'inline':
+        return  # default: explicit maintenance process, never OPTIMIZE in foreachBatch
     every = settings.get().compact_every_batches
     if every <= 0:
         return
@@ -65,6 +68,8 @@ def compact_after_write(spark, table: str, partition_col: str | None = None, val
 
 
 def compact_append_only(spark) -> None:
+    if settings.get().compaction_mode != 'inline':
+        return
     today = date.today()
     days = ", ".join(f"DATE '{d.isoformat()}'" for d in (today - timedelta(days=1), today))
     _optimize(spark, "bronze.game_events", f"ingest_date IN ({days})")
