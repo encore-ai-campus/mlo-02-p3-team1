@@ -34,10 +34,10 @@
 |---|---|---|
 | 수집기 | 요청마다 | 키 확인 → 계약 검사 → 토픽 분류 → Kafka `acks=all` 확인 후 202. 잘못된 입력은 422와 DLQ 1건, Kafka 실패(5초)는 503 |
 | `bronze` | 5초 | 학습·업데이트·실행 토픽을 원문 그대로 `bronze.game_events`에 append (`maxOffsetsPerTrigger` 10,000) |
-| `silver_learning_events`, `silver_update_events` | 1초 | 상태 저장소로 `event_id` 중복 제거(기본 168시간) → 날짜 7일·UUIDv7 ID 범위로 좁힌 insert-only MERGE → outbox 적재 → 작은 파일 압축 |
+| `silver_learning_events`, `silver_update_events` | 1초 | 상태 저장소로 `event_id` 중복 제거(기본 168시간) → 날짜 7일·UUIDv7 ID 범위로 좁힌 insert-only MERGE → outbox 적재 (기본 maintenance 모드에서는 배치 안 압축 없음) |
 | `silver_audit` | 30초 | `topic:event_id`별 본문 해시를 기억해 같은 ID 다른 본문(`id_conflict`)과 JSON·스키마 오류를 `silver.quarantine`에 원문째 보관 |
-| `gold_1m`, `gold_alert`, `gold_update` | 1초 | 1분 미니게임 집계, 5분 실패 급증 경고, 5분 업데이트 진행. Delta MERGE → MongoDB 게시 → 압축 순서 |
-| 주기 작업 | 10·60초 | `rt_summary`(10초), 버전 보급률·`rt_rejects`(60초), Gold 재게시, Bronze 압축(10분), VACUUM(6시간), 진행 파일 기록 |
+| `gold_1m`, `gold_alert`, `gold_update` | 1초 | 1분 미니게임 집계, 5분 실패 급증 경고, 5분 업데이트 진행. Delta MERGE → MongoDB 게시 순서 |
+| 주기 작업 | 10·60초 | `rt_summary`(10초), 버전 보급률·`rt_rejects`(60초), Gold 재게시, VACUUM(6시간), 진행 파일 기록 (Bronze 10분 압축은 inline 모드에서만) |
 | `remote_runtime` | 1초 | `REMOTE_EXPORT_ENABLED=1`일 때 실행 이벤트를 outbox로 |
 | remote-writer | 상시 | outbox 200건 묶음 선점 → 세션별 8스레드로 순번대로 세션·문제 실행·시도·행동 로그 적재 |
 
@@ -169,7 +169,7 @@ PySpark가 없는 환경에서는 Spark가 필요한 시험(경고 기준선 등
 
 - 데이터 볼륨 증가 시 선택 압축·사전 코드화의 효과와 수신 CPU 비용을 재측정한 뒤 적용 여부 결정 ([확장 설계](docs/COMPRESSION_EXTENSION.md)). 현재는 문서화만 하고 운영 적용·추가 최적화는 보류합니다.
 
-- 압축을 같은 배치 밖의 별도 작업으로 분리 (게시 지연·다음 배치 지연을 나눠 측정한 뒤 설계)
+- 압축 유지보수 자동 예약 (압축은 스트림에서 분리됨, 지금은 writer를 멈추고 `spark/maintain.py`를 수동 실행)
 - 대량 부하 시험, 중복 제거 상태 48시간 비교, Silver MERGE 범위 최적화 측정 후 적용
 - 게임이 최초 실행 시 guest UUID를 프로필에 보관하고 플레이마다 새 session UUID를 만들도록 맞추기
 - 남은 격리 원인 수정: 문제 시작 없이 온 행동 이벤트, `operation` 값 누락 (게임 송신부)
@@ -213,8 +213,8 @@ PySpark가 없는 환경에서는 Spark가 필요한 시험(경고 기준선 등
 - **유실 방지:** 202는 Kafka에 복제·기록된 뒤에만 돌려줍니다. Kafka가 7일 보관하므로 Spark가 멈춰도 재시작하면 체크포인트부터 이어서 처리합니다.
 - **중복 방지:** 같은 event_id 재전송은 Silver에서 7일 동안 걸러지고, insert-only MERGE라 다시 실행해도 행이 늘지 않습니다. 같은 ID에 다른 내용이 오면 `silver.quarantine`에 `id_conflict`로 격리합니다.
 - **지연:** 이벤트가 대시보드 `rt_*`에 반영되기까지 평시 약 10~18초입니다(구조상 제약, D22).
-- **원격 적재:** 회원 매핑이 없거나 세션 순서가 비면 `waiting_context`로 기다리고, 잘못된 데이터는 `blocked`, 일시 오류는 `retrying`으로 둡니다. `REMOTE_ALLOW_GUESTS=1`이면 등록 회원에 없는 UUID 플레이어를 게스트 회원으로 적재합니다.
-- **압축:** 각 테이블을 쓰는 스레드가 300배치마다 작은 파일만 합치고, Silver는 outbox 적재 뒤·Gold는 MongoDB 게시 뒤에 압축해 원격 적재와 화면 게시가 기다리지 않습니다.
+- **원격 적재:** 회원 매핑이 없거나 세션 순서가 비면 `waiting_context`로 기다리고, 잘못된 데이터나 원격 DB에서 사라진 이전 기록(`remote_projection_recovery_required`)은 `blocked`, 일시 오류는 `retrying`으로 둡니다. `REMOTE_ALLOW_GUESTS=1`이면 등록 회원에 없는 UUID 플레이어를 게스트 회원으로 적재합니다.
+- **압축:** 기본 maintenance 모드에서는 스트림 배치 안에서 압축하지 않아 원격 적재와 화면 게시가 압축을 기다리지 않습니다. 압축은 writer를 멈춘 뒤 `spark/maintain.py --execute`로 따로 실행합니다.
 - **상태 객체:** 게임이 `state_before`·`state_after`를 객체로 보내면 수집기가 정렬된 JSON 문자열로 바꿔 받습니다.
 
 **실행 화면**
@@ -252,7 +252,7 @@ Bronze는 원본을 append만 하고, Silver는 중복 제거 후 insert-only ME
 | 항목 | 이전 | 현재 |
 |---|---|---|
 | Silver MERGE 조건 | `event_id` 하나 → 배치마다 Silver 전체 스캔 | 배치 날짜 −7일~+1일 범위와 UUIDv7 ID 범위를 조건에 추가, ID 생성일별로 나눠 MERGE |
-| 파일 압축 | Delta 자동 압축이 커밋마다 날짜 파티션 전체를 다시 씀(실데이터 약 30MB인 Silver가 디스크 4.9GB, Bronze 7.5GB) | 자동 압축 끔. 쓰기 스레드가 300배치마다 작은 파일만 압축(64~128MB 목표), Bronze는 10분마다, outbox 적재·MongoDB 게시가 끝난 뒤 실행 |
+| 파일 압축 | Delta 자동 압축이 커밋마다 날짜 파티션 전체를 다시 씀(실데이터 약 30MB인 Silver가 디스크 4.9GB, Bronze 7.5GB) | 자동 압축 끔. 측정 당시: 쓰기 스레드가 300배치마다 작은 파일만 압축(64~128MB 목표), Bronze는 10분마다. 2026-11-27부터 기본은 maintenance 모드(writer 정지 후 `maintain.py` 별도 실행) |
 | VACUUM | — | 별도 스레드에서 6시간마다 (실시간 요약 갱신을 막지 않음) |
 | ZORDER | — | `ZORDER BY (minigame_id, player_id, event_id)` 유지. `event_id` 단독 ZORDER와 비교한 결과 MERGE는 비슷하고(1.08~1.83초 대 1.16~1.86초) 플레이어 1명 조회는 단독 쪽이 2.4~2.6배 더 읽어 현행 유지 |
 

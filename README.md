@@ -159,7 +159,7 @@ code mlo-02-p3-team1/nodeverse.code-workspace
 | Spark | 쿼리마다 체크포인트가 있고 Kafka가 7일 보관하므로, Spark가 멈췄다 다시 뜨면 마지막 처리 위치부터 이어 갑니다. 감독 루프가 실패한 쿼리만 체크포인트에서 다시 시작하고, 10분 안에 5회를 넘으면 컨테이너를 재시작합니다 |
 | 중복 | 같은 event_id 재전송은 Silver 상태 저장소(기본 7일)와 insert-only MERGE로 걸러져 행이 늘지 않습니다. 같은 ID에 다른 내용이 오면 `silver.quarantine`에 격리합니다 |
 | 로컬 MongoDB (`rt_*`) | 쓰기를 5회 재시도하고, 끝내 실패한 창은 기록해 두었다가 Gold Delta에서 다시 게시합니다. 로컬 시험에서 MongoDB를 130초 멈춰도 수집은 계속됐고 Spark 재시작은 0회였습니다 |
-| 원격 적재 (outbox → 원격 MySQL·MongoDB) | 상태(pending·processing·stored·retrying·waiting_context·parked·blocked·quarantined)를 outbox에 남깁니다. 일시 오류는 `retrying`, 기한·횟수를 넘으면 `parked`로 두고 조건이 맞으면 자동 재개합니다. 세션 순번 순서를 지키며 다른 세션은 막지 않습니다 |
+| 원격 적재 (outbox → 원격 MySQL·MongoDB) | 상태(pending·processing·stored·retrying·waiting_context·parked·blocked·quarantined)를 outbox에 남깁니다. 일시 오류는 `retrying`, 기한·횟수를 넘으면 `parked`로 두고 조건이 맞으면 자동 재개합니다. 원격 DB를 과거 시점으로 복원해 이전 기록이 사라졌으면 성공으로 넘기지 않고 `blocked`로 멈춥니다. 세션 순번 순서를 지키며 다른 세션은 막지 않습니다 |
 | 거절된 기록 (DLQ) | 422 원문을 `nv.dlq.v1`에 남깁니다. 계약 호환 문제로 거절된 기록은 [DLQ 복구 도구](pipeline/tools/recover_state_dlq.py)로 계획을 만든 뒤 같은 ID로 다시 보낼 수 있습니다(2026-11-25에 45건 복구, 기존 기록 변경 0건) |
 | 확인 | 관측소(:8011)가 쿼리 중단, 처리·배치 지연, 적재 대기·중단을 표시하고 경고·복구 이력을 남깁니다 |
 
@@ -185,6 +185,8 @@ code mlo-02-p3-team1/nodeverse.code-workspace
 
 <img src="docs/readme/deck-delta-tuning.png" width="900" alt="같은 경로에서 처리 방식만 바꿔 비용 절감: MERGE 범위 좁히기 5.35초에서 1.55초, 압축은 필요한 만큼만 +420MB에서 +2MB, 헬스체크 가볍게 유휴 CPU 감소, 집계는 최근 5분만 5.8초에서 2.3초">
 
+<sub>그림의 방식과 수치는 측정 당시(2026-11-21) 기준입니다. 압축은 2026-11-27부터 기본이 maintenance 모드로 바뀌어, 스트림 배치 안에서 하지 않고 writer를 멈춘 뒤 `maintain.py`로 따로 실행합니다. → [변경 내용](pipeline/docs/changes/2026-11-27_pipeline_review_fixes.md)</sub>
+
 ---
 
 ## 추후 예정
@@ -196,6 +198,7 @@ code mlo-02-p3-team1/nodeverse.code-workspace
 - 원격 작업자 다중 프로세스: 지금 초당 약 200건까지 따라감. 그 이상이 계속되면 세션 단위로 나눠 확장
 - 대량 부하 시험, 중복 제거 상태 48시간 비교, Silver MERGE 범위 최적화
 - DLQ 재처리 범위 확대 (현재 복구 도구는 상태 객체 사례만)
+- 원격 DB 복원 뒤 과거 stored 기록 전체 대조·자동 재구축 (지금은 다시 처리하는 기록만 원격 원본을 확인)
 
 **운영·보안**
 - 게이트웨이(:8000 → v2 수집기) 설정을 저장소로 가져오기. 지금은 저장소만으로 운영 경로를 재현할 수 없음 (PL-1)
