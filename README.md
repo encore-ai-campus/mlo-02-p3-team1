@@ -437,12 +437,4 @@ Bronze는 원본을 append만 하고, Silver는 중복 제거 후 insert-only ME
 
 ## 문서 모음
 
-| 문서 | 내용 |
-|---|---|
-| [docs/HANDOFF_2026-11-23.md](docs/HANDOFF_2026-11-23.md) | 공용 저장소 인계 정리: 파트별 바뀐 것·읽을 문서·남은 일 |
-| [docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md) | clone 후 파트별 개발환경 다시 구성하기 |
-| [docs/DATA_FLOW_AND_GAPS.md](docs/DATA_FLOW_AND_GAPS.md) | 데이터 흐름, 병목, 보완·추가 구현 목록 |
-| [docs/INTEGRATION_REVIEW_2026-11-20.md](docs/INTEGRATION_REVIEW_2026-11-20.md) | 세 파트 연동 검토 |
-| [docs/reports/](docs/reports/) | 중간보고서, 델타레이크 오류수정내역, 로그인·클라우드세이브 정리 |
-| [docs/presentation/](docs/presentation/) | 파이프라인 처음 구조·현재 구조·최적화(1~8차) 비교 PDF와 발표용 그림 6장 (16:9 PNG·SVG) |
-| [contracts/README.md](contracts/README.md) | 공통 이벤트 규약과 남은 차이 |
+📚 전체 문서 목차는 [docs/README.md](docs/README.md)에 있습니다.
