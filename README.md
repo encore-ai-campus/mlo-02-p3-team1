@@ -89,12 +89,12 @@ code mlo-02-p3-team1/nodeverse.code-workspace
 
 **팀**
 
-| 이름 | 역할 |
-|---|---|
-| 유성원 (팀장) | 서버·대시보드, MySQL 저장·조회 |
-| 서정길 | 총괄·검토 |
-| 박준범 | 게임 |
-| 이어진 | 파이프라인: 수집·전달·정제·집계·MongoDB 저장 |
+| GitHub | 이름 | 역할 |
+|:---:|---|---|
+| <a href="https://github.com/ericsw2727"><img src="https://github.com/ericsw2727.png?size=40" width="32" alt="ericsw2727"><br>@ericsw2727</a> | 유성원 (팀장) | 서버·대시보드, MySQL 저장·조회 |
+| <a href="https://github.com/kingdoms1212"><img src="https://github.com/kingdoms1212.png?size=40" width="32" alt="kingdoms1212"><br>@kingdoms1212</a> | 서정길 | 총괄·검토 |
+| <a href="https://github.com/junbum8398-blip"><img src="https://github.com/junbum8398-blip.png?size=40" width="32" alt="junbum8398-blip"><br>@junbum8398-blip</a> | 박준범 | 게임 |
+| <a href="https://github.com/jobless-fish"><img src="https://github.com/jobless-fish.png?size=40" width="32" alt="jobless-fish"><br>@jobless-fish</a> | 이어진 | 파이프라인: 수집·전달·정제·집계·MongoDB 저장 |
 
 <img src="docs/readme/team-architecture.png" width="900" alt="전체 아키텍처와 담당: 수집(게임 박준범, 수집기·Kafka·DLQ 이어진), 스트리밍(Spark·Delta Lake 이어진), 원격 적재·관리자 화면(outbox·원격 작업자 이어진, 분석 DB·Django 유성원), 총괄·검토 서정길">
 
