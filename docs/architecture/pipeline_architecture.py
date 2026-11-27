@@ -1,17 +1,17 @@
 # -*- coding: utf-8 -*-
-"""Pipeline runtime architecture: rounds 1-8 of fixes plus the follow-up changes (2026-11-25).
+"""Pipeline runtime architecture: consolidated current configuration (checked against main 2026-11-27).
 
     python docs/architecture/pipeline_architecture.py      -> pipeline-architecture-2026-11-25.svg (next to this file)
 
 Standard library only. Edit the boxes / arrows in build() and run again; the PNG is rendered from the SVG with a
 headless browser, e.g.
-    chrome --headless=new --hide-scrollbars --window-size=2400,2090 --screenshot=out.png file:///.../x.svg
+    chrome --headless=new --hide-scrollbars --window-size=2400,1800 --screenshot=out.png file:///.../x.svg
 The 2026-11-21 SVG/PNG next to this file is the earlier snapshot that older reports link to; it is kept as is.
 """
 from html import escape
 from pathlib import Path
 
-W, H = 2400, 2090
+W, H = 2400, 1800
 OUT = Path(__file__).with_name("pipeline-architecture-2026-11-25.svg")
 
 # palette per layer: (fill, stroke, title color)
@@ -35,7 +35,7 @@ def tagged(text):
     """'[4] text' or '  [4] text' -> (text, '4') so the round is drawn as a coloured badge."""
     body = text.lstrip(" ")
     if body.startswith("[") and body[2:4] == "] " and body[1] in TAG:
-        return text[:len(text) - len(body)] + body[4:], body[1]
+        return text[:len(text) - len(body)] + body[4:], None
     return text, None
 
 
@@ -99,8 +99,8 @@ def build():
     o.append("</defs>")
     o.append(f'<rect width="{W}" height="{H}" fill="#ffffff"/>')
     o.append('<text x="30" y="42" font-size="28" font-weight="800" fill="#1f2430">아키텍처 상세: 코딱지 파이프라인 구성 요소별 설정</text>')
-    o.append('<text x="30" y="70" font-size="15" fill="#5b6472">2026-11-25 작성 · 2026-11-27 코드 대조 · 1~8차 보완과 그 뒤 추가 반영 · '
-             '배지 = 그 부분을 바꾼 보완 차수 (추가 = 8차 이후 반영 완료, 할 일 아님) · 실선 = 데이터, 파선 = 기동·상태 확인, 점선 = 화면 조회, 빨간 점선 = 실패 경로</text>')
+    o.append('<text x="30" y="70" font-size="15" fill="#5b6472">2026-11-27 main 코드 기준 현재 구성 · '
+             '실선 = 데이터, 파선 = 기동·상태 확인, 점선 = 화면 조회, 빨간 점선 = 실패 경로</text>')
 
     # ------------------------------------------------------------------ row 1: game -> collector -> kafka, gates, server
     o.append(box(30, 100, 340, 330, "게임 클라이언트 (Godot)", [
@@ -224,8 +224,8 @@ def build():
         "(REMOTE_EXPORT_ENABLED=1)",
     ]))
     o.append(box(50, 855, 1160, 160, "드라이버 주기 작업 spark/periodic.py (10초 루프)", [
-        "[3] rt_summary 10초: 최근 5분만 먼저 걸러 집계  [7] 늦게 도착 건수 함께 (총계 포함)",
-        "[3] 버전 보급률 60초: 같으면 MERGE·재쓰기 생략  [7] 최신 판단은 플레이 시각 순",
+        "[3] rt_summary 10초: 최근 5분만 먼저 걸러 집계 · 늦게 도착 건수 함께 (총계 포함)",
+        "[3] 버전 보급률 60초: 같으면 MERGE·재쓰기 생략 · 최신 판단은 플레이 시각 순",
         "[3] rt_rejects 60초 (PL-8): Kafka nv.dlq.v1 24시간 + silver.quarantine → 60분·24시간 건수, 사유, 최근 5건",
         "[4] Gold 재게시 대기분 처리 · 진행 파일 metrics/streaming-progress.json (sink 실패, 재시작, 단계별 시간 → 관측소가 읽음)",
         "[6] Bronze 압축 10분 · VACUUM 6시간 · 로그: 주기 작업마다 소요 시간",
@@ -252,7 +252,7 @@ def build():
         "[4] metrics/gold-republish.json",
     ]))
     o.append(box(1290, 855, 430, 155, "압축·정리 spark/compaction.py", [
-        "[6] 자동 압축 끔 (매 배치 파티션 재작성 제거)",
+        "Delta 자동 압축 끔 (압축은 아래 주기로만)",
         "[6] 쓰기 스레드가 300배치마다 작은 파일만",
         "[+] Silver는 outbox 적재 뒤, Gold는 Mongo 게시 뒤",
         "[6] Bronze 10분 · VACUUM 6시간 (보존 7일)",
@@ -287,7 +287,7 @@ def build():
 
     # ------------------------------------------------------------------ row 3: remote writer, targets, observatory
     o.append(group(30, 1130, 1200, 600, "원격 작업자 remote-writer (remote/worker.py, --profile remote)",
-                   "lease 1개 · 200건 묶음 선점 · 세션별 그룹 8스레드 · MySQL 풀 8 · GET_LOCK 1회 · 이벤트당 DB 왕복 약 26 → 10회 (8차)", "writer"))
+                   "lease 1개 · 200건 묶음 선점 · 세션별 그룹 8스레드 · MySQL 풀 8 · GET_LOCK 1회 · 이벤트당 DB 왕복 약 10회", "writer"))
     o.append(box(50, 1200, 370, 250, "선점 claim_batch", [
         "기한 된 행 200개 후보 조회",
         "[4] claim_id 토큰을 붙여 processing",
@@ -392,35 +392,6 @@ def build():
     ], kind="obs"))
     o.append(arrow([(2300, 1030), (2300, 1130)], "read", "지표 조회", 2340, 1122))
 
-    # ------------------------------------------------------------------ row 4: rounds, measurements, what is left
-    o.append(group(30, 1790, 2340, 280, "보완 차수와 실측 (로컬 PC 기준)", "", "ops"))
-    o.append(box(50, 1835, 740, 215, "1~4차", [
-        "1차: 모듈 분리, 쿼리별 재시작, sink 재시도, MERGE 7일+v7 범위,",
-        "     원격 작업자 묶음·풀 → 끝까지 적재 초당 17~24건 → 60~90건",
-        "2차 (PL-9): 대기 기한 → parked, 상태 카드",
-        "[3] CPU 경량화 + PL-8 거절·격리 표시",
-        "    유휴 p95: Kafka 120%→6%, Mongo 39%→5%",
-        "[4] 신뢰성 P1 6건 + 프로토콜 헬스체크",
-        "    Mongo 130초 정지: 202 접수 유지, Gold 창 재게시, 재시작 0",
-    ]))
-    o.append(box(810, 1835, 740, 215, "5~8차", [
-        "[5] 게임 디스크 큐·계정 전환, P2 시험",
-        "    6,000건·역순 30세션: 섞임·누락 0, 같은 ID 재전송: Silver 1행",
-        "[6] Silver MERGE 단계 5.35초 → 1.55초, 시험 1회 디스크 +420MB → +2MB",
-        "[7] 늦게 도착: 사흘 전 602건 → 실시간 표시, 경고에서만 제외",
-        "[8] 원격 적재 순수 처리 34.7 → 219건/초",
-        "    초당 200건 유입을 따라감 (평균 대기 2.9초)",
-    ]))
-    o.append(box(1570, 1835, 780, 215, "8차 이후 추가 반영 · 남은 과제", [
-        "[+] 압축은 outbox 적재·Mongo 게시 뒤, 경고 기준선은 현재 창과 같은 규칙",
-        "[+] state 객체 호환·게스트 연결: 복구 45건 원격 원본·행동 로그 확인",
-        "[+] 관측소 :8011 + 알림 센터",
-        "[+] 운영 Spark·수집기·작업자를 분리형 코드로 전환 (기존 체크포인트 8개 유지)",
-        "[+] 격리 RF3 종단 측정 10,600건: Bronze→원격 행동 로그 일치, 누락·중복 0",
-        "남은 과제 (README 추후 예정과 같음)",
-        "· 압축을 별도 작업으로 분리·테이블별 충돌 제어 · 원격 작업자 다중 프로세스",
-        "· 장시간 대량 부하·48h 중복 상태 비교 · DLQ 재처리 범위 확대",
-    ]))
     o.append("</svg>")
     return "\n".join(o)
 
