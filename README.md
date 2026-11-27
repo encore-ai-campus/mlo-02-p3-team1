@@ -104,9 +104,19 @@ code mlo-02-p3-team1/nodeverse.code-workspace
 
 ## 아키텍처
 
-<img src="docs/readme/architecture-overview.png" width="900" alt="전체 아키텍처: 수집(게임·수집기·Kafka·DLQ), 스트리밍(Spark·Delta Lake Bronze·Silver·Gold·MongoDB rt_*), 원격 적재·관리자 화면(outbox·원격 작업자·분석 DB·Django)">
+### 아키텍처 개요
 
-[상세 아키텍처 그림](docs/architecture/pipeline-architecture-2026-11-25.png) · [원본 SVG](docs/architecture/pipeline-architecture-2026-11-25.svg) · [한 장짜리 개요](pipeline/docs/architecture.png) · [보완 전 데이터 흐름 그림](docs/architecture/data-flow-2026-11-20.png) · [데이터 흐름과 남은 과제](docs/DATA_FLOW_AND_GAPS.md) · [PC별 배포 구성과 포트](docs/SETUP_GUIDE.md#7-pc별-배포-구성과-포트)
+수집·스트림·적재 3단 흐름을 한눈에 보는 그림입니다.
+
+<img src="docs/readme/architecture-overview.png" width="900" alt="아키텍처 개요: 수집(게임·수집기·Kafka·DLQ), 스트리밍(Spark·Delta Lake Bronze·Silver·Gold·MongoDB rt_*), 원격 적재·관리자 화면(outbox·원격 작업자·분석 DB·Django)">
+
+### 아키텍처 상세
+
+컨테이너·토픽·트리거·재시도 등 구성 요소별 설정을 담은 그림입니다. 크게 보려면 그림을 누르세요.
+
+<a href="docs/architecture/pipeline-architecture-2026-11-25.png"><img src="docs/architecture/pipeline-architecture-2026-11-25.png" width="900" alt="아키텍처 상세: 게임 클라이언트·수집기·Kafka·Spark/Delta Lake·로컬 MongoDB·원격 작업자·원격 MySQL/MongoDB·Django·관측소의 구성 요소별 설정과 보완 차수"></a>
+
+[상세 그림 원본 SVG](docs/architecture/pipeline-architecture-2026-11-25.svg) · [파이프라인 한 장 요약](pipeline/docs/architecture.png) · [보완 전 데이터 흐름 그림](docs/architecture/data-flow-2026-11-20.png) · [데이터 흐름과 남은 과제](docs/DATA_FLOW_AND_GAPS.md) · [PC별 배포 구성과 포트](docs/SETUP_GUIDE.md#7-pc별-배포-구성과-포트)
 
 | 순서 | 위치 | 일어나는 일 |
 |---|---|---|

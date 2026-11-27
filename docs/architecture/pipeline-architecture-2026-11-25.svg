@@ -7,7 +7,7 @@
 </defs>
 <rect width="2400" height="2090" fill="#ffffff"/>
 <text x="30" y="42" font-size="28" font-weight="800" fill="#1f2430">코딱지 파이프라인 동작 아키텍처</text>
-<text x="30" y="70" font-size="15" fill="#5b6472">2026-11-25 · 1~8차 보완과 후속 반영 · 배지 = 그 부분을 바꾼 보완 차수 (후속 = 8차 이후) · 실선 = 데이터, 파선 = 기동·상태 확인, 점선 = 화면 조회, 빨간 점선 = 실패 경로</text>
+<text x="30" y="70" font-size="15" fill="#5b6472">2026-11-25 작성 · 2026-11-27 코드 대조 · 1~8차 보완과 후속 반영 · 배지 = 그 부분을 바꾼 보완 차수 (후속 = 8차 이후) · 실선 = 데이터, 파선 = 기동·상태 확인, 점선 = 화면 조회, 빨간 점선 = 실패 경로</text>
 <rect x="30" y="100" width="340" height="330" rx="10" fill="#fdf3e3" stroke="#d08a2c" stroke-width="2"/>
 <text x="42" y="124" font-size="16" font-weight="700" fill="#7a4a0c">게임 클라이언트 (Godot)</text>
 <text x="44" y="144" font-size="13.5" fill="#2a3442" xml:space="preserve">학습 이벤트 v2 · UUIDv7 event_id</text>
@@ -198,7 +198,7 @@
 <rect x="1304" y="945.5" width="22" height="16" rx="4" fill="#c47a12"/><text x="1315.0" y="958.5" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">6차</text>
 <text x="1332" y="957.5" font-size="13.5" fill="#2a3442" xml:space="preserve">Bronze 10분 · VACUUM 6시간 (보존 7일)</text>
 <text x="1304" y="977.0" font-size="13.5" fill="#2a3442" xml:space="preserve">ZORDER(maintain.py): 스트림 정지 후 수동</text>
-<text x="1304" y="996.5" font-size="13.5" fill="#2a3442" xml:space="preserve">같은 배치 안 동기 실행 (비동기화는 남은 과제)</text>
+<text x="1304" y="996.5" font-size="13.5" fill="#2a3442" xml:space="preserve">같은 배치 안 동기 실행 (별도 작업 분리는 추후 예정)</text>
 <path d="M1210,560 L1290,560" fill="none" stroke="#2f6f4f" stroke-width="2.4" marker-end="url(#m-data)"/>
 <text x="1250" y="552" font-size="12.5" font-weight="700" fill="#2f6f4f" text-anchor="middle" paint-order="stroke" stroke="#ffffff" stroke-width="4">MERGE·append</text>
 <rect x="1780" y="470" width="590" height="560" rx="14" fill="#f3eefb" stroke="#7d57b8" stroke-width="2.2"/>
@@ -398,7 +398,9 @@
 <text x="1624" y="1918.0" font-size="13.5" fill="#2a3442" xml:space="preserve">관측소 :8011 + 알림 센터</text>
 <rect x="1584" y="1925.5" width="34" height="16" rx="4" fill="#b8941f"/><text x="1601.0" y="1938.5" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">후속</text>
 <text x="1624" y="1937.5" font-size="13.5" fill="#2a3442" xml:space="preserve">운영 Spark·수집기·작업자를 분리형 코드로 전환 (기존 체크포인트 8개 유지)</text>
-<text x="1584" y="1957.0" font-size="13.5" fill="#2a3442" xml:space="preserve">남은 과제</text>
-<text x="1584" y="1976.5" font-size="13.5" fill="#2a3442" xml:space="preserve">· 압축을 별도 작업으로 분리, 테이블별 충돌 제어</text>
-<text x="1584" y="1996.0" font-size="13.5" fill="#2a3442" xml:space="preserve">· 대량 부하·48h 중복 상태 비교, 최신 EXE 종단 시험</text>
+<rect x="1584" y="1945.0" width="34" height="16" rx="4" fill="#b8941f"/><text x="1601.0" y="1958.0" font-size="11" font-weight="700" fill="#fff" text-anchor="middle">후속</text>
+<text x="1624" y="1957.0" font-size="13.5" fill="#2a3442" xml:space="preserve">격리 RF3 종단 측정 10,600건: Bronze→원격 행동 로그 일치, 누락·중복 0</text>
+<text x="1584" y="1976.5" font-size="13.5" fill="#2a3442" xml:space="preserve">남은 과제 (README 추후 예정과 같음)</text>
+<text x="1584" y="1996.0" font-size="13.5" fill="#2a3442" xml:space="preserve">· 압축을 별도 작업으로 분리·테이블별 충돌 제어 · 원격 작업자 다중 프로세스</text>
+<text x="1584" y="2015.5" font-size="13.5" fill="#2a3442" xml:space="preserve">· 장시간 대량 부하·48h 중복 상태 비교 · DLQ 재처리 범위 확대</text>
 </svg>
