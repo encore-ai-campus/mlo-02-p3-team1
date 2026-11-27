@@ -23,11 +23,12 @@
 
 <img src="docs/readme/kkodakji-play.gif" width="720" alt="코딱지 플레이 장면: 3D 섬 월드와 스택 스테이지 자동 풀이">
 
-<a href="https://youtube.com/shorts/y_Be5HSoYxk"><img src="docs/readme/shorts-play.jpg" width="300" alt="코딱지 30초 홍보 숏츠: 누르면 YouTube에서 재생"></a>
-
-<sub>▶ YouTube에서 소리와 함께 보기 (30초)</sub>
 
 </div>
+
+https://github.com/user-attachments/assets/6a87fe49-bf94-4d1b-82d7-96e51b00c655
+
+<p align="center"><sub>30초 홍보 숏츠 (▶ 누르면 소리와 함께 재생) · <a href="https://youtube.com/shorts/y_Be5HSoYxk">YouTube에서 보기</a></sub></p>
 
 ## 숫자로 보는 코딱지
 
