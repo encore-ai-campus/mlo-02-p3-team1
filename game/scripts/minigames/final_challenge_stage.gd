@@ -66,6 +66,8 @@ var _robot_visual_pos := Vector2(210, 360)
 var _robot_hop := 0.0
 var _robot_flip := false
 var _robot_tween: Tween
+var _step_alt := false
+var _last_step_ms := -1000
 var _last_sim_result: Dictionary = {}
 
 # ---------- 텍스처 & 폰트 ----------
@@ -1409,6 +1411,10 @@ func _show_float(t: String, col: Color) -> void:
 func _animate_robot_to(target: Vector2) -> void:
 	if absf(target.x - _robot_visual_pos.x) > 4.0:
 		_robot_flip = (target.x < _robot_visual_pos.x)
+	if _robot_visual_pos.distance_to(target) > 2.0 and Time.get_ticks_msec() - _last_step_ms >= 80:
+		_last_step_ms = Time.get_ticks_msec()
+		_step_alt = not _step_alt
+		Sfx.play("step_a" if _step_alt else "step_b", 1.0, -8.0)
 	if _robot_tween != null and _robot_tween.is_valid():
 		_robot_tween.kill()
 	var dur: float = 0.25 / SPEEDS[speed_idx]
