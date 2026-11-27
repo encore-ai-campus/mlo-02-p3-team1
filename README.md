@@ -1,7 +1,60 @@
-# 코딱지 — 코딩을 딱 깨우치는 지름길
+<div align="center">
+
+<img src="docs/readme/kkodakji-icon.png" width="120" alt="코딱지 아이콘">
+
+# 코딱지
+
+### 코딩을 딱 깨우치는 지름길
+
+**게임을 하다 보면 자료구조·알고리즘·SQL이 손에 익고, 그 모든 플레이가 실시간 데이터 파이프라인을 타고 학습 진단이 됩니다.**
+
+![Godot](https://img.shields.io/badge/Godot-4.7.2-478CBF?logo=godotengine&logoColor=white)
+![Kafka](https://img.shields.io/badge/Apache%20Kafka-3.9.1-231F20?logo=apachekafka&logoColor=white)
+![Spark](https://img.shields.io/badge/Apache%20Spark-3.5.3-E25A1C?logo=apachespark&logoColor=white)
+![Delta Lake](https://img.shields.io/badge/Delta%20Lake-3.2.1-00ADD4)
+![MongoDB](https://img.shields.io/badge/MongoDB-7.0-47A248?logo=mongodb&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-8.4-4479A1?logo=mysql&logoColor=white)
+![Django](https://img.shields.io/badge/Django-5.2-092E20?logo=django&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+
+[**▶ itch.io에서 플레이**](https://kingdoms1212.itch.io/kkotackji) &nbsp;·&nbsp; [**📊 관리자 대시보드 둘러보기**](#3-3-서버-server) &nbsp;·&nbsp; [**🏗 아키텍처**](#4-종합-구조와-동작-흐름)
+
+<img src="docs/readme/kkodakji-play.gif" width="720" alt="코딱지 플레이 장면: 3D 섬 월드와 스택 스테이지 자동 풀이">
+
+</div>
+
+## 숫자로 보는 코딱지
+
+| 🎮 미니게임 | 🏝 3D 월드 | ⚡ 실시간 처리 | ⏱ 대시보드 반영 |
+|:---:|:---:|:---:|:---:|
+| **24종**<br><sub>자료구조·알고리즘·SQL·데이터</sub> | **섬 7개**<br><sub>다리로 연결된 월드</sub> | **초당 200건**<br><sub>유입을 그대로 따라감</sub> | **평시 10~18초**<br><sub>게임 행동 → 관리자 화면</sub> |
+| 🚀 **원격 적재 약 9배**<br><sub>초당 17~24건 → 219건</sub> | 🔁 **Silver MERGE 약 3.5배**<br><sub>5.35초 → 1.55초</sub> | 🪶 **쉬는 중 Kafka CPU**<br><sub>p95 81~123% → 5~6%</sub> | 🛡 **MongoDB 130초 정지**<br><sub>수집 계속 · Spark 재시작 0회</sub> |
+
+<sub>모든 수치는 같은 로컬 PC(Windows 11 ARM64, WSL2 Docker, Spark 4코어)에서 직접 잰 값입니다. 운영 환경 수치가 아닙니다. 근거: [구조 비교와 최적화](docs/presentation/NODEVERSE_파이프라인_구조비교_최적화.md), [Silver MERGE·압축 보완](docs/changes/2026-11-21_silver_merge_scaling.md)</sub>
+
+## 이 프로젝트가 특별한 이유
+
+- 🛡 **장애에 강합니다.** 게임은 기록을 디스크 큐에 먼저 쓰고, 수집기는 Kafka 복제가 끝난 뒤에만 받았다고 답합니다. Spark가 멈춰도 Kafka 7일 보관과 쿼리별 체크포인트로 이어서 처리하고, 같은 기록이 여러 번 와도 한 번만 반영합니다. → [5-2. 장애 복구](#5-2-장애-복구)
+- ⚡ **실시간입니다.** 수집 API → Kafka → Spark Structured Streaming + Delta Lake(Bronze·Silver·Gold) → MongoDB를 거쳐, 게임 속 행동이 십몇 초 안에 관리자 실시간 화면에 올라옵니다. 늦게 도착한 기록까지 따로 다룹니다. → [5-1. 지연 이벤트](#5-1-지연-이벤트-늦게-도착한-기록)
+- 🧠 **학습을 진단합니다.** 게임별 해결률·오답률·재시작·다시 하기로 "어느 게임, 어느 조작에서 막히는지"를 데이터로 보여 줍니다. 되돌리기처럼 판정이 없는 조작은 오답률에서 뺍니다. → [학습 지표 정의](#3-3-서버-server)
+- 🎮 **진짜 게임입니다.** Godot 3D 섬 월드와 미니게임, 회원가입·클라우드 세이브, 시작할 때 확인하는 자동 업데이트·리소스 팩까지 갖췄습니다. → [3-1. 게임](#3-1-게임-game)
+
+## 한눈에 보기
+
+| 3D 월드 로비 | 스택 스테이지 (DS-03) |
+|:---:|:---:|
+| <img src="docs/readme/game-lobby.jpg" width="420" alt="코딱지 로비와 3D 섬 월드"> | <img src="docs/readme/game-stage-st03.jpg" width="420" alt="스택 스테이지 플레이 화면"> |
+| **관리자 전체 현황** (재시작·다시 하기·오답률) | **실시간 현황** (성공률·실패 급증 경고) |
+| <img src="docs/readme/dashboard-overview.jpg" width="420" alt="관리자 전체 현황"> | <img src="docs/readme/dashboard-live.jpg" width="420" alt="관리자 실시간 현황"> |
+
+<sub>대시보드 화면은 로컬에서 합성 데모 데이터로 띄운 모습입니다.</sub>
+
+---
+
+## 빠른 시작
 
 MLO 2기 3차 프로젝트 1팀 통합 저장소입니다. 서비스 이름은 **코딱지**이고, 이전 이름은 NODEVERSE입니다.
-게임 화면·창 제목은 코딱지로 바뀌었지만 저장소·폴더·코드 식별자(`nodeverse.code-workspace`, `NodeverseWorld.tscn` 등)와 관리자 대시보드·관측소 표기에는 NODEVERSE가 남아 있습니다.
+게임·관리자 대시보드·관측소·소개 페이지의 화면 표기는 코딱지입니다. 저장소·폴더·파일 이름과 코드 식별자(`nodeverse.code-workspace`, `NodeverseWorld.tscn`, `nodeverse_logs`, 내보내기 파일 `NODEVERSE.exe` 등)에는 이전 이름이 남아 있습니다.
 
 ```bash
 git lfs install        # game/ 의 Godot 에셋은 LFS로 받습니다
@@ -70,6 +123,10 @@ mlo-02-p3-team1/
 
 ### 3-1. 게임 (`game/`)
 
+<details>
+<summary><b>게임 구성과 동작 방식 펼쳐 보기</b></summary>
+
+
 | 항목 | 내용 |
 |---|---|
 | 엔진 | Godot **4.7.2** (웹 빌드는 Compatibility/WebGL2) |
@@ -90,13 +147,19 @@ mlo-02-p3-team1/
 
 **실행 화면**
 
-| 로비 | 3D 월드 · 테스트 봇(F5) |
+| 로비 | 스테이지 자동 풀이 (DS-03 스택) |
 |---|---|
-| ![게임 로비](docs/screenshots/game-1-lobby.png) | ![게임 월드](docs/screenshots/game-2-world-bot.png) |
+| ![게임 로비](docs/readme/game-lobby.jpg) | ![게임 월드](docs/readme/game-stage-st03.jpg) |
 
 자세히: [`game/README.md`](game/README.md), [`game/MINIGAME_GUIDE.md`](game/MINIGAME_GUIDE.md), [`game/docs/`](game/docs/)
 
+</details>
+
 ### 3-2. 파이프라인 (`pipeline/`)
+
+<details>
+<summary><b>파이프라인 구성과 보장 펼쳐 보기</b></summary>
+
 
 대용량 누적 기록에 대비한 **선택 압축·코드 사전 확장 설계**를 문서로 보관합니다. 기존 실시간 JSON 전송은 유지하며, 관련 참조 구현을 전체 게임·운영에 적용한 상태는 아닙니다. 실제 데이터 규모가 커졌을 때 크기·CPU·지연을 비교한 뒤 적용 여부를 결정합니다. 자세히: [압축·사전 확장 설계](pipeline/docs/COMPRESSION_EXTENSION.md).
 
@@ -120,11 +183,17 @@ mlo-02-p3-team1/
 
 **실행 화면**
 
-![파이프라인 로컬 실행 상태](docs/screenshots/pipeline-1-status.png)
+![파이프라인 로컬 실행 상태 (docker ps · 수집기 준비 · Spark 로그 · MongoDB)](docs/readme/pipeline-status.jpg)
 
 자세히: [`pipeline/README.md`](pipeline/README.md), [`pipeline/docs/DECISIONS.md`](pipeline/docs/DECISIONS.md), [`pipeline/docs/LIVE_REMOTE_SINK.md`](pipeline/docs/LIVE_REMOTE_SINK.md)
 
+</details>
+
 ### 3-3. 서버 (`server/`)
+
+<details>
+<summary><b>서버 구성·학습 지표 정의·실시간 현황 펼쳐 보기</b></summary>
+
 
 | 항목 | 내용 |
 |---|---|
@@ -164,11 +233,17 @@ mlo-02-p3-team1/
 
 | 전체 현황 | 실시간 현황 | 행동 로그 |
 |---|---|---|
-| ![전체 현황](docs/screenshots/server-1-overview.png) | ![실시간 현황](docs/screenshots/server-2-live.png) | ![행동 로그](docs/screenshots/server-3-events.png) |
+| ![전체 현황](docs/readme/dashboard-overview.jpg) | ![실시간 현황](docs/readme/dashboard-live.jpg) | ![행동 로그](docs/readme/dashboard-events.jpg) |
 
 자세히: [`server/README.md`](server/README.md), [`server/docs/`](server/docs/)
 
+</details>
+
 ### 3-4. 데이터 규약 (공통)
+
+<details>
+<summary><b>이벤트 규약 펼쳐 보기</b></summary>
+
 
 기준은 [`pipeline/contract.py`](pipeline/contract.py)이고 사본이 [`contracts/`](contracts/)에 있습니다. 게임과 파이프라인은 이 규약과 일치합니다.
 
@@ -200,9 +275,15 @@ mlo-02-p3-team1/
 - `minigame_id`와 `category` 조합이 카탈로그와 다르면 거절합니다.
 - `sequence`는 세션 안에서 1부터 빠짐없이 증가해야 원격 적재가 진행됩니다.
 
+</details>
+
 ---
 
 ## 4. 종합 구조와 동작 흐름
+
+<details>
+<summary><b>전체 흐름도와 PC별 구성 펼쳐 보기</b></summary>
+
 
 ![파이프라인 동작 아키텍처 (1~8차 보완과 후속 반영)](docs/architecture/pipeline-architecture-2026-11-25.png)
 
@@ -232,11 +313,17 @@ mlo-02-p3-team1/
 
 한 PC 로컬 실행(`전체실행.cmd`)에서는 게이트웨이 없이 수집기가 `127.0.0.1:8000`(`/v2/events`), Django가 `127.0.0.1:8010`(`/staff/login/`), MySQL이 `127.0.0.1:3306`, MongoDB가 `127.0.0.1:27017`, 관측소가 `127.0.0.1:8011`을 씁니다.
 
+</details>
+
 ---
 
 ## 5. 지연 이벤트 · 장애 복구 · Delta 튜닝
 
 ### 5-1. 지연 이벤트 (늦게 도착한 기록)
+
+<details>
+<summary><b>지연 이벤트 처리 펼쳐 보기</b></summary>
+
 
 오프라인 큐, 수집 서버 장애 복구, 업데이트 대기 때문에 며칠 전 플레이 기록이 오늘 처음 도착할 수 있습니다. 원칙은 **저장은 버리지 않고, 실시간 화면은 도착 시각, 분석 화면은 플레이 시각**입니다.
 
@@ -254,7 +341,13 @@ mlo-02-p3-team1/
 - 로컬 시험에서 사흘 전 기록 602건을 현재 트래픽 2,005건과 함께 보냈을 때, 602건 모두 저장·총계에 포함되고 경고 판정에서만 빠졌습니다(경고 창 시도 수 차이 84건 = 늦은 기록의 시도 수). 자세히: [늦게 도착한 데이터 처리](docs/changes/2026-11-21_late_events.md)
 - 30일 넘게 오프라인으로 쌓인 기록을 별도 경로(`/v2/offline`, 90일 이내)로 올리는 장기 동기화는 구현·격리 시험까지 했고 운영에서는 꺼져 있습니다. 자세히: [장기 오프라인 동기화](pipeline/docs/OFFLINE_SYNC_2026-11-25.md)
 
+</details>
+
 ### 5-2. 장애 복구
+
+<details>
+<summary><b>장애 지점별 대응 펼쳐 보기</b></summary>
+
 
 어느 한 단계가 멈춰도 앞 단계가 기록을 보관하고, 다시 살아나면 같은 ID로 이어서 처리합니다. 재전송은 여러 번 일어날 수 있지만 event_id·내용 해시·insert-only MERGE로 결과가 한 번만 반영되게 만듭니다(분산 트랜잭션 기반 exactly-once를 보장한다는 뜻은 아닙니다).
 
@@ -273,7 +366,13 @@ mlo-02-p3-team1/
 
 자세히: [게스트 처리·이벤트 복구 보고](pipeline/docs/RECOVERY_2026-11-25.md), [신뢰성 보완 기록](docs/changes/2026-11-20_pipeline_reliability.md), [구조 비교 자료](docs/presentation/NODEVERSE_파이프라인_구조비교_최적화.md)
 
+</details>
+
 ### 5-3. Delta 튜닝 비교
+
+<details>
+<summary><b>Delta 튜닝 전후 비교 펼쳐 보기</b></summary>
+
 
 Bronze는 원본을 append만 하고, Silver는 중복 제거 후 insert-only MERGE, Gold는 1분·5분 창 집계를 MERGE로 씁니다. 데이터가 늘어도 매 배치가 필요한 범위만 읽고 쓰도록 아래처럼 바꿨습니다.
 
@@ -299,6 +398,8 @@ Bronze는 원본을 append만 하고, Silver는 중복 제거 후 insert-only ME
 ![최적화 전후 성능 비교](docs/presentation/fig-4-metrics.png)
 
 모든 수치는 같은 로컬 PC(Windows 11 ARM64, WSL2 Docker, Spark 4코어)에서 잰 값이며 운영 환경 수치는 아닙니다. 자세히: [Silver MERGE·압축 보완](docs/changes/2026-11-21_silver_merge_scaling.md), [구조 비교와 최적화](docs/presentation/NODEVERSE_파이프라인_구조비교_최적화.md)
+
+</details>
 
 ---
 
