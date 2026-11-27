@@ -193,8 +193,7 @@ def build():
         "  + event_date [lo−7일, hi+1일] + v7 ID 범위",
         "[7] ID 생성일별 묶음마다 MERGE (늦은 ID 분리)",
         "→ 원격 outbox 적재 (500건 bulk)",
-        "[+] 순서: MERGE → outbox 적재 → 압축",
-        "[+] 압축 후보 = 배치가 쓴 모든 날짜",
+        "순서: MERGE → outbox 적재 (스트림 중 압축 없음)",
     ]))
     o.append(box(320, 728, 400, 112, "silver_audit (30초)", [
         "topic:event_id → payload_hash 상태 7일",
@@ -210,7 +209,7 @@ def build():
         "       (현재 창과 같은 정시 규칙·같은 공식)",
         "gold_update: 5분 창 업데이트·팩 다운로드",
         "Delta MERGE (window_start 하한) → rt_* 게시",
-        "[+] 순서: MERGE → Mongo 게시 → 압축",
+        "순서: MERGE → Mongo 게시 (스트림 중 압축 없음)",
     ]))
     o.append(box(740, 728, 470, 112, "MongoDB 게시 sinks.py", [
         "rt_* _id 교체 upsert, 5회 재시도",
@@ -228,7 +227,7 @@ def build():
         "[3] 버전 보급률 60초: 같으면 MERGE·재쓰기 생략 · 최신 판단은 플레이 시각 순",
         "[3] rt_rejects 60초 (PL-8): Kafka nv.dlq.v1 24시간 + silver.quarantine → 60분·24시간 건수, 사유, 최근 5건",
         "[4] Gold 재게시 대기분 처리 · 진행 파일 metrics/streaming-progress.json (sink 실패, 재시작, 단계별 시간 → 관측소가 읽음)",
-        "[6] Bronze 압축 10분 · VACUUM 6시간 · 로그: 주기 작업마다 소요 시간",
+        "VACUUM 6시간 (보존 7일) · 로그: 주기 작업마다 소요 시간",
     ]))
 
     o.append(arrow([(1030, 430), (1030, 452), (16, 452), (16, 600), (50, 600)], "data", "구독 (learning·update·runtime)", 600, 446))
@@ -251,13 +250,13 @@ def build():
         "metrics/streaming-progress.json",
         "[4] metrics/gold-republish.json",
     ]))
-    o.append(box(1290, 855, 430, 155, "압축·정리 spark/compaction.py", [
-        "Delta 자동 압축 끔 (압축은 아래 주기로만)",
-        "[6] 쓰기 스레드가 300배치마다 작은 파일만",
-        "[+] Silver는 outbox 적재 뒤, Gold는 Mongo 게시 뒤",
-        "[6] Bronze 10분 · VACUUM 6시간 (보존 7일)",
-        "ZORDER(maintain.py): 스트림 정지 후 수동",
-        "같은 배치 안 동기 실행 (별도 작업 분리는 추후 예정)",
+    o.append(box(1290, 855, 430, 155, "압축·정리 compaction.py · maintain.py", [
+        "COMPACTION_MODE=maintenance (기본): 스트림 중 압축 없음",
+        "압축은 maintain.py 별도 실행 (writer 중지 후 --execute)",
+        "  Bronze·Silver 날짜·ZORDER, Gold 4개 전체 OPTIMIZE",
+        "Delta 자동 압축 끔 · VACUUM 6시간 (보존 7일)",
+        "inline 모드는 명시할 때만 (300배치·Bronze 10분)",
+        "자동 예약 없음: 운영 일정으로 실행",
     ]))
     o.append(arrow([(1210, 560), (1290, 560)], "data", "MERGE·append", 1250, 552))
 
@@ -317,7 +316,7 @@ def build():
         "  회원 매핑 24시간 → parked",
         "retrying: 2~60초, 20회 → parked",
         "[4] requeue 때 retry_base로 새 예산",
-        "blocked: 데이터 충돌 (즉시 정지)",
+        "blocked: 데이터 충돌·원격 자료 누락 (즉시 정지)",
         "[+] 잘못된 guest UUID·영 UUID → 격리",
     ]))
     o.append(box(50, 1465, 560, 245, "보조 스레드", [
@@ -334,7 +333,7 @@ def build():
         "[3] python -m tools.dlq_peek --minutes 60 [--raw]",
         "[4] python -m common.health report | wait | topics",
         "[+] tools/recover_state_dlq.py: 계획 → --execute",
-        "python spark/maintain.py --execute (ZORDER)",
+        "python spark/maintain.py --execute (압축·ZORDER)",
         "[5] tools/dummy_data.py --reverse-sessions N",
         "probe_latency.py: 수집→화면 지연 (15초 기준)",
         "[+] python -m observatory.setup_indexes --execute",

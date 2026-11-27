@@ -192,7 +192,7 @@ code mlo-02-p3-team1/nodeverse.code-workspace
 남은 항목만 적었습니다. 처리한 내용은 [변경 리포트](docs/reports/2026-11-20_NODEVERSE_변경리포트.md), [발표 자료](docs/presentation/), [파이프라인 문서](pipeline/docs/)에, 항목별 근거(파일·줄 번호)는 [데이터 흐름과 남은 과제](docs/DATA_FLOW_AND_GAPS.md)에 있습니다.
 
 **파이프라인**
-- 압축을 같은 배치 밖의 별도 작업으로 분리하고 테이블별 충돌 제어 (게시 지연·다음 배치 지연을 나눠 측정한 뒤)
+- 압축 유지보수 자동 예약: 압축은 스트림에서 분리했지만(기본 maintenance 모드), 지금은 writer를 멈추고 `maintain.py`를 수동 실행
 - 원격 작업자 다중 프로세스: 지금 초당 약 200건까지 따라감. 그 이상이 계속되면 세션 단위로 나눠 확장
 - 대량 부하 시험, 중복 제거 상태 48시간 비교, Silver MERGE 범위 최적화
 - DLQ 재처리 범위 확대 (현재 복구 도구는 상태 객체 사례만)
