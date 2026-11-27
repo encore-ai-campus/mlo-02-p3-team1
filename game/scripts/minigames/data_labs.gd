@@ -592,18 +592,28 @@ func draw_profile_board() -> void:
 			continue
 		var focused: bool = player.focus == sp
 		tag_sprite(sp.position + Vector2(0, 2), p.tags[i], 112 if focused else 100, 15)
-	# 표 아래 받침대: 가까이 가면 노랗게, 붙이면 초록으로
+	# 표 아래 받침대: 가까이 가면 노랗게, 붙이면 초록으로. 받침대가 가리키는 열을 표에 칠한다.
+	var cw := 344.0 / PROFILE_COLS.size()
 	for k in PROFILE_TARGETS.size():
 		var c: String = PROFILE_TARGETS[k]
 		var sp = spot("st", 3 + k)
+		var x := col_x(PROFILE_COLS.find(c))
+		var col_rect := Rect2(x - cw / 2, 262, cw, 37 * 6)
 		var name := ""
+		var focused: bool = sp != null and player.focus == sp
 		if state.tags.has(c):
 			name = "slot_done"
-		elif sp != null and player.focus == sp:
+			_cv.draw_rect(col_rect, Color(0.45, 0.85, 0.5, 0.28))
+			_cv.draw_rect(col_rect, Color("2f9e4a"), false, 3.0)
+		elif focused:
 			name = "slot_ready"
+			_cv.draw_rect(col_rect, Color(1.0, 0.82, 0.25, 0.30))
+			_cv.draw_rect(col_rect.grow(1), INK, false, 6.0)
+			_cv.draw_rect(col_rect, Color("ffc928"), false, 4.0)
 		if name != "":
-			var ctr := Vector2(col_x(PROFILE_COLS.find(c)), SLOT_Y)
-			_cv.draw_texture_rect(_tex(name), Rect2(ctr - Vector2(32, 24), Vector2(64, 48)), false)
+			_cv.draw_texture_rect(_tex(name), Rect2(Vector2(x, SLOT_Y) - Vector2(32, 24), Vector2(64, 48)), false)
+		# 표와 받침대 사이 열 이름 (받침대가 어느 열인지)
+		plate(Vector2(x, 500), "▼ " + c, 14, Color("9fe0a8") if state.tags.has(c) else (GOLD if focused else CREAM), INK, 60)
 	# 들고 있는 꼬리표: 로봇 머리 위
 	if state.held != "":
 		tag_sprite(player.position + Vector2(78, -46), state.held, 120, 17)
