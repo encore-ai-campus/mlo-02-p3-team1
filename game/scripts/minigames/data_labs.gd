@@ -622,7 +622,7 @@ func stats_stations() -> Array:
 		out.append(["shelf:%d" % j, "%s 블록 집기" % display(p.choices[j]), ""] if state.phase == "answer" and held.is_empty() and j < p.choices.size() else null)
 	var claims: Array = p.get("claims", [])
 	for c in 3:
-		out.append(["claim:%d" % c, "결론 %d 집기: %s" % [c + 1, claims[c]], ""] if state.phase == "claim" and held.is_empty() and c < claims.size() else null)
+		out.append(["claim:%d" % c, "결론 카드 %d 집기" % (c + 1), ""] if state.phase == "claim" and held.is_empty() and c < claims.size() else null)
 	out.append(["npc", "실험가에게 결론 카드 건네기", ""] if held.get("t", "") == "claim" else null)
 	return out
 
@@ -637,7 +637,7 @@ func chart_stations() -> Array:
 		out.append(["card:%d" % i, "카드 집기: %s" % chart_card_text(p.rows[i], p).replace("\n", " "), ""] if state.phase == "cards" and held.is_empty() and i < p.rows.size() and not state.taken.has(i) else null)
 	out.append(["nullbox", "빈 값 상자에 넣기", ""] if held.get("t", "") == "card" else null)
 	for c in 3:
-		out.append(["claim:%d" % c, "결론 %d 집기: %s" % [c + 1, p.claims[c]], ""] if state.phase == "claim" and held.is_empty() and c < p.claims.size() else null)
+		out.append(["claim:%d" % c, "결론 카드 %d 집기" % (c + 1), ""] if state.phase == "claim" and held.is_empty() and c < p.claims.size() else null)
 	out.append(["question", "질문 상자에 결론 넣기", ""] if held.get("t", "") == "claim" else null)
 	return out
 
@@ -773,7 +773,7 @@ func focused_key(i: int) -> bool:
 	return sp != null and player.focus == sp
 
 # ---------- DA-02 기록 수리 공방 ----------
-const CLEAN_POS := {"take": Vector2(278, 360), "drop": Vector2(475, 400), "dup": Vector2(636, 400), "fix": Vector2(800, 400), "keep": Vector2(1000, 440)}
+const CLEAN_POS := {"take": Vector2(274, 362), "drop": Vector2(475, 396), "dup": Vector2(638, 396), "fix": Vector2(802, 396), "keep": Vector2(1006, 452)}
 
 func draw_clean_board() -> void:
 	var p: Dictionary = problems()[problem]
@@ -789,34 +789,34 @@ func draw_clean_board() -> void:
 		var k: String = names[i]
 		label(CLEAN_POS[k], CLEAN_BINS[k], 17, focused_key(1 + i) and not state.held.is_empty())
 		if k != "fix" and not state.bins[k].is_empty():
-			plate(CLEAN_POS[k] + Vector2(0, -150), " ".join(state.bins[k].map(func(x): return "#%d" % x)), 14, Color("ffd7a8"))
+			plate(CLEAN_POS[k] + Vector2(0, 40), " ".join(state.bins[k].map(func(x): return "#%d" % x)), 14, Color("ffd7a8"))
 	label(CLEAN_POS.keep, "투입구", 17, focused_key(4) and not state.held.is_empty())
 	# 오른쪽 칠판: 투입구로 들어간 카드만 정리된 표에 쌓인다
-	var y := 252.0
-	text(Vector2(916, y), "정리된 표 (%d행)" % state.kept.size(), 16, Color("ffe9a8"))
-	text(Vector2(916, y + 22), "id  group  value  date", 13, Color("cfe3ff"))
+	var y := 248.0
+	text(Vector2(924, y), "정리된 표 (%d행)" % state.kept.size(), 16, Color("ffe9a8"))
+	text(Vector2(924, y + 21), "id  group  value  date", 13, Color("cfe3ff"))
 	for i in state.kept.size():
 		var r: Array = state.kept[i]
-		text(Vector2(916, y + 42 + i * 19), "%d   %s   %s   %s" % [r[0], r[1], display(r[2]), r[3]], 13, Color.WHITE)
+		text(Vector2(924, y + 40 + i * 18), "%d   %s   %s   %s" % [r[0], r[1], display(r[2]), r[3]], 13, Color.WHITE)
 	if not state.held.is_empty():
 		card_box(held_pos(), 200, 46, card_text(state.held), 15, "card_fixed" if state.held_fixed else "card_data")
 
 # ---------- DA-03 대표값 실험실 ----------
-const TRAY_X := [349.0, 389.0, 428.0, 468.0, 508.0, 547.0]
-const REF_X := [633.0, 673.0, 712.0, 752.0, 792.0, 831.0]
-const RAIL_X := [313.0, 410.0, 507.0, 604.0, 701.0, 798.0]
-const PED_X := {"mean": 314.0, "median": 529.0, "range": 747.0}
-const SHELF_POS := [Vector2(920, 352), Vector2(999, 352), Vector2(1077, 352), Vector2(1156, 352), Vector2(920, 460), Vector2(999, 460), Vector2(1077, 460), Vector2(1156, 460)]
-const CLAIM_X3 := [934.0, 1038.0, 1142.0]
+const TRAY_X := [365.0, 397.0, 430.0, 463.0, 495.0, 527.0]
+const REF_X := [646.0, 678.0, 711.0, 744.0, 776.0, 807.0]
+const RAIL_X := [338.0, 426.0, 514.0, 602.0, 690.0, 776.0]
+const PED_X := {"mean": 313.0, "median": 530.0, "range": 747.0}
+const SHELF_POS := [Vector2(944, 347), Vector2(1007, 347), Vector2(1071, 347), Vector2(1134, 347), Vector2(944, 446), Vector2(1007, 446), Vector2(1071, 446), Vector2(1134, 446)]
+const CLAIM_Y3 := [336.0, 397.0, 458.0]   # 선반 자리에 가로로 긴 결론 카드 3장
 
 func draw_stats_board() -> void:
 	var p: Dictionary = problems()[problem]
 	var s = sorted_nums(p.values)
 	for i in state.tray.size():
-		block_box(Vector2(TRAY_X[i], 245), 34, state.tray[i], i == 0 and focused_key(0))
+		block_box(Vector2(TRAY_X[i], 241), 32, state.tray[i], i == 0 and focused_key(0))
 	if p.has("ref"):
 		for i in p.ref.size():
-			block_box(Vector2(REF_X[i], 245), 34, p.ref[i])
+			block_box(Vector2(REF_X[i], 241), 32, p.ref[i])
 		plate(Vector2(732, 292), "비교 집단 · 평균 10", 13, Color("e6e0d0"))
 	# 정렬 레일
 	for i in s.size():
@@ -828,7 +828,7 @@ func draw_stats_board() -> void:
 		text(Vector2(RAIL_X[i], 398), "%d" % (i + 1), 13, WOOD, true)
 	if state.phase != "sort" and not s.is_empty():
 		plate(Vector2(RAIL_X[mini(s.size(), 5)] + (60 if s.size() >= 6 else 0), 358), "개수 %d" % s.size(), 14, Color("e6e0d0"))
-	label(Vector2(199, 410), "제외함" + (" · NULL %d" % state.excl if state.excl > 0 else ""), 14, focused_key(7) and state.held.get("t", "") == "data")
+	label(Vector2(191, 410), "제외함" + (" · NULL %d" % state.excl if state.excl > 0 else ""), 14, focused_key(7) and state.held.get("t", "") == "data")
 	# 받침대
 	for i in STAT_FIELDS.size():
 		var f: String = STAT_FIELDS[i]
@@ -839,7 +839,7 @@ func draw_stats_board() -> void:
 	# 오른쪽 선반: 답 블록 또는 결론 카드
 	if state.phase == "claim":
 		for c in p.claims.size():
-			card_box(Vector2(CLAIM_X3[c], 410), 98, 200, p.claims[c], 13, "card_claim", focused_key(19 + c))
+			card_box(Vector2(1041, CLAIM_Y3[c]), 244, 56, "%d. %s" % [c + 1, p.claims[c]], 13, "card_claim", focused_key(19 + c))
 	elif not p.choices.is_empty():
 		for j in p.choices.size():
 			block_box(SHELF_POS[j], 52, p.choices[j], state.phase == "answer" and focused_key(11 + j))
@@ -852,9 +852,9 @@ func draw_stats_board() -> void:
 		block_box(held_pos() + Vector2(-30, 0), 48, held.v)
 
 # ---------- DA-04 차트 관측소 ----------
-const CARD_POS := [Vector2(548, 372), Vector2(642, 372), Vector2(735, 372), Vector2(548, 421), Vector2(642, 421), Vector2(735, 421)]
-const EASEL_AREA := [Rect2(297, 140, 143, 95), Rect2(573, 140, 143, 95), Rect2(853, 140, 143, 95)]
-const EASEL_X := [368.0, 644.0, 919.0]
+const CARD_POS := [Vector2(558, 374), Vector2(641, 374), Vector2(724, 374), Vector2(558, 424), Vector2(641, 424), Vector2(724, 424)]
+const EASEL_AREA := [Rect2(300, 145, 140, 92), Rect2(570, 145, 146, 92), Rect2(858, 145, 136, 92)]
+const EASEL_X := [368.0, 631.0, 917.0]
 
 func draw_chart_board() -> void:
 	var p: Dictionary = problems()[problem]
@@ -866,15 +866,15 @@ func draw_chart_board() -> void:
 	if state.phase == "cards":
 		for i in p.rows.size():
 			if not state.taken.has(i):
-				card_box(CARD_POS[i], 86, 44, chart_card_text(p.rows[i], p), 13, "card_data", focused_key(3 + i))
+				card_box(CARD_POS[i], 78, 44, chart_card_text(p.rows[i], p), 13, "card_data", focused_key(3 + i))
 	else:
 		for c in p.claims.size():
 			if held.get("t", "") == "claim" and held.i == c:
 				continue
-			card_box(Vector2(CARD_POS[c].x, 396), 90, 100, p.claims[c], 12, "card_claim", focused_key(10 + c))
-	label(Vector2(636, 590), "빈 값 상자" + (" · %d장" % state.nulls.size() if not state.nulls.is_empty() else ""), 14, carrying and focused_key(9))
-	wrapped(Vector2(238, 414), p.question, 124, 12, INK)
-	label(Vector2(303, 492), "질문 상자", 14, held.get("t", "") == "claim" and focused_key(13))
+			card_box(Vector2(641, 357 + c * 41), 256, 38, "%d. %s" % [c + 1, p.claims[c]], 12, "card_claim", focused_key(10 + c))
+	label(Vector2(631, 594), "빈 값 상자" + (" · %d장" % state.nulls.size() if not state.nulls.is_empty() else ""), 14, carrying and focused_key(9))
+	wrapped(Vector2(246, 408), p.question, 112, 12, INK)
+	label(Vector2(317, 498), "질문 상자", 14, held.get("t", "") == "claim" and focused_key(13))
 	if carrying:
 		card_box(held_pos(), 100, 48, chart_card_text(p.rows[held.i], p), 14)
 	elif held.get("t", "") == "claim":

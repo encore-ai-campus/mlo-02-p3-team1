@@ -79,7 +79,7 @@ position = Vector2(1000.0, 560.0)
 position = Vector2(1000.0, 560.0)
 
 [node name="St0" type="Area2D" parent="Field/World"]
-position = Vector2(448, 300)
+position = Vector2(446, 300)
 script = ExtResource("3")
 kind = "st"
 index = 0
@@ -89,7 +89,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St1" type="Area2D" parent="Field/World"]
-position = Vector2(313, 398)
+position = Vector2(338, 398)
 script = ExtResource("3")
 kind = "st"
 index = 1
@@ -99,7 +99,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St2" type="Area2D" parent="Field/World"]
-position = Vector2(410, 398)
+position = Vector2(426, 398)
 script = ExtResource("3")
 kind = "st"
 index = 2
@@ -109,7 +109,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St3" type="Area2D" parent="Field/World"]
-position = Vector2(507, 398)
+position = Vector2(514, 398)
 script = ExtResource("3")
 kind = "st"
 index = 3
@@ -119,7 +119,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St4" type="Area2D" parent="Field/World"]
-position = Vector2(604, 398)
+position = Vector2(602, 398)
 script = ExtResource("3")
 kind = "st"
 index = 4
@@ -129,7 +129,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St5" type="Area2D" parent="Field/World"]
-position = Vector2(701, 398)
+position = Vector2(690, 398)
 script = ExtResource("3")
 kind = "st"
 index = 5
@@ -139,7 +139,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St6" type="Area2D" parent="Field/World"]
-position = Vector2(798, 398)
+position = Vector2(776, 398)
 script = ExtResource("3")
 kind = "st"
 index = 6
@@ -149,7 +149,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St7" type="Area2D" parent="Field/World"]
-position = Vector2(199, 385)
+position = Vector2(191, 392)
 script = ExtResource("3")
 kind = "st"
 index = 7
@@ -189,7 +189,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St11" type="Area2D" parent="Field/World"]
-position = Vector2(920, 352)
+position = Vector2(944, 347)
 script = ExtResource("3")
 kind = "st"
 index = 11
@@ -199,7 +199,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St12" type="Area2D" parent="Field/World"]
-position = Vector2(999, 352)
+position = Vector2(1007, 347)
 script = ExtResource("3")
 kind = "st"
 index = 12
@@ -209,7 +209,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St13" type="Area2D" parent="Field/World"]
-position = Vector2(1077, 352)
+position = Vector2(1071, 347)
 script = ExtResource("3")
 kind = "st"
 index = 13
@@ -219,7 +219,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St14" type="Area2D" parent="Field/World"]
-position = Vector2(1156, 352)
+position = Vector2(1134, 347)
 script = ExtResource("3")
 kind = "st"
 index = 14
@@ -229,7 +229,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St15" type="Area2D" parent="Field/World"]
-position = Vector2(920, 460)
+position = Vector2(944, 446)
 script = ExtResource("3")
 kind = "st"
 index = 15
@@ -239,7 +239,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St16" type="Area2D" parent="Field/World"]
-position = Vector2(999, 460)
+position = Vector2(1007, 446)
 script = ExtResource("3")
 kind = "st"
 index = 16
@@ -249,7 +249,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St17" type="Area2D" parent="Field/World"]
-position = Vector2(1077, 460)
+position = Vector2(1071, 446)
 script = ExtResource("3")
 kind = "st"
 index = 17
@@ -259,7 +259,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St18" type="Area2D" parent="Field/World"]
-position = Vector2(1156, 460)
+position = Vector2(1134, 446)
 script = ExtResource("3")
 kind = "st"
 index = 18
@@ -269,7 +269,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St19" type="Area2D" parent="Field/World"]
-position = Vector2(934, 430)
+position = Vector2(860, 330)
 script = ExtResource("3")
 kind = "st"
 index = 19
@@ -279,7 +279,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St20" type="Area2D" parent="Field/World"]
-position = Vector2(1038, 430)
+position = Vector2(860, 392)
 script = ExtResource("3")
 kind = "st"
 index = 20
@@ -289,7 +289,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r46")
 
 [node name="St21" type="Area2D" parent="Field/World"]
-position = Vector2(1142, 430)
+position = Vector2(860, 454)
 script = ExtResource("3")
 kind = "st"
 index = 21
