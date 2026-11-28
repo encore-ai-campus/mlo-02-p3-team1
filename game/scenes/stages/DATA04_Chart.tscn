@@ -76,7 +76,7 @@ position = Vector2(430.0, 540.0)
 position = Vector2(430.0, 540.0)
 
 [node name="St0" type="Area2D" parent="Field/World"]
-position = Vector2(365.0, 318.0)
+position = Vector2(368, 318)
 script = ExtResource("3")
 kind = "st"
 index = 0
@@ -86,7 +86,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r44")
 
 [node name="St1" type="Area2D" parent="Field/World"]
-position = Vector2(635.0, 312.0)
+position = Vector2(644, 318)
 script = ExtResource("3")
 kind = "st"
 index = 1
@@ -96,7 +96,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r44")
 
 [node name="St2" type="Area2D" parent="Field/World"]
-position = Vector2(915.0, 318.0)
+position = Vector2(919, 318)
 script = ExtResource("3")
 kind = "st"
 index = 2
@@ -106,7 +106,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r44")
 
 [node name="St3" type="Area2D" parent="Field/World"]
-position = Vector2(232, 548)
+position = Vector2(548, 372)
 script = ExtResource("3")
 kind = "st"
 index = 3
@@ -116,7 +116,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r44")
 
 [node name="St4" type="Area2D" parent="Field/World"]
-position = Vector2(340, 560)
+position = Vector2(642, 372)
 script = ExtResource("3")
 kind = "st"
 index = 4
@@ -126,17 +126,17 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r44")
 
 [node name="St5" type="Area2D" parent="Field/World"]
-position = Vector2(460, 560)
+position = Vector2(735, 372)
 script = ExtResource("3")
 kind = "st"
 index = 5
 bubble_offset = Vector2(0, -110)
 
 [node name="Shape" type="CollisionShape2D" parent="Field/World/St5"]
-shape = SubResource("r40")
+shape = SubResource("r44")
 
 [node name="St6" type="Area2D" parent="Field/World"]
-position = Vector2(790, 560)
+position = Vector2(548, 421)
 script = ExtResource("3")
 kind = "st"
 index = 6
@@ -146,27 +146,27 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r44")
 
 [node name="St7" type="Area2D" parent="Field/World"]
-position = Vector2(910, 560)
+position = Vector2(642, 421)
 script = ExtResource("3")
 kind = "st"
 index = 7
 bubble_offset = Vector2(0, -110)
 
 [node name="Shape" type="CollisionShape2D" parent="Field/World/St7"]
-shape = SubResource("r40")
+shape = SubResource("r44")
 
 [node name="St8" type="Area2D" parent="Field/World"]
-position = Vector2(630.0, 508.0)
+position = Vector2(735, 421)
 script = ExtResource("3")
 kind = "st"
 index = 8
 bubble_offset = Vector2(0, -110)
 
 [node name="Shape" type="CollisionShape2D" parent="Field/World/St8"]
-shape = SubResource("r40")
+shape = SubResource("r44")
 
 [node name="St9" type="Area2D" parent="Field/World"]
-position = Vector2(1140.0, 410.0)
+position = Vector2(630, 512)
 script = ExtResource("3")
 kind = "st"
 index = 9
@@ -176,7 +176,7 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r44")
 
 [node name="St10" type="Area2D" parent="Field/World"]
-position = Vector2(160.0, 430.0)
+position = Vector2(548, 396)
 script = ExtResource("3")
 kind = "st"
 index = 10
@@ -186,24 +186,34 @@ bubble_offset = Vector2(0, -110)
 shape = SubResource("r44")
 
 [node name="St11" type="Area2D" parent="Field/World"]
-position = Vector2(1020, 552)
+position = Vector2(642, 396)
 script = ExtResource("3")
 kind = "st"
 index = 11
 bubble_offset = Vector2(0, -110)
 
 [node name="Shape" type="CollisionShape2D" parent="Field/World/St11"]
-shape = SubResource("r40")
+shape = SubResource("r44")
 
 [node name="St12" type="Area2D" parent="Field/World"]
-position = Vector2(1095, 515)
+position = Vector2(735, 396)
 script = ExtResource("3")
 kind = "st"
 index = 12
 bubble_offset = Vector2(0, -110)
 
 [node name="Shape" type="CollisionShape2D" parent="Field/World/St12"]
-shape = SubResource("r40")
+shape = SubResource("r44")
+
+[node name="St13" type="Area2D" parent="Field/World"]
+position = Vector2(303, 548)
+script = ExtResource("3")
+kind = "st"
+index = 13
+bubble_offset = Vector2(0, -110)
+
+[node name="Shape" type="CollisionShape2D" parent="Field/World/St13"]
+shape = SubResource("r44")
 
 [node name="Npc" type="StaticBody2D" parent="Field/World"]
 position = Vector2(180.0, 345.0)

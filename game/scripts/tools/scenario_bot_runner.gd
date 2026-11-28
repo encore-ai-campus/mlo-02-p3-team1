@@ -956,20 +956,30 @@ func _pick(key: String, n: int) -> void:
 	for i in n:
 		_lab_press(["pick:" + key])
 
+## 들고 옮기는 데이터 실습: 게임이 알려 주는 다음 행동(next_key)을 따라 레벨을 끝까지 푼다
+func _solve_carry_level() -> bool:
+	for i in 80:
+		if game.level_done:
+			break
+		var k: String = game.next_key()
+		if k == "":
+			break
+		_lab_press([k])
+		game.hud.dialogue_skip()
+	return game.level_done
+
 func _bot_play_data_labs(_params: Dictionary) -> Dictionary:
 	var cleared := []
 
-	# 1. DATA01_Explore (Clean)
+	# 1. DATA01_Explore (기록 카드 옮기기)
 	_open_lab("DATA01_Explore")
-	_lab_press(["submit"]) # intentional empty submit mistake
-	_lab_press(["missing", "submit"])
-	var d1_l1: bool = game.level_done
+	_lab_press(["take", "put:drop"]) # intentional mistake: 멀쩡한 카드를 버림함에
+	game.hud.dialogue_skip()
+	var d1_l1: bool = _solve_carry_level()
 	_lab_level(1)
-	_lab_press(["dedup", "missing", "submit"])
-	var d1_l2: bool = game.level_done
+	var d1_l2: bool = _solve_carry_level()
 	_lab_level(2)
-	_lab_press(["trim", "number", "date", "dedup", "submit"])
-	var d1_l3: bool = game.level_done
+	var d1_l3: bool = _solve_carry_level()
 	_close_lab()
 	if d1_l1 and d1_l2 and d1_l3:
 		cleared.append("DATA01")
@@ -988,51 +998,24 @@ func _bot_play_data_labs(_params: Dictionary) -> Dictionary:
 	if d2_l1 and d2_l2 and d2_l3:
 		cleared.append("DATA02")
 
-	# 3. DATA03_Stats
+	# 3. DATA03_Stats (블록 정렬 · 답 블록 · 결론 카드)
 	_open_lab("DATA03_Stats")
-	_type_field("count", "4")
-	_type_field("mean", "5")
-	_type_field("range", "6")
-	_lab_press(["submit"])
-	var d3_l1: bool = game.level_done
+	var d3_l1: bool = _solve_carry_level()
 	_lab_level(1)
-	_type_field("median", "5")
-	_lab_press(["submit"])
-	_type_field("median", "13")
-	_lab_press(["submit"])
-	_type_field("count", "2")
-	_type_field("mean", "6")
-	_lab_press(["submit"])
-	var d3_l2: bool = game.level_done
+	var d3_l2: bool = _solve_carry_level()
 	_lab_level(2)
-	for pair in [["mean", "34"], ["median", "13"], ["range", "90"], ["mean_ex", "12"], ["median_ex", "12"], ["range_ex", "4"]]:
-		_type_field(pair[0], pair[1])
-	_lab_press(["claim:0", "submit"])
-	_type_field("range", "0")
-	_type_field("range2", "20")
-	_lab_press(["claim:0", "submit"])
-	_lab_press(["claim:0", "submit"])
-	var d3_l3: bool = game.level_done
+	var d3_l3: bool = _solve_carry_level()
 	_close_lab()
 	if d3_l1 and d3_l2 and d3_l3:
 		cleared.append("DATA03")
 
-	# 4. DATA04_Chart
+	# 4. DATA04_Chart (데이터 카드를 이젤에 · 결론 카드)
 	_open_lab("DATA04_Chart")
-	_lab_press(["x", "y", "agg", "zero", "draw"])
-	var d: Array = game.chart_data(game.problems()[0])
-	var best := 0
-	for i in d.size():
-		if d[i][1] > d[best][1]:
-			best = i
-	_lab_press(["mark:%d" % best, "claim:0", "submit"])
-	var d4_l1: bool = game.level_done
+	var d4_l1: bool = _solve_carry_level()
 	_lab_level(1)
-	_lab_press(["x", "y", "ctype", "sort", "draw", "mark:1", "claim:0", "submit"])
-	var d4_l2: bool = game.level_done
+	var d4_l2: bool = _solve_carry_level()
 	_lab_level(2)
-	_lab_press(["ctype", "ctype", "draw", "mark:0", "claim:0", "submit"])
-	var d4_l3: bool = game.level_done
+	var d4_l3: bool = _solve_carry_level()
 	_close_lab()
 	if d4_l1 and d4_l2 and d4_l3:
 		cleared.append("DATA04")
