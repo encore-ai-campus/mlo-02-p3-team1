@@ -794,10 +794,19 @@ func draw_clean_board() -> void:
 	# 오른쪽 칠판: 투입구로 들어간 카드만 정리된 표에 쌓인다
 	var y := 248.0
 	text(Vector2(924, y), "정리된 표 (%d행)" % state.kept.size(), 16, Color("ffe9a8"))
-	text(Vector2(924, y + 21), "id  group  value  date", 13, Color("cfe3ff"))
+	# 칸마다 가운데 x를 고정해 머리글과 값이 세로로 맞게 한다
+	var cx := [929.0, 964.0, 1007.0, 1067.0]
+	var line_c := Color(0.8, 0.88, 1.0, 0.35)
+	for k in CLEAN_COLS.size():
+		text(Vector2(cx[k], y + 22), CLEAN_COLS[k], 13, Color("cfe3ff"), true)
+	_cv.draw_line(Vector2(918, y + 27), Vector2(1100, y + 27), line_c, 2.0)
+	for xb in [944.0, 985.0, 1030.0]:
+		_cv.draw_line(Vector2(xb, y + 10), Vector2(xb, y + 30 + maxi(state.kept.size(), 1) * 18), line_c, 2.0)
 	for i in state.kept.size():
 		var r: Array = state.kept[i]
-		text(Vector2(924, y + 40 + i * 18), "%d   %s   %s   %s" % [r[0], r[1], display(r[2]), r[3]], 13, Color.WHITE)
+		var vals := ["%d" % r[0], str(r[1]), display(r[2]), str(r[3])]
+		for k in vals.size():
+			text(Vector2(cx[k], y + 43 + i * 18), vals[k], 12 if k == 3 else 13, Color.WHITE, true)
 	if not state.held.is_empty():
 		card_box(held_pos(), 200, 46, card_text(state.held), 15, "card_fixed" if state.held_fixed else "card_data")
 
