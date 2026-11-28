@@ -57,7 +57,7 @@ def producer():
 
 
 def _poll_forever(p):
-    # A dead poller would silently turn every request into a 12 s timeout (PL-4): never let it exit.
+    # A dead poller would silently turn every request into a delivery timeout (PL-4): never let it exit.
     while True:
         try:
             p.poll(0.05)
@@ -68,7 +68,7 @@ def _poll_forever(p):
 def send(topic: str, key: str | None, value: dict, timeout: float | None = None) -> None:
     """Produce one record and block until the broker acknowledges it (acks=all). Raises on failure."""
     p = producer()
-    # PL-3/BN-9: a request thread waits at most KAFKA_DELIVERY_TIMEOUT_S (default 5 s, was 12 s) before the
+    # PL-3/BN-9: a request thread waits at most KAFKA_DELIVERY_TIMEOUT_S (default 5 s) before the
     # client gets 503 and resends the same event_id; a late delivery is then removed by the Silver dedup.
     timeout = settings.get().kafka_delivery_timeout_s if timeout is None else timeout
     done = threading.Event()
