@@ -428,10 +428,14 @@ func _show_loading() -> void:
 	bg.color = Color(0.07, 0.30, 0.40)
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_loading_layer.add_child(bg)
-	# 로딩 배경: 7개 섬 전체 지도 일러스트 (3:2, 위·아래에 하늘·바다 여백 포함).
-	# 화면을 꽉 채우고 넘치는 가장자리만 자른다: 16:9 는 위·아래 여백만, 3:2 는 그림 전체가 보인다.
+	# 로딩 배경: 7개 섬 전체 지도 일러스트.
+	# 16:9 이상 넓은 화면은 원본 16:9 그림(loading_bg.png, 부트 스플래시와 같은 그림)을 쓰고,
+	# 3:2 처럼 더 좁은 화면은 위·아래에 하늘·바다 여백을 붙인 3:2 그림(loading_bg_32.png)을 쓴다.
+	# 둘 다 화면을 꽉 채우고 넘치는 가장자리만 자르므로 로고가 잘리지 않는다.
 	# 뒤의 그라데이션은 4:3 처럼 더 좁은 화면에서도 빈칸이 안 보이게 깔아 둔다.
-	var tex: Texture2D = load("res://textures/loading_bg.png")
+	var vs: Vector2 = (Engine.get_main_loop() as SceneTree).root.get_visible_rect().size
+	var narrow := vs.y > 0.0 and vs.x / vs.y < 1.7
+	var tex: Texture2D = load("res://textures/loading_bg_32.png" if narrow else "res://textures/loading_bg.png")
 	var grad := Gradient.new()
 	grad.set_color(0, Color8(58, 172, 238))
 	grad.set_color(1, Color8(11, 188, 201))
